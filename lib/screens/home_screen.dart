@@ -4,6 +4,8 @@ import 'camera_screen.dart';
 import 'search_petrol_pumps_screen.dart';
 import 'add_petrol_pump_screen.dart';
 import '../widgets/profile_completion_indicator.dart';
+import 'create_team_screen.dart';
+import 'join_team_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -147,6 +149,35 @@ class HomeScreen extends StatelessWidget {
                 );
               },
             ),
+            // Add Team Management Tiles if completion is > 74%
+            if (completionPercentage > 74) ...[
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.group_add, color: Color(0xFF35C2C1)),
+                title: const Text('Create Team', style: TextStyle(color: Colors.black)),
+                subtitle: const Text('Create a new team code'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CreateTeamScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.group, color: Color(0xFF35C2C1)),
+                title: const Text('Join Team', style: TextStyle(color: Colors.black)),
+                subtitle: const Text('Join with existing team code'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const JoinTeamScreen()),
+                  );
+                },
+              ),
+              const Divider(),
+            ],
             ListTile(
               leading: const Icon(Icons.chat_bubble_outline, color: Colors.black54),
               title: const Text('Chat', style: TextStyle(color: Colors.black)),
