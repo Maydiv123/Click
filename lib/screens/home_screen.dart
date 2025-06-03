@@ -11,10 +11,17 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'Home',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu),
@@ -33,6 +40,12 @@ class HomeScreen extends StatelessWidget {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.pushNamed(context, '/profile');
+            },
+          ),
         ],
       ),
       drawer: Drawer(
@@ -49,30 +62,43 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.grey[300],
-                        child: const Icon(Icons.person, size: 30, color: Colors.white),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/profile');
+                        },
+                        child: CircleAvatar(
+                          radius: 30,
+                          backgroundColor: Colors.grey[300],
+                          child: const Icon(Icons.person, size: 30, color: Colors.white),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Patrick',
-                              style: TextStyle(color: Colors.white, fontSize: 20),
-                            ),
-                            Text(
-                              'Ford Transit Connect',
-                              style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                            ),
-                          ],
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.pushNamed(context, '/profile');
+                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Patrick',
+                                style: TextStyle(color: Colors.white, fontSize: 20),
+                              ),
+                              Text(
+                                'Ford Transit Connect',
+                                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       TextButton(
                         onPressed: () {
-                          // Edit profile functionality
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/profile');
                         },
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.white,

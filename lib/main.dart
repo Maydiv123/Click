@@ -10,6 +10,7 @@ import 'screens/map_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/camera_screen.dart';
 import 'screens/upload_image_screen.dart';
+import 'screens/profile_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -51,6 +52,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomeScreen(),
         '/camera': (context) => const CameraScreen(),
         '/upload-image': (context) => const UploadImageScreen(),
+        '/profile': (context) => ProfileScreen(),
       },
     );
   }
