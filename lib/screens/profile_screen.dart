@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/profile_completion_indicator.dart';
 
 class ProfileScreen extends StatelessWidget {
   // Dummy user data
@@ -16,8 +17,26 @@ class ProfileScreen extends StatelessWidget {
 
   ProfileScreen({Key? key}) : super(key: key);
 
+  double _calculateProfileCompletion(Map<String, dynamic> userData) {
+    int totalFields = 7; // Total number of fields to check
+    int completedFields = 0;
+
+    // Check each field
+    if (userData['firstName']?.isNotEmpty ?? false) completedFields++;
+    if (userData['lastName']?.isNotEmpty ?? false) completedFields++;
+    if (userData['dob']?.isNotEmpty ?? false) completedFields++;
+    if (userData['address']?.isNotEmpty ?? false) completedFields++;
+    if (userData['aadharNo']?.isNotEmpty ?? false) completedFields++;
+    if (userData['mobileNo']?.isNotEmpty ?? false) completedFields++;
+    if (userData['teamCode']?.isNotEmpty ?? false) completedFields++;
+
+    return (completedFields / totalFields) * 100;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final double completionPercentage = _calculateProfileCompletion(userData);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -62,6 +81,33 @@ class ProfileScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],
+                    ),
+                  ),
+                  ProfileCompletionIndicator(
+                    completionPercentage: completionPercentage,
+                    size: 70,
+                    strokeWidth: 6,
+                    progressColor: const Color(0xFF35C2C1),
+                    percentageStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF35C2C1),
+                    ),
+                  ),
+                  LinearProgressIndicator(
+                    value: completionPercentage / 100,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF35C2C1)),
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Profile Completion: ${completionPercentage.toInt()}%',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],

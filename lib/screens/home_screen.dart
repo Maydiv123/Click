@@ -3,12 +3,20 @@ import 'map_screen.dart';
 import 'camera_screen.dart';
 import 'search_petrol_pumps_screen.dart';
 import 'add_petrol_pump_screen.dart';
+import '../widgets/profile_completion_indicator.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
+  double _calculateProfileCompletion() {
+    // Dummy data - in real app, this would come from user data
+    return 75.0; // 75% completion
+  }
+
   @override
   Widget build(BuildContext context) {
+    final double completionPercentage = _calculateProfileCompletion();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -95,25 +103,35 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.pushNamed(context, '/profile');
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.zero,
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.edit, size: 16, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text('Edit', style: TextStyle(color: Colors.white, fontSize: 14)),
-                          ],
+                      ProfileCompletionIndicator(
+                        completionPercentage: completionPercentage,
+                        size: 50,
+                        strokeWidth: 4,
+                        progressColor: Colors.white,
+                        backgroundColor: Colors.white,
+                        percentageStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 16),
+                  LinearProgressIndicator(
+                    value: completionPercentage / 100,
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                    minHeight: 4,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Profile Completion: ${completionPercentage.toInt()}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
                   ),
                 ],
               ),
