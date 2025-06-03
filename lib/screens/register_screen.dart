@@ -10,10 +10,32 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
+  // Password visibility states
   bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
+  
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  
+  // Form controllers
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _dobController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _aadharController = TextEditingController();
+  final TextEditingController _mobileController = TextEditingController();
+  final TextEditingController _teamCodeController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+  
+  // Checkbox states
+  bool _ioclChecked = false;
+  bool _hpclChecked = false;
+  bool _bpclChecked = false;
+
+  // Add a variable to track password match status
+  String? _passwordMatchError;
 
   @override
   void initState() {
@@ -46,7 +68,47 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   @override
   void dispose() {
     _controller.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _dobController.dispose();
+    _addressController.dispose();
+    _aadharController.dispose();
+    _mobileController.dispose();
+    _teamCodeController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _dobController.text = "${picked.day}/${picked.month}/${picked.year}";
+      });
+    }
+  }
+
+  // Add a method to check password match
+  void _checkPasswordMatch(String confirmPassword) {
+    if (confirmPassword.isEmpty) {
+      setState(() {
+        _passwordMatchError = null;
+      });
+    } else if (_passwordController.text != confirmPassword) {
+      setState(() {
+        _passwordMatchError = 'Passwords do not match';
+      });
+    } else {
+      setState(() {
+        _passwordMatchError = null;
+      });
+    }
   }
 
   @override
@@ -82,10 +144,15 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // First Name
                       TextField(
+                        controller: _firstNameController,
                         decoration: InputDecoration(
-                          hintText: 'Email',
-                          hintStyle: TextStyle(color: Colors.grey[600]),
+                          labelText: 'First Name',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: 'Enter your first name',
+                          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          labelStyle: const TextStyle(fontSize: 16),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide.none,
@@ -96,11 +163,192 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         ),
                       ),
                       const SizedBox(height: 20),
-                       TextField(
+                      
+                      // Last Name
+                      TextField(
+                        controller: _lastNameController,
+                        decoration: InputDecoration(
+                          labelText: 'Last Name',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: 'Enter your last name',
+                          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          labelStyle: const TextStyle(fontSize: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          fillColor: Colors.grey[200],
+                          filled: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // DOB
+                      TextField(
+                        controller: _dobController,
+                        readOnly: true,
+                        onTap: () => _selectDate(context),
+                        decoration: InputDecoration(
+                          labelText: 'Date of Birth',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: 'Select your date of birth',
+                          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          labelStyle: const TextStyle(fontSize: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          fillColor: Colors.grey[200],
+                          filled: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          suffixIcon: const Icon(Icons.calendar_today),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Address
+                      TextField(
+                        controller: _addressController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          labelText: 'Address',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: 'Enter your complete address',
+                          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          labelStyle: const TextStyle(fontSize: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          fillColor: Colors.grey[200],
+                          filled: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Aadhar No
+                      TextField(
+                        controller: _aadharController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 12,
+                        decoration: InputDecoration(
+                          labelText: 'Aadhar No',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: 'Enter your 12-digit Aadhar number',
+                          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          labelStyle: const TextStyle(fontSize: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          fillColor: Colors.grey[200],
+                          filled: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          counterText: '',
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Mobile No
+                      TextField(
+                        controller: _mobileController,
+                        keyboardType: TextInputType.phone,
+                        maxLength: 10,
+                        decoration: InputDecoration(
+                          labelText: 'Mobile No',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: 'Enter your 10-digit mobile number',
+                          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          labelStyle: const TextStyle(fontSize: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          fillColor: Colors.grey[200],
+                          filled: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          counterText: '',
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Team Code
+                      TextField(
+                        controller: _teamCodeController,
+                        decoration: InputDecoration(
+                          labelText: 'Team Code',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: 'Enter your team code',
+                          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          labelStyle: const TextStyle(fontSize: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          fillColor: Colors.grey[200],
+                          filled: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Oil Company Checkboxes
+                      const Text(
+                        'Select Oil Company',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      CheckboxListTile(
+                        title: const Text('IOCL'),
+                        value: _ioclChecked,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            _ioclChecked = value ?? false;
+                          });
+                        },
+                        activeColor: Colors.blue,
+                        checkColor: Colors.white,
+                      ),
+                      CheckboxListTile(
+                        title: const Text('HPCL'),
+                        value: _hpclChecked,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            _hpclChecked = value ?? false;
+                          });
+                        },
+                        activeColor: Colors.blue,
+                        checkColor: Colors.white,
+                      ),
+                      CheckboxListTile(
+                        title: const Text('BPCL'),
+                        value: _bpclChecked,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            _bpclChecked = value ?? false;
+                          });
+                        },
+                        activeColor: Colors.blue,
+                        checkColor: Colors.white,
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Password Field
+                      TextField(
+                        controller: _passwordController,
                         obscureText: !_isPasswordVisible,
                         decoration: InputDecoration(
-                          hintText: 'Password',
-                          hintStyle: TextStyle(color: Colors.grey[600]),
+                          labelText: 'Password',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: 'Enter your password',
+                          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          labelStyle: const TextStyle(fontSize: 16),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide.none,
@@ -111,7 +359,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           suffixIcon: IconButton(
                             icon: Icon(
                               _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                               color: Colors.grey[600],
+                              color: Colors.grey[600],
                             ),
                             onPressed: () {
                               setState(() {
@@ -122,10 +370,18 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         ),
                       ),
                       const SizedBox(height: 20),
-                       TextField(
+
+                      // Confirm Password Field
+                      TextField(
+                        controller: _confirmPasswordController,
+                        obscureText: !_isConfirmPasswordVisible,
+                        onChanged: _checkPasswordMatch,
                         decoration: InputDecoration(
-                          hintText: 'Aadhar No',
-                          hintStyle: TextStyle(color: Colors.grey[600]),
+                          labelText: 'Confirm Password',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: 'Re-enter your password',
+                          hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          labelStyle: const TextStyle(fontSize: 16),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide.none,
@@ -133,40 +389,47 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           fillColor: Colors.grey[200],
                           filled: true,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                       TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Company',
-                          hintStyle: TextStyle(color: Colors.grey[600]),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                              color: Colors.grey[600],
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                              });
+                            },
                           ),
-                          fillColor: Colors.grey[200],
-                          filled: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                       TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Role',
-                          hintStyle: TextStyle(color: Colors.grey[600]),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none,
+                          errorText: _passwordMatchError,
+                          errorStyle: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
                           ),
-                          fillColor: Colors.grey[200],
-                          filled: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         ),
                       ),
                       const SizedBox(height: 30), // Spacing before Register button
                       ElevatedButton(
                         onPressed: () {
-                          // Register logic
+                          // Password validation
+                          if (_passwordController.text.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please enter a password')),
+                            );
+                            return;
+                          }
+                          if (_confirmPasswordController.text.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please confirm your password')),
+                            );
+                            return;
+                          }
+                          if (_passwordMatchError != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please fix the password mismatch')),
+                            );
+                            return;
+                          }
+                          // Continue with registration logic
                         },
                          style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 56), // Increased height
@@ -187,7 +450,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             child: Text(
                               'Or Register with',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                              style: TextStyle(color: Colors.grey[600], fontSize: 16),
                             ),
                           ),
                           const Expanded(child: Divider(color: Colors.grey)),
