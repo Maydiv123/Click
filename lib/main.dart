@@ -13,12 +13,10 @@ import 'screens/camera_screen.dart';
 import 'screens/upload_image_screen.dart';
 import 'firebase_options.dart';
 import 'screens/profile_screen.dart';
+import 'services/firestore_init_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
   runApp(const MyApp());
 }
 
@@ -45,7 +43,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      initialRoute: '/welcome',
+      home: const InitializationScreen(),
       routes: {
         '/welcome': (context) => const WelcomeScreen(),
         '/login': (context) => const LoginScreen(),
@@ -59,8 +57,94 @@ class MyApp extends StatelessWidget {
         '/camera': (context) => const CameraScreen(),
         '/upload-image': (context) => const UploadImageScreen(),
         '/profile': (context) => ProfileScreen(),
-
       },
+    );
+  }
+}
+
+class InitializationScreen extends StatefulWidget {
+  const InitializationScreen({Key? key}) : super(key: key);
+
+  @override
+  State<InitializationScreen> createState() => _InitializationScreenState();
+}
+
+class _InitializationScreenState extends State<InitializationScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    try {
+      // Initialize Firebase
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      
+      // Initialize Firestore collections
+      final firestoreInitService = FirestoreInitService();
+      await firestoreInitService.initializeCollections();
+      
+      if (mounted) {
+        // Navigate to welcome screen after initialization
+        Navigator.pushReplacementNamed(context, '/welcome');
+      }
+    } catch (e) {
+      if (mounted) {
+        // Show error dialog if initialization fails
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Initialization Error'),
+            content: Text('Failed to initialize app: ${e.toString()}'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _initializeApp(); // Retry initialization
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/logo.png',
+              width: 150,
+              height: 150,
+              errorBuilder: (context, error, stackTrace) => const Icon(
+                Icons.local_gas_station,
+                size: 100,
+                color: Colors.blue,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+            const Text(
+              'Initializing...',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 } 
