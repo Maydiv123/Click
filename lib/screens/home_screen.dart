@@ -329,6 +329,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                     Text(
+                                      userData['userType']?.toString().replaceAll('UserType.', '') ?? 'N/A',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
                                       'Last login: ${userData['lastLogin'] != null ? DateTime.fromMillisecondsSinceEpoch(userData['lastLogin'].millisecondsSinceEpoch).toString() : 'N/A'}',
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.7),
@@ -353,12 +360,68 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Team: ${userData['teamName'] ?? 'No Team'}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Code: ${userData['teamCode'] ?? 'N/A'}',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (userData['preferredCompanies'] != null && (userData['preferredCompanies'] as List).isNotEmpty)
+                                  Row(
+                                    children: [
+                                      ...(userData['preferredCompanies'] as List).map((company) => Padding(
+                                        padding: const EdgeInsets.only(left: 4),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            company.toString(),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      )).toList(),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               _buildUserStat('Visits', (stats['visits'] ?? 0).toString()),
                               _buildUserStat('Uploads', (stats['uploads'] ?? 0).toString()),
                               _buildUserStat('Team Chats', (stats['teamChats'] ?? 0).toString()),
+                              _buildUserStat('Distance', '${(stats['totalDistance'] ?? 0).toString()} km'),
                             ],
                           ),
                         ],
