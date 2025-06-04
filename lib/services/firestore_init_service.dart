@@ -14,6 +14,18 @@ class FirestoreInitService {
       
       // Create teamRequests collection if it doesn't exist
       await _createCollectionIfNotExists('teamRequests');
+
+      // Create visits collection if it doesn't exist
+      await _createCollectionIfNotExists('visits');
+
+      // Create tasks collection if it doesn't exist
+      await _createCollectionIfNotExists('tasks');
+
+      // Create statistics collection if it doesn't exist
+      await _createCollectionIfNotExists('statistics');
+
+      // Create activities collection if it doesn't exist
+      await _createCollectionIfNotExists('activities');
     } catch (e) {
       rethrow;
     }
