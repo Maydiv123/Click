@@ -6,6 +6,12 @@
 	<string>This app needs camera access to take photos of petrol pumps</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs photos access to save images to your gallery</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to location to get the coordinates for petrol pump locations</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs access to location to get the coordinates for petrol pump locations</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs access to location to get the coordinates for petrol pump locations</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
