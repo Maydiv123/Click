@@ -8,6 +8,9 @@ import 'create_team_screen.dart';
 import 'join_team_screen.dart';
 import '../services/database_service.dart';
 import 'package:click/services/user_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -20,6 +23,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final DatabaseService _databaseService = DatabaseService();
   final UserService _userService = UserService();
+  
+  // Location variables
+  Position? _currentPosition;
+  String _locationMessage = 'Fetching location...';
+  bool _isLocationLoading = true;
 
   // Static data structure
   final Map<String, dynamic> staticData = {
@@ -42,6 +50,137 @@ class _HomeScreenState extends State<HomeScreen> {
       {'title': 'Upload Station Photos', 'time': '4:00 PM', 'type': 'task'},
     ],
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation();
+  }
+
+  // Request location permission and get current location
+  Future<void> _getCurrentLocation() async {
+    setState(() {
+      _isLocationLoading = true;
+      _locationMessage = 'Fetching location...';
+    });
+
+    try {
+      // Check location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() {
+            _locationMessage = 'Location permission denied';
+            _isLocationLoading = false;
+          });
+          return;
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          _locationMessage = 'Location permissions permanently denied';
+          _isLocationLoading = false;
+        });
+        
+        // Show dialog to open app settings
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) => AlertDialog(
+              title: const Text('Location Permission Required'),
+              content: const Text('This app needs location permission to show your current location. Please enable it in app settings.'),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                TextButton(
+                  child: const Text('Open Settings'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    openAppSettings();
+                  },
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high
+      );
+      
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+          _locationMessage = '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+          _isLocationLoading = false;
+        });
+        
+        // Save location to user's database entry
+        try {
+          await _databaseService.updateUserLocation(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            timestamp: DateTime.now()
+          );
+        } catch (e) {
+          print('Error saving location: $e');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _locationMessage = 'Error getting location: $e';
+          _isLocationLoading = false;
+        });
+      }
+    }
+  }
+
+  // Get location string from user data
+  String _getLocationFromUserData(Map<String, dynamic> userData) {
+    if (userData.containsKey('location') && 
+        userData['location'] != null && 
+        userData['location'] is Map<String, dynamic>) {
+      final location = userData['location'] as Map<String, dynamic>;
+      if (location.containsKey('latitude') && location.containsKey('longitude')) {
+        final lat = location['latitude'];
+        final lng = location['longitude'];
+        return '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
+      }
+    }
+    return _locationMessage;
+  }
+
+  // Get formatted timestamp for last location update
+  String _getLastLocationUpdateTime(Map<String, dynamic> userData) {
+    if (userData.containsKey('lastLocationUpdate') && 
+        userData['lastLocationUpdate'] != null) {
+      final timestamp = userData['lastLocationUpdate'];
+      if (timestamp is Timestamp) {
+        final dateTime = timestamp.toDate();
+        final now = DateTime.now();
+        final difference = now.difference(dateTime);
+        
+        if (difference.inMinutes < 1) {
+          return 'Just now';
+        } else if (difference.inHours < 1) {
+          return '${difference.inMinutes} min ago';
+        } else if (difference.inDays < 1) {
+          return '${difference.inHours} hr ago';
+        } else {
+          return '${difference.inDays} days ago';
+        }
+      }
+    }
+    return '';
+  }
 
   double _calculateProfileCompletion(Map<String, dynamic> userData) {
     int totalFields = 6; // Total number of required fields
@@ -447,6 +586,79 @@ class _HomeScreenState extends State<HomeScreen> {
                                       )).toList(),
                                     ],
                                   ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Location indicator
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.location_on, color: Colors.white),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Text(
+                                            'Current Location',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            _getLastLocationUpdateTime(userData),
+                                            style: TextStyle(
+                                              color: Colors.white.withOpacity(0.7),
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              _getLocationFromUserData(userData),
+                                              style: TextStyle(
+                                                color: Colors.white.withOpacity(0.7),
+                                                fontSize: 12,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (_isLocationLoading)
+                                            const SizedBox(
+                                              width: 12,
+                                              height: 12,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          if (!_isLocationLoading)
+                                            IconButton(
+                                              icon: const Icon(Icons.refresh, color: Colors.white, size: 16),
+                                              onPressed: _getCurrentLocation,
+                                              constraints: const BoxConstraints(),
+                                              padding: EdgeInsets.zero,
+                                              visualDensity: VisualDensity.compact,
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),

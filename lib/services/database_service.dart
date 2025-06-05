@@ -24,6 +24,45 @@ class DatabaseService {
         });
   }
 
+  // Update user location
+  Future<void> updateUserLocation({
+    required double latitude,
+    required double longitude,
+    required DateTime timestamp,
+  }) async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) {
+      print('No user ID found, cannot update location');
+      return;
+    }
+
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'location': {
+          'latitude': latitude,
+          'longitude': longitude,
+          'timestamp': Timestamp.fromDate(timestamp),
+        },
+        'lastLocationUpdate': Timestamp.fromDate(timestamp),
+      });
+      print('User location updated successfully');
+      
+      // Also log this as an activity
+      await _firestore.collection('activities').add({
+        'userId': userId,
+        'type': 'location_update',
+        'details': {
+          'latitude': latitude,
+          'longitude': longitude,
+        },
+        'timestamp': Timestamp.fromDate(timestamp),
+      });
+    } catch (e) {
+      print('Error updating user location: $e');
+      throw e;
+    }
+  }
+
   // Get team data
   Stream<Map<String, dynamic>> getTeamData(String teamCode) {
     print('Fetching team data for code: $teamCode'); // Debug print
