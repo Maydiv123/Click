@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'map_screen.dart';
 import 'camera_screen.dart';
 import 'search_petrol_pumps_screen.dart';
@@ -6,6 +7,7 @@ import 'add_petrol_pump_screen.dart';
 import '../widgets/profile_completion_indicator.dart';
 import 'create_team_screen.dart';
 import 'join_team_screen.dart';
+import 'location_history_screen.dart';
 import '../services/database_service.dart';
 import 'package:click/services/user_service.dart';
 import 'package:geolocator/geolocator.dart';
@@ -28,6 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Position? _currentPosition;
   String _locationMessage = 'Fetching location...';
   bool _isLocationLoading = true;
+  double _todayDistance = 0.0;
+  Timer? _locationTimer;
 
   // Static data structure
   final Map<String, dynamic> staticData = {
@@ -55,6 +59,33 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _fetchTodayDistance();
+    
+    // Set up periodic location updates (every 5 minutes)
+    _locationTimer = Timer.periodic(
+      const Duration(minutes: 5), 
+      (timer) => _getCurrentLocation()
+    );
+  }
+
+  @override
+  void dispose() {
+    _locationTimer?.cancel();
+    super.dispose();
+  }
+
+  // Fetch today's distance traveled
+  Future<void> _fetchTodayDistance() async {
+    try {
+      final distance = await _databaseService.getTodaysDistance();
+      if (mounted) {
+        setState(() {
+          _todayDistance = distance;
+        });
+      }
+    } catch (e) {
+      print('Error fetching today\'s distance: $e');
+    }
   }
 
   // Request location permission and get current location
@@ -129,6 +160,9 @@ class _HomeScreenState extends State<HomeScreen> {
             longitude: position.longitude,
             timestamp: DateTime.now()
           );
+          
+          // Refresh distance data after location update
+          await _fetchTodayDistance();
         } catch (e) {
           print('Error saving location: $e');
         }
@@ -669,12 +703,128 @@ class _HomeScreenState extends State<HomeScreen> {
                               _buildUserStat('Visits', (stats['visits'] ?? 0).toString()),
                               _buildUserStat('Uploads', (stats['uploads'] ?? 0).toString()),
                               _buildUserStat('Team Chats', (stats['teamChats'] ?? 0).toString()),
-                              _buildUserStat('Distance', '${(stats['totalDistance'] ?? 0).toString()} km'),
+                              Column(
+                                children: [
+                                  Text(
+                                    '${_todayDistance.toStringAsFixed(1)} km',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Today',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.7),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Icon(
+                                        Icons.directions_car,
+                                        color: Colors.white.withOpacity(0.7),
+                                        size: 10,
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    'Total: ${(stats['totalDistance'] ?? 0).toStringAsFixed(1)} km',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.5),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ],
                       ),
                     ),
+
+                    // Daily Distance Summary
+                    if (_todayDistance > 0)
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 1,
+                              blurRadius: 5,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.directions_car, color: Colors.blue),
+                                ),
+                                const SizedBox(width: 12),
+                                const Text(
+                                  'Today\'s Travel',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const Spacer(),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.history, size: 16),
+                                  label: const Text('History'),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const LocationHistoryScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildDistanceStat(
+                                  'Distance',
+                                  '${_todayDistance.toStringAsFixed(1)} km',
+                                  Icons.straighten,
+                                  Colors.blue,
+                                ),
+                                _buildDistanceStat(
+                                  'Checkpoints',
+                                  '${(_todayDistance / 0.5).ceil()}',
+                                  Icons.location_on,
+                                  Colors.red,
+                                ),
+                                _buildDistanceStat(
+                                  'Avg. Speed',
+                                  '${(_todayDistance * 5).toStringAsFixed(1)} km/h',
+                                  Icons.speed,
+                                  Colors.amber,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
 
                     // Quick Actions
                     Padding(
@@ -1523,6 +1673,36 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(
             color: Colors.white.withOpacity(0.7),
             fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDistanceStat(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[600],
           ),
         ),
       ],
