@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:math';
 
 class CreateTeamScreen extends StatefulWidget {
   const CreateTeamScreen({Key? key}) : super(key: key);
@@ -15,6 +18,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   final _emailController = TextEditingController();
   String? _selectedCompanyType;
   bool _isLoading = false;
+  String? _errorMessage;
 
   final List<String> _companyTypes = [
     'Petrol Pump Owner',
@@ -23,6 +27,79 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     'Other'
   ];
 
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  Future<String> _generateUniqueTeamCode() async {
+    String code;
+    bool isUnique = false;
+    final rand = Random();
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    do {
+      code = List.generate(6, (index) => chars[rand.nextInt(chars.length)]).join();
+      final doc = await _firestore.collection('teams').doc(code).get();
+      isUnique = !doc.exists;
+    } while (!isUnique);
+    return code;
+  }
+
+  Future<void> _createTeam() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw 'User not logged in.';
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (userDoc['teamCode'] != null && userDoc['teamCode'].toString().isNotEmpty) {
+        throw 'You are already in a team. Leave your current team to create a new one.';
+      }
+      final teamCode = await _generateUniqueTeamCode();
+      // Create team document
+      await _firestore.collection('teams').doc(teamCode).set({
+        'teamCode': teamCode,
+        'teamName': _companyNameController.text.trim(),
+        'companyType': _selectedCompanyType,
+        'address': _addressController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'email': _emailController.text.trim(),
+        'ownerId': user.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+        'memberCount': 1,
+        'activeMembers': 1,
+        'pendingRequests': 0,
+        'teamStats': {
+          'totalVisits': 0,
+          'totalUploads': 0,
+          'totalDistance': 0,
+          'totalFuelConsumption': 0,
+        },
+      });
+      // Update user document
+      await _firestore.collection('users').doc(user.uid).update({
+        'teamCode': teamCode,
+        'teamName': _companyNameController.text.trim(),
+        'isTeamOwner': true,
+        'userType': 'teamOwner',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Team created successfully!'), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   void dispose() {
     _companyNameController.dispose();
@@ -30,30 +107,6 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
-  }
-
-  void _createTeam() {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      
-      // TODO: Implement team creation logic
-      // This would typically involve:
-      // 1. Generate unique team code
-      // 2. Save team details to database
-      // 3. Update user's team code
-      
-      // Simulating API call
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Team created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
-      });
-    }
   }
 
   @override
@@ -179,6 +232,10 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                     return null;
                   },
                 ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                ],
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,

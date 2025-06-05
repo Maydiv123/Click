@@ -7,6 +7,7 @@ import '../widgets/profile_completion_indicator.dart';
 import 'create_team_screen.dart';
 import 'join_team_screen.dart';
 import '../services/database_service.dart';
+import 'package:click/services/user_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -18,6 +19,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final DatabaseService _databaseService = DatabaseService();
+  final UserService _userService = UserService();
 
   // Static data structure
   final Map<String, dynamic> staticData = {
@@ -61,6 +63,23 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _leaveTeam(String teamCode, String userId) async {
+    try {
+      await _userService.removeTeamMember(teamCode, userId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You have left the team.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to leave team: \\${e.toString()}')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,11 +108,12 @@ class _HomeScreenState extends State<HomeScreen> {
         stream: _databaseService.getUserData(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Drawer(); // Return empty drawer while loading
+            return const Drawer();
           }
-
           final userData = snapshot.data!;
           final completionPercentage = _calculateProfileCompletion(userData);
+          final bool inTeam = userData['teamCode'] != null && userData['teamCode'].toString().isNotEmpty;
+          final String userId = userData['uid'] ?? '';
 
           return Drawer(
             child: ListView(
@@ -122,66 +142,82 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushNamed(context, '/profile');
-                              },
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}',
+                                  style: const TextStyle(color: Colors.white, fontSize: 20),
+                                ),
+                                Text(
+                                  userData['mobile'] ?? 'No mobile number',
+                                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                                ),
+                                if (userData['userType'] != null)
                                   Text(
-                                    '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}',
-                                    style: const TextStyle(color: Colors.white, fontSize: 20),
+                                    userData['userType'].toString().replaceAll('UserType.', ''),
+                                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
                                   ),
-                                  Text(
-                                    userData['mobile'] ?? 'No mobile number',
-                                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                                  ),
-                                  if (userData['userType'] != null)
-                                    Text(
-                                      userData['userType'].toString().replaceAll('UserType.', ''),
-                                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          ProfileCompletionIndicator(
-                            completionPercentage: completionPercentage,
-                            size: 50,
-                            strokeWidth: 4,
-                            progressColor: Colors.white,
-                            backgroundColor: Colors.white,
-                            percentageStyle: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       LinearProgressIndicator(
                         value: completionPercentage / 100,
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                        minHeight: 4,
-                        borderRadius: BorderRadius.circular(2),
+                        backgroundColor: Colors.grey[700],
+                        color: Colors.greenAccent,
+                        minHeight: 6,
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Profile Completion: ${completionPercentage.toInt()}%',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withOpacity(0.8),
-                        ),
+                        'Profile Completion: ${completionPercentage.toStringAsFixed(0)}%',
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ],
                   ),
                 ),
-                if (completionPercentage > 74) ...[
-                  const Divider(),
+                if (inTeam) ...[
+                  Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.groups, color: Color(0xFF35C2C1)),
+                              const SizedBox(width: 8),
+                              Text(
+                                userData['teamName'] ?? 'Your Team',
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text('Team Code: ${userData['teamCode'] ?? ''}', style: const TextStyle(fontSize: 14)),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              await _leaveTeam(userData['teamCode'], userData['uid']);
+                            },
+                            icon: const Icon(Icons.logout),
+                            label: const Text('Leave Team'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ] else ...[
                   ListTile(
                     leading: const Icon(Icons.group_add, color: Color(0xFF35C2C1)),
                     title: const Text('Create Team', style: TextStyle(color: Colors.black)),
@@ -206,8 +242,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                   ),
-                  const Divider(),
                 ],
+                const Divider(),
                 ListTile(
                   leading: const Icon(Icons.map, color: Color(0xFF35C2C1)),
                   title: const Text('Map', style: TextStyle(color: Colors.black)),
