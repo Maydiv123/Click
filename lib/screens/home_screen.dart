@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'map_screen.dart';
+import 'openstreet_map_screen.dart';
 import 'camera_screen.dart';
 import 'search_petrol_pumps_screen.dart';
 import 'add_petrol_pump_screen.dart';
@@ -233,9 +234,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const OpenStreetMapScreen()),
+      );
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   Future<void> _leaveTeam(String? teamCode, String? userId) async {
@@ -920,7 +928,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => const MapScreen()),
+                                MaterialPageRoute(builder: (context) => const OpenStreetMapScreen()),
                               );
                             },
                           ),
@@ -1237,8 +1245,8 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          // Map View
-          const MapScreen(),
+          // Map View with options
+          _buildMapSelectionView(),
           // Empty Container for Camera (since it's a FAB)
           Container(),
           // Search View
@@ -1282,6 +1290,102 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildNavItem(4, Icons.person_outline, 'Profile'),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapSelectionView() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Choose Map View',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select which map view you want to use:',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Google Maps Option
+            Card(
+              elevation: 2,
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.map, color: Colors.blue),
+                ),
+                title: const Text(
+                  'Google Maps',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text('Traditional Google Maps view with satellite imagery'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const MapScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            // OpenStreetMap Option
+            Card(
+              elevation: 2,
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.map_outlined, color: Colors.green),
+                ),
+                title: const Text(
+                  'OpenStreetMap',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text('Open source map with detailed street information'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const OpenStreetMapScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              'Both maps show the same petrol pump locations from your database.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
         ),
       ),
     );
