@@ -256,6 +256,19 @@ class UserService {
   // Remove team member
   Future<void> removeTeamMember(String teamCode, String userId) async {
     try {
+      print('Removing user $userId from team $teamCode');
+      
+      // First check if user exists and is in the team
+      final userDoc = await _usersCollection.doc(userId).get();
+      if (!userDoc.exists) {
+        throw 'User not found';
+      }
+      
+      final userData = userDoc.data() as Map<String, dynamic>;
+      if (userData['teamCode'] != teamCode) {
+        throw 'User is not in this team';
+      }
+      
       WriteBatch batch = _firestore.batch();
 
       // Update team document
@@ -269,13 +282,16 @@ class UserService {
       DocumentReference userRef = _usersCollection.doc(userId);
       batch.update(userRef, {
         'teamCode': null,
+        'teamName': null,
         'isTeamOwner': false,
         'teamMemberStatus': null,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
       await batch.commit();
+      print('Successfully removed user from team');
     } catch (e) {
+      print('Error in removeTeamMember: $e');
       rethrow;
     }
   }

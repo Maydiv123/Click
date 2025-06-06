@@ -13,6 +13,7 @@ import 'package:click/services/user_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -25,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final DatabaseService _databaseService = DatabaseService();
   final UserService _userService = UserService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   
   // Location variables
   Position? _currentPosition;
@@ -236,18 +238,44 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _leaveTeam(String teamCode, String userId) async {
-    try {
-      await _userService.removeTeamMember(teamCode, userId);
+  Future<void> _leaveTeam(String? teamCode, String? userId) async {
+    // Validate inputs
+    if (teamCode == null || teamCode.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('You have left the team.')),
+          const SnackBar(content: Text('Error: Team code not found'), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+    
+    // If no userId provided, use current user's ID
+    final currentUserId = _auth.currentUser?.uid;
+    final userIdToUse = userId ?? currentUserId;
+    
+    if (userIdToUse == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: User not authenticated'), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+    
+    try {
+      print('Attempting to leave team: $teamCode for user: $userIdToUse');
+      await _userService.removeTeamMember(teamCode, userIdToUse);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You have left the team.'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
+      print('Error leaving team: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to leave team: \\${e.toString()}')),
+          SnackBar(content: Text('Failed to leave team: ${e.toString()}'), backgroundColor: Colors.red),
         );
       }
     }
@@ -376,7 +404,32 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 8),
                           ElevatedButton.icon(
                             onPressed: () async {
-                              await _leaveTeam(userData['teamCode'], userData['uid']);
+                              final teamCode = userData['teamCode'];
+                              // Use Firebase Auth to get the current user ID directly
+                              final userId = _auth.currentUser?.uid;
+                              
+                              if (mounted) {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Leave Team'),
+                                    content: const Text('Are you sure you want to leave this team?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                          _leaveTeam(teamCode, userId);
+                                        },
+                                        child: const Text('Leave', style: TextStyle(color: Colors.red)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
                             },
                             icon: const Icon(Icons.logout),
                             label: const Text('Leave Team'),
