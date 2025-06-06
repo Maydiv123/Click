@@ -61,7 +61,7 @@ class UserService {
           // Generate unique team code
           String generatedTeamCode = await _generateUniqueTeamCode();
           
-          // Create team document
+          // Create team document - Use the team code as the document ID
           DocumentReference teamRef = _teamsCollection.doc(generatedTeamCode);
           batch.set(teamRef, {
             'teamName': teamName,
@@ -149,12 +149,9 @@ class UserService {
       code = _generateRandomCode(6);
       
       // Check if code exists
-      QuerySnapshot query = await _teamsCollection
-          .where('teamCode', isEqualTo: code)
-          .limit(1)
-          .get();
+      final docSnapshot = await _teamsCollection.doc(code).get();
+      isUnique = !docSnapshot.exists;
       
-      isUnique = query.docs.isEmpty;
     } while (!isUnique);
     
     return code;
