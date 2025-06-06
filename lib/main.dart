@@ -14,6 +14,7 @@ import 'screens/upload_image_screen.dart';
 import 'firebase_options.dart';
 import 'screens/profile_screen.dart';
 import 'services/firestore_init_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,8 +89,15 @@ class _InitializationScreenState extends State<InitializationScreen> {
       await firestoreInitService.initializeCollections();
       
       if (mounted) {
-        // Navigate to welcome screen after initialization
-        Navigator.pushReplacementNamed(context, '/welcome');
+        // Check if user is already logged in
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          // User is logged in, navigate to home screen
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          // No user logged in, navigate to welcome screen
+          Navigator.pushReplacementNamed(context, '/welcome');
+        }
       }
     } catch (e) {
       if (mounted) {
