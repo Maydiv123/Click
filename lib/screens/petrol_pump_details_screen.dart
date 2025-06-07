@@ -235,7 +235,9 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const CameraScreen()),
+                MaterialPageRoute(
+                  builder: (context) => CameraScreen(location: location),
+                ),
               );
             },
             style: ElevatedButton.styleFrom(
