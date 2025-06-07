@@ -27,19 +27,19 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[900],
+      backgroundColor: Colors.white,
       body: CustomScrollView(
         slivers: [
           // Custom App Bar
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
-            backgroundColor: Colors.black,
+            backgroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 location.customerName,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Colors.black,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -50,8 +50,8 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.red.withOpacity(0.7),
-                      Colors.black.withOpacity(0.7),
+                      const Color(0xFF35C2C1).withOpacity(0.7),
+                      Colors.white.withOpacity(0.7),
                     ],
                   ),
                 ),
@@ -59,11 +59,12 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
                   child: Icon(
                     Icons.local_gas_station,
                     size: 80,
-                    color: Colors.white,
+                    color: Color(0xFF35C2C1),
                   ),
                 ),
               ),
             ),
+            iconTheme: const IconThemeData(color: Colors.black),
           ),
           
           // Content
@@ -109,9 +110,12 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
                               child: ElevatedButton.icon(
                                 onPressed: _launchPhone,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
+                                  backgroundColor: const Color(0xFF35C2C1),
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
                                 icon: const Icon(Icons.phone),
                                 label: const Text('Call'),
@@ -122,9 +126,12 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
                               child: ElevatedButton.icon(
                                 onPressed: _launchMaps,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue,
+                                  backgroundColor: const Color(0xFF35C2C1),
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
                                 icon: const Icon(Icons.map),
                                 label: const Text('Directions'),
@@ -167,27 +174,35 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[800],
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+        border: Border.all(color: Colors.grey[200]!),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: Colors.white70),
+              Icon(icon, color: const Color(0xFF35C2C1)),
               const SizedBox(width: 8),
               Text(
                 title,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Colors.black,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const Divider(color: Colors.white24),
+          Divider(color: Colors.grey[300]),
           child,
         ],
       ),
@@ -205,7 +220,7 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                color: Colors.grey[400],
+                color: Colors.grey[600],
                 fontSize: 14,
               ),
             ),
@@ -214,7 +229,7 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
             child: Text(
               value,
               style: const TextStyle(
-                color: Colors.white,
+                color: Colors.black,
                 fontSize: 14,
               ),
             ),
@@ -228,10 +243,10 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Address',
           style: TextStyle(
-            color: Colors.white70,
+            color: Colors.grey[600],
             fontSize: 14,
             fontWeight: FontWeight.bold,
           ),
@@ -239,26 +254,26 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           location.addressLine1,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.black),
         ),
         if (location.addressLine2.isNotEmpty)
           Text(
             location.addressLine2,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Colors.black),
           ),
         if (location.addressLine3.isNotEmpty)
           Text(
             location.addressLine3,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Colors.black),
           ),
         if (location.addressLine4.isNotEmpty)
           Text(
             location.addressLine4,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Colors.black),
           ),
         Text(
           'Pincode: ${location.pincode}',
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.black),
         ),
       ],
     );

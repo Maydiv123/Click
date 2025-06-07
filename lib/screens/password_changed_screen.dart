@@ -1,5 +1,5 @@
+import 'login_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:click/screens/login_screen.dart';
 
 class PasswordChangedScreen extends StatelessWidget {
   const PasswordChangedScreen({Key? key}) : super(key: key);

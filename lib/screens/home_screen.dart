@@ -10,7 +10,7 @@ import 'create_team_screen.dart';
 import 'join_team_screen.dart';
 import 'location_history_screen.dart';
 import '../services/database_service.dart';
-import 'package:click/services/user_service.dart';
+import '../services/user_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

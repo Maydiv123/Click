@@ -1,9 +1,9 @@
+import 'forgot_password_screen.dart';
+import 'register_screen.dart';
+import 'map_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:click/screens/forgot_password_screen.dart';
-import 'package:click/screens/register_screen.dart';
-import 'package:click/screens/map_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:click/services/auth_service.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget { 
   const LoginScreen({Key? key}) : super(key: key);

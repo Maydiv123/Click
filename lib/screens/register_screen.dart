@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome package
-import 'package:click/screens/login_screen.dart'; // Import Login screen for navigation
+import 'login_screen.dart'; // Import Login screen for navigation
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:click/services/user_service.dart';
-import 'package:click/services/auth_service.dart';
+import '../services/user_service.dart';
+import '../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);

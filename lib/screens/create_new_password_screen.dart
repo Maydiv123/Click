@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:click/screens/password_changed_screen.dart';
+import 'password_changed_screen.dart';
 
 class CreateNewPasswordScreen extends StatefulWidget {
   const CreateNewPasswordScreen({Key? key}) : super(key: key);

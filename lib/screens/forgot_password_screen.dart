@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:click/screens/otp_verification_screen.dart';
-import 'package:click/screens/login_screen.dart'; // Import login screen for navigation
+import 'otp_verification_screen.dart';
+import 'login_screen.dart'; // Import login screen for navigation
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);

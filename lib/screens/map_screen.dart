@@ -347,18 +347,18 @@ class _MapScreenState extends State<MapScreen> {
             ),
           // Nearby Pumps List
           if (!_isLoading && _nearbyPumps.isNotEmpty)
-            Positioned(
+          Positioned(
               bottom: 16,
               left: 16,
               right: 16,
               child: Container(
                 height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
                       blurRadius: 10,
                       offset: const Offset(0, 5),
                     ),
@@ -379,16 +379,16 @@ class _MapScreenState extends State<MapScreen> {
                           )
                         : 0.0;
                     return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PetrolPumpDetailsScreen(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PetrolPumpDetailsScreen(
                               location: pump,
-                            ),
-                          ),
-                        );
-                      },
+                                    ),
+                                  ),
+                                );
+                              },
                       child: Container(
                         width: 200,
                         margin: const EdgeInsets.only(right: 12),
@@ -439,15 +439,15 @@ class _MapScreenState extends State<MapScreen> {
                                   ),
                                 ),
                               ],
-                            ),
-                          ],
-                        ),
                       ),
-                    );
-                  },
+                    ],
+                  ),
+                ),
+              );
+            },
                 ),
               ),
-            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(

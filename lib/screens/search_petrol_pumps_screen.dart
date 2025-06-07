@@ -75,16 +75,16 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
                     color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: TextField(
-                    controller: _searchController,
+            child: TextField(
+              controller: _searchController,
                     style: const TextStyle(color: Colors.black),
-                    decoration: InputDecoration(
+              decoration: InputDecoration(
                       hintText: 'Search by name, location, or address',
                       hintStyle: TextStyle(color: Colors.grey[600]),
                       prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                    ),
+              ),
                     onChanged: (value) {
                       setState(() {});
                     },
@@ -187,7 +187,7 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: filteredLocations.length,
-                  itemBuilder: (context, index) {
+              itemBuilder: (context, index) {
                     final location = filteredLocations[index];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
@@ -196,11 +196,11 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PetrolPumpDetailsScreen(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PetrolPumpDetailsScreen(
                                 location: location,
                               ),
                             ),

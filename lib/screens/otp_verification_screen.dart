@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:click/screens/create_new_password_screen.dart';
+import 'create_new_password_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({Key? key}) : super(key: key);

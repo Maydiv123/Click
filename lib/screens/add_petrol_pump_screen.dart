@@ -50,7 +50,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   int _importProgress = 0;
   int _totalItems = 0;
   String _importStatus = '';
-
+  
   @override
   void initState() {
     super.initState();
@@ -81,7 +81,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       _progressValue = filledFields / totalFields;
     });
   }
-
+  
   Future<void> _getCurrentLocation() async {
     setState(() {
       _isGettingLocation = true;
@@ -112,7 +112,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high
       );
-      
+
       setState(() {
         _latitudeController.text = position.latitude.toString();
         _longitudeController.text = position.longitude.toString();
@@ -232,7 +232,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
             children: [
               const Text(
                 'Enter JSON data in the following format:',
-                style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 8),
               Container(
@@ -395,49 +395,49 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       body: Stack(
         children: [
           Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black,
-                  Color(0xFF121212),
-                ],
-              ),
-            ),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black,
+              Color(0xFF121212),
+            ],
+          ),
+        ),
             child: Form(
               key: _formKey,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
                     // Import Progress
                     if (_isImporting)
                       Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[900],
+            decoration: BoxDecoration(
+              color: Colors.grey[900],
                           borderRadius: BorderRadius.circular(8),
-                        ),
+            ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
+                    children: [
+                      Text(
                               _importStatus,
-                              style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white),
                             ),
                             const SizedBox(height: 8),
                             LinearProgressIndicator(
                               value: _totalItems > 0 ? _importProgress / _totalItems : 0,
                               backgroundColor: Colors.grey[800],
                               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
+            ),
                           ],
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-
+          ),
+        ),
+        const SizedBox(height: 16),
+        
                     // Form Fields
                     _buildTextField(_zoneController, 'Zone', Icons.terrain),
                     _buildTextField(_salesAreaController, 'Sales Area', Icons.business),
@@ -455,61 +455,61 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                     _buildTextField(_contactDetailsController, 'Contact Details', Icons.phone),
                     
                     // Location Fields
-                    Row(
-                      children: [
-                        Expanded(
+        Row(
+          children: [
+            Expanded(
                           child: _buildTextField(
                             _latitudeController,
                             'Latitude',
                             Icons.location_searching,
                             keyboardType: TextInputType.number,
-                          ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
                           child: _buildTextField(
                             _longitudeController,
                             'Longitude',
                             Icons.location_searching,
                             keyboardType: TextInputType.number,
-                          ),
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                  
+                  // Get Current Location Button
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: ElevatedButton.icon(
+                      onPressed: _isGettingLocation ? null : _getCurrentLocation,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: _isGettingLocation 
+                          ? Container(
+                              width: 24,
+                              height: 24,
+                              padding: const EdgeInsets.all(2.0),
+                              child: const CircularProgressIndicator(
+                                color: Colors.black,
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : const Icon(Icons.my_location),
+                      label: Text(_isGettingLocation ? 'Getting Location...' : 'Use Current Location'),
                     ),
-                    
-                    // Get Current Location Button
+                  ),
+                  
+                  if (_locationError.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
-                      child: ElevatedButton.icon(
-                        onPressed: _isGettingLocation ? null : _getCurrentLocation,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        icon: _isGettingLocation 
-                            ? Container(
-                                width: 24,
-                                height: 24,
-                                padding: const EdgeInsets.all(2.0),
-                                child: const CircularProgressIndicator(
-                                  color: Colors.black,
-                                  strokeWidth: 3,
-                                ),
-                              )
-                            : const Icon(Icons.my_location),
-                        label: Text(_isGettingLocation ? 'Getting Location...' : 'Use Current Location'),
+                      child: Text(
+                        _locationError,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
                       ),
                     ),
-                    
-                    if (_locationError.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          _locationError,
-                          style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                        ),
-                      ),
                     
                     const SizedBox(height: 24),
                     
@@ -522,17 +522,17 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
+                  ),
                         child: const Text(
                           'Add Petrol Pump',
-                          style: TextStyle(
+                style: TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ),
+        ),
+      ],
                 ),
               ),
             ),
@@ -558,28 +558,28 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       padding: const EdgeInsets.only(bottom: 16.0),
       child: TextFormField(
         controller: controller,
-        style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white),
         keyboardType: keyboardType,
-        decoration: InputDecoration(
+          decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.white70),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.white30),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.white30),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.white),
-          ),
+            labelStyle: const TextStyle(color: Colors.white70),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.white30),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.white30),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.white),
+            ),
           prefixIcon: Icon(icon, color: Colors.white),
-          filled: true,
-          fillColor: Colors.grey[900],
-        ),
-        onChanged: (_) => _updateProgress(),
+            filled: true,
+            fillColor: Colors.grey[900],
+          ),
+          onChanged: (_) => _updateProgress(),
         validator: (value) {
           if (value == null || value.isEmpty) {
             return 'Please enter $label';
