@@ -111,7 +111,7 @@ class _CameraScreenState extends State<CameraScreen> {
         : '';
 
     // Create text style for watermark
-    final textStyle = ui.TextStyle(
+    final textStyle = TextStyle(
       color: Colors.white,
       fontSize: imageWidth * 0.025, // Slightly smaller font size for better readability
       fontWeight: FontWeight.w500,
@@ -127,7 +127,7 @@ class _CameraScreenState extends State<CameraScreen> {
               '🌍 $coordinates',
         style: textStyle,
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
 
     // Layout the text
