@@ -1,7 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class ImageReviewScreen extends StatelessWidget {
   final List<File> images;
@@ -10,38 +8,6 @@ class ImageReviewScreen extends StatelessWidget {
     Key? key,
     required this.images,
   }) : super(key: key);
-
-  Future<void> _saveImages(BuildContext context) async {
-    // Request storage permission
-    final status = await Permission.storage.request();
-    if (status.isDenied) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Storage permission is required to save images')),
-        );
-      }
-      return;
-    }
-
-    try {
-      for (File image in images) {
-        await ImageGallerySaver.saveFile(image.path);
-      }
-      
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Images saved to gallery')),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error saving images')),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,19 +25,6 @@ class ImageReviewScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          TextButton.icon(
-            icon: const Icon(Icons.save_alt, color: Color(0xFF35C2C1)),
-            label: const Text(
-              'Save All',
-              style: TextStyle(
-                color: Color(0xFF35C2C1),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            onPressed: () => _saveImages(context),
-          ),
-        ],
       ),
       body: Column(
         children: [
