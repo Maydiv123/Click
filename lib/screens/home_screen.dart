@@ -325,210 +325,215 @@ class _HomeScreenState extends State<HomeScreen> {
           final String userId = userData['uid'] ?? '';
 
           return Drawer(
-            child: ListView(
-              padding: const EdgeInsets.only(bottom: 20.0),
-              children: <Widget>[
-                DrawerHeader(
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                  ),
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.pop(context);
-                              Navigator.pushNamed(context, '/profile');
-                            },
-                            child: CircleAvatar(
-                              radius: 30,
-                              backgroundColor: Colors.grey[300],
-                              child: const Icon(Icons.person, size: 30, color: Colors.white),
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.only(bottom: 20.0),
+                    children: <Widget>[
+                      DrawerHeader(
+                        decoration: const BoxDecoration(
+                          color: Colors.black,
+                        ),
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    Navigator.pushNamed(context, '/profile');
+                                  },
+                                  child: CircleAvatar(
+                                    radius: 30,
+                                    backgroundColor: Colors.grey[300],
+                                    child: const Icon(Icons.person, size: 30, color: Colors.white),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 20),
+                                      ),
+                                      Text(
+                                        userData['mobile'] ?? 'No mobile number',
+                                        style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                                      ),
+                                      if (userData['userType'] != null)
+                                        Text(
+                                          userData['userType'].toString().replaceAll('UserType.', ''),
+                                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
+                            const SizedBox(height: 12),
+                            LinearProgressIndicator(
+                              value: completionPercentage / 100,
+                              backgroundColor: Colors.grey[700],
+                              color: Colors.greenAccent,
+                              minHeight: 6,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Profile Completion: ${completionPercentage.toStringAsFixed(0)}%',
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (inTeam) ...[
+                        Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}',
-                                  style: const TextStyle(color: Colors.white, fontSize: 20),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.groups, color: Color(0xFF35C2C1)),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      userData['teamName'] ?? 'Your Team',
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  userData['mobile'] ?? 'No mobile number',
-                                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                                ),
-                                if (userData['userType'] != null)
-                                  Text(
-                                    userData['userType'].toString().replaceAll('UserType.', ''),
-                                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                                const SizedBox(height: 8),
+                                Text('Team Code: ${userData['teamCode'] ?? ''}', style: const TextStyle(fontSize: 14)),
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: () async {
+                                    final teamCode = userData['teamCode'];
+                                    // Use Firebase Auth to get the current user ID directly
+                                    final userId = _auth.currentUser?.uid;
+                                    
+                                    if (mounted) {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Leave Team'),
+                                          content: const Text('Are you sure you want to leave this team?'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.pop(context);
+                                                _leaveTeam(teamCode, userId);
+                                              },
+                                              child: const Text('Leave', style: TextStyle(color: Colors.red)),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  icon: const Icon(Icons.logout),
+                                  label: const Text('Leave Team'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
+                                ),
                               ],
                             ),
                           ),
-                        ],
+                        ),
+                      ] else ...[
+                        ListTile(
+                          leading: const Icon(Icons.group_add, color: Color(0xFF35C2C1)),
+                          title: const Text('Create Team', style: TextStyle(color: Colors.black)),
+                          subtitle: const Text('Create a new team code'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const CreateTeamScreen()),
+                            );
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.group, color: Color(0xFF35C2C1)),
+                          title: const Text('Join Team', style: TextStyle(color: Colors.black)),
+                          subtitle: const Text('Join with existing team code'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const JoinTeamScreen()),
+                            );
+                          },
+                        ),
+                      ],
+                      const Divider(),
+                      ListTile(
+                        leading: const Icon(Icons.map, color: Color(0xFF35C2C1)),
+                        title: const Text('Map', style: TextStyle(color: Colors.black)),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const MapScreen()),
+                          );
+                        },
                       ),
-                      const SizedBox(height: 12),
-                      LinearProgressIndicator(
-                        value: completionPercentage / 100,
-                        backgroundColor: Colors.grey[700],
-                        color: Colors.greenAccent,
-                        minHeight: 6,
+                      ListTile(
+                        leading: const Icon(Icons.chat_bubble_outline, color: Colors.black54),
+                        title: const Text('Chat', style: TextStyle(color: Colors.black)),
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Profile Completion: ${completionPercentage.toStringAsFixed(0)}%',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ListTile(
+                        leading: const Icon(Icons.person_add_alt_1, color: Colors.black54),
+                        title: const Text('Add Petrol Pump', style: TextStyle(color: Colors.black)),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const AddPetrolPumpScreen()),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.favorite_border, color: Colors.black54),
+                        title: const Text('Special offers', style: TextStyle(color: Colors.black)),
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.shield_outlined, color: Colors.black54),
+                        title: const Text('Support', style: TextStyle(color: Colors.black)),
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.settings, color: Colors.black54),
+                        title: const Text('Settings', style: TextStyle(color: Colors.black)),
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
                       ),
                     ],
                   ),
                 ),
-                if (inTeam) ...[
-                  Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.groups, color: Color(0xFF35C2C1)),
-                              const SizedBox(width: 8),
-                              Text(
-                                userData['teamName'] ?? 'Your Team',
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text('Team Code: ${userData['teamCode'] ?? ''}', style: const TextStyle(fontSize: 14)),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              final teamCode = userData['teamCode'];
-                              // Use Firebase Auth to get the current user ID directly
-                              final userId = _auth.currentUser?.uid;
-                              
-                              if (mounted) {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text('Leave Team'),
-                                    content: const Text('Are you sure you want to leave this team?'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                          _leaveTeam(teamCode, userId);
-                                        },
-                                        child: const Text('Leave', style: TextStyle(color: Colors.red)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-                            },
-                            icon: const Icon(Icons.logout),
-                            label: const Text('Leave Team'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ] else ...[
-                  ListTile(
-                    leading: const Icon(Icons.group_add, color: Color(0xFF35C2C1)),
-                    title: const Text('Create Team', style: TextStyle(color: Colors.black)),
-                    subtitle: const Text('Create a new team code'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const CreateTeamScreen()),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.group, color: Color(0xFF35C2C1)),
-                    title: const Text('Join Team', style: TextStyle(color: Colors.black)),
-                    subtitle: const Text('Join with existing team code'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const JoinTeamScreen()),
-                      );
-                    },
-                  ),
-                ],
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.map, color: Color(0xFF35C2C1)),
-                  title: const Text('Map', style: TextStyle(color: Colors.black)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const MapScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.chat_bubble_outline, color: Colors.black54),
-                  title: const Text('Chat', style: TextStyle(color: Colors.black)),
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.person_add_alt_1, color: Colors.black54),
-                  title: const Text('Add Petrol Pump', style: TextStyle(color: Colors.black)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AddPetrolPumpScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.favorite_border, color: Colors.black54),
-                  title: const Text('Special offers', style: TextStyle(color: Colors.black)),
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.shield_outlined, color: Colors.black54),
-                  title: const Text('Support', style: TextStyle(color: Colors.black)),
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.settings, color: Colors.black54),
-                  title: const Text('Settings', style: TextStyle(color: Colors.black)),
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-                const Spacer(),
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: TextButton(
@@ -922,7 +927,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           _buildActionCard(
                             context,
                             'View Map',
-                            'Find petrol pumps',
                             Icons.map,
                             Colors.blue,
                             () {
@@ -935,7 +939,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           _buildActionCard(
                             context,
                             'Search',
-                            'Search petrol pumps',
                             Icons.search,
                             Colors.green,
                             () {
@@ -948,7 +951,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           _buildActionCard(
                             context,
                             'Add Pump',
-                            'Add new petrol pump',
                             Icons.add_location,
                             Colors.orange,
                             () {
@@ -961,7 +963,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           _buildActionCard(
                             context,
                             'Team Chat',
-                            'Chat with team members',
                             Icons.chat,
                             Colors.purple,
                             () {
@@ -1766,7 +1767,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildActionCard(
     BuildContext context,
     String title,
-    String subtitle,
     IconData icon,
     Color color,
     VoidCallback onTap,
@@ -1798,13 +1798,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
                 ),
               ),
             ],

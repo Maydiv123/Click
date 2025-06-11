@@ -513,40 +513,6 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                   ),
                           ),
                         ),
-                        const SizedBox(height: 30),
-
-                        // Or Register with
-                        Row(
-                          children: [
-                            const Expanded(child: Divider(color: Colors.grey)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                              child: Text(
-                                'Or Register with',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                              ),
-                            ),
-                            const Expanded(child: Divider(color: Colors.grey)),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Social Login Buttons
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildSocialButton(
-                              onPressed: () {},
-                              icon: FontAwesomeIcons.google,
-                              color: Colors.red,
-                            ),
-                            _buildSocialButton(
-                              onPressed: () {},
-                              icon: FontAwesomeIcons.apple,
-                              color: Colors.black,
-                            ),
-                          ],
-                        ),
                         const SizedBox(height: 40),
 
                         // Login Link

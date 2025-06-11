@@ -70,11 +70,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     });
     try {
       final email = _phoneController.text + '@click.com';
-      await _authService.signInWithEmailAndPassword(
+      final userCredential = await _authService.signInWithEmailAndPassword(
         email: email,
         password: _passwordController.text,
       );
-      if (mounted) {
+      
+      // Wait for the auth state to be updated
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (mounted && userCredential.user != null) {
+        // Update last login timestamp
+        await _authService.updateLastLogin(userCredential.user!.uid);
+        
+        // Navigate to home screen
         Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
@@ -214,58 +222,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           child: _isLoading
                               ? const CircularProgressIndicator(color: Colors.white)
                               : const Text('Login', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(height: 30),
-                        Row(
-                          children: [
-                            const Expanded(child: Divider(color: Colors.grey)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                              child: Text(
-                                'Or Login with',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                              ),
-                            ),
-                            const Expanded(child: Divider(color: Colors.grey)),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                                child: OutlinedButton(
-                                  onPressed: () {},
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    side: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  child: const FaIcon(FontAwesomeIcons.facebookF, color: Colors.blue),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                                child: OutlinedButton(
-                                  onPressed: () {},
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    side: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  child: const FaIcon(FontAwesomeIcons.google, color: Colors.red),
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
                         const SizedBox(height: 40),
                         Row(

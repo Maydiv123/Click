@@ -131,19 +131,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            TextButton(
-                              onPressed: () {
-                                // Continue as guest logic
-                              },
-                              child: Text(
-                                'Continue as a guest...',
-                                style: TextStyle(
-                                  color: const Color(0xFF35C2C1),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
+                            // const SizedBox(height: 16),
+                            // TextButton(
+                            //   onPressed: () {
+                            //     // Continue as guest logic
+                            //   },
+                            //   child: Text(
+                            //     'Continue as a guest...',
+                            //     style: TextStyle(
+                            //       color: const Color(0xFF35C2C1),
+                            //       fontWeight: FontWeight.w500,
+                            //     ),
+                            //   ),
+                            // ),
                           ],
                         ),
                       ),

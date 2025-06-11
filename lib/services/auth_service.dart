@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'user_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -161,6 +162,17 @@ class AuthService {
       return await _auth.currentUser?.getIdToken();
     } catch (e) {
       throw 'An error occurred while getting user token.';
+    }
+  }
+
+  // Update last login timestamp
+  Future<void> updateLastLogin(String uid) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'lastLogin': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error updating last login: $e');
     }
   }
 } 
