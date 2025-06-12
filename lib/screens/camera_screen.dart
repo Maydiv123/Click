@@ -133,27 +133,27 @@ class _CameraScreenState extends State<CameraScreen> {
     );
 
     // Prepare text styles
-    final locationStyle = ui.TextStyle(
+    final locationStyle = TextStyle(
       color: Colors.white,
       fontSize: imageWidth * 0.045,
       fontWeight: FontWeight.bold,
     );
-    final addressStyle = ui.TextStyle(
+    final addressStyle = TextStyle(
       color: Colors.white.withOpacity(0.85),
       fontSize: imageWidth * 0.032,
       fontWeight: FontWeight.w400,
     );
-    final coordStyle = ui.TextStyle(
+    final coordStyle = TextStyle(
       color: Colors.white.withOpacity(0.85),
       fontSize: imageWidth * 0.032,
       fontWeight: FontWeight.w400,
     );
-    final dateStyle = ui.TextStyle(
+    final dateStyle = TextStyle(
       color: Colors.white.withOpacity(0.85),
       fontSize: imageWidth * 0.032,
       fontWeight: FontWeight.w400,
     );
-    final badgeStyle = ui.TextStyle(
+    final badgeStyle = TextStyle(
       color: Colors.black,
       fontSize: imageWidth * 0.032,
       fontWeight: FontWeight.bold,
