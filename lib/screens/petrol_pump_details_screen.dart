@@ -37,13 +37,25 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
             pinned: true,
             backgroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                location.customerName,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    location.customerName,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'SAP Code: ${location.sapCode}',
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
               background: Container(
                 decoration: BoxDecoration(
@@ -92,6 +104,7 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
                         _buildInfoRow('CO/CL/DO', location.coClDo),
                         _buildInfoRow('District', location.district),
                         _buildInfoRow('Location', location.location),
+                        _buildInfoRow('Coordinates', '${location.latitude}, ${location.longitude}'),
                         const SizedBox(height: 16),
                         _buildAddressSection(),
                       ],
@@ -152,17 +165,17 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   
                   // Additional Details Card
-                  _buildSection(
-                    title: 'Additional Details',
-                    icon: Icons.info_outline,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildInfoRow('SAP Code', location.sapCode),
-                        _buildInfoRow('Coordinates', '${location.latitude}, ${location.longitude}'),
-                      ],
-                    ),
-                  ),
+                  // _buildSection(
+                  //   title: 'Additional Details',
+                  //   icon: Icons.info_outline,
+                  //   child: Column(
+                  //     crossAxisAlignment: CrossAxisAlignment.start,
+                  //     children: [
+                  //       _buildInfoRow('SAP Code', location.sapCode),
+                  //       _buildInfoRow('Coordinates', '${location.latitude}, ${location.longitude}'),
+                  //     ],
+                  //   ),
+                  // ),
                 ],
               ),
             ),

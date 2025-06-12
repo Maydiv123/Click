@@ -5,6 +5,8 @@ import 'package:geolocator/geolocator.dart';
 import '../models/map_location.dart';
 import '../services/map_service.dart';
 import 'petrol_pump_details_screen.dart';
+import 'search_petrol_pumps_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class OpenStreetMapScreen extends StatefulWidget {
   const OpenStreetMapScreen({Key? key}) : super(key: key);
@@ -305,14 +307,16 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _moveToLocation(LatLng(location.latitude, location.longitude));
+                            onPressed: () async {
+                              final url = 'https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}';
+                              if (await canLaunchUrl(Uri.parse(url))) {
+                                await launchUrl(Uri.parse(url));
+                              }
                             },
-                            icon: const Icon(Icons.center_focus_strong),
-                            label: const Text('Center on Map'),
+                            icon: const Icon(Icons.location_on),
+                            label: const Text('Directions'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
+                              backgroundColor: Color(0xFF35C2C1),
                               foregroundColor: Colors.white,
                             ),
                           ),
@@ -447,10 +451,10 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatItem('Total', _allLocations.length.toString()),
-                _buildStatItem('Filtered', _filteredLocations.length.toString()),
-                if (_currentPosition != null)
-                  _buildStatItem('Current', 'Location Found'),
+                // _buildStatItem('Total', _allLocations.length.toString()),
+                _buildStatItem('In Radius', _filteredLocations.length.toString()),
+                if (_useRadiusFilter && _currentPosition != null)
+                  _buildStatItem('Radius', '${_radiusInKm.toStringAsFixed(1)} km'),
               ],
             ),
           ),
@@ -513,24 +517,6 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                         backgroundColor: Colors.blue,
                         child: const Icon(Icons.my_location, color: Colors.white, size: 20),
                       ),
-                      const SizedBox(height: 8),
-                      FloatingActionButton(
-                        heroTag: "fit_all",
-                        mini: true,
-                        onPressed: () {
-                          if (_filteredLocations.isNotEmpty) {
-                            final bounds = _calculateBounds(_filteredLocations);
-                            _mapController.fitCamera(
-                              CameraFit.bounds(
-                                bounds: bounds,
-                                padding: const EdgeInsets.all(50),
-                              ),
-                            );
-                          }
-                        },
-                        backgroundColor: Colors.green,
-                        child: const Icon(Icons.zoom_out_map, color: Colors.white, size: 20),
-                      ),
                     ],
                   ),
                 ),
@@ -554,51 +540,39 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
               ),
               child: Column(
                 children: [
-                  // List header
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.grey[200]!,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Petrol Pumps (${_filteredLocations.length})',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        if (_filteredLocations.isNotEmpty)
-                          TextButton.icon(
-                            onPressed: () {
-                              if (_filteredLocations.isNotEmpty) {
-                                final bounds = _calculateBounds(_filteredLocations);
-                                _mapController.fitCamera(
-                                  CameraFit.bounds(
-                                    bounds: bounds,
-                                    padding: const EdgeInsets.all(50),
-                                  ),
-                                );
-                              }
-                            },
-                            icon: const Icon(Icons.zoom_out_map, size: 16),
-                            label: const Text('Fit All'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.blue,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                  // Always show the radius slider if current position is available
+                  if (_currentPosition != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Slider(
+                              value: _radiusInKm,
+                              min: 1.0,
+                              max: 100.0,
+                              divisions: 20,
+                              label: '${_radiusInKm.toStringAsFixed(1)} km',
+                              onChanged: (value) {
+                                setState(() {
+                                  _radiusInKm = value;
+                                  _useRadiusFilter = true;
+                                });
+                                _applyFilters();
+                              },
                             ),
                           ),
-                      ],
+                          Text(
+                            '${_radiusInKm.toStringAsFixed(1)} km',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                   
                   // List content
                   Expanded(
@@ -641,98 +615,76 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
         ],
       ),
       bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
-        elevation: 8,
-        notchMargin: 6.0,
-        height: 60,
-        padding: EdgeInsets.zero,
         shape: const CircularNotchedRectangle(),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: () {
-                  Navigator.pop(context);
-                },
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.home_outlined, size: 24),
-                    Text('Home', style: TextStyle(fontSize: 10)),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              child: InkWell(
-                onTap: () {
-                  // Toggle search focus
-                  FocusScope.of(context).requestFocus(
-                    FocusNode(),
-                  );
-                  setState(() {
-                    _searchController.selection = TextSelection(
-                      baseOffset: 0,
-                      extentOffset: _searchController.text.length,
-                    );
-                  });
-                },
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.search, size: 24),
-                    Text('Search', style: TextStyle(fontSize: 10)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 40), // Space for FAB
-            Expanded(
-              child: InkWell(
-                onTap: _showFilterDialog,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.filter_alt_outlined, size: 24),
-                    Text('Filter', style: TextStyle(fontSize: 10)),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    _isLoading = true;
-                  });
-                  _loadMapLocations();
-                  _getCurrentLocation();
-                },
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.refresh, size: 24),
-                    Text('Refresh', style: TextStyle(fontSize: 10)),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        notchMargin: 8,
+        child: Container(
+          height: 60,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildNavItem(0, Icons.home_outlined, 'Home'),
+              _buildNavItem(1, Icons.map_outlined, 'Map'),
+              const SizedBox(width: 40), // Space for FAB
+              _buildNavItem(3, Icons.search, 'Search'),
+              _buildNavItem(4, Icons.person_outline, 'Profile'),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          if (_currentPosition != null) {
-            _moveToLocation(LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
-          } else {
-            _getCurrentLocation();
-          }
+          setState(() {
+            _isLoading = true;
+          });
+          _loadMapLocations();
+          _getCurrentLocation();
         },
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.my_location),
+        backgroundColor: const Color(0xFF35C2C1),
+        child: const Icon(Icons.refresh, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    return InkWell(
+      onTap: () {
+        switch (index) {
+          case 0: // Home
+            Navigator.pop(context);
+            break;
+          case 1: // Map
+            // Already on map screen, do nothing
+            break;
+          case 3: // Search
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SearchPetrolPumpsScreen()),
+            );
+            break;
+          case 4: // Profile
+            Navigator.pushNamed(context, '/profile');
+            break;
+        }
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: index == 1 ? const Color(0xFF35C2C1) : Colors.grey,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: index == 1 ? const Color(0xFF35C2C1) : Colors.grey,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -760,7 +712,10 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: InkWell(
-        onTap: () => _highlightAndCenterOnMap(location),
+        onTap: () {
+          _highlightAndCenterOnMap(location);
+          _showLocationDetails(location);
+        },
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -838,39 +793,8 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.place,
-                              size: 12,
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                '${location.district}, ${location.zone}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[600],
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_forward_ios,
-                      size: 14,
-                    ),
-                    onPressed: () => _showLocationDetails(location),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
@@ -951,74 +875,6 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                     setDialogState(() {});
                   },
                 ),
-                const SizedBox(height: 16),
-                
-                // Radius filter
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _useRadiusFilter,
-                      onChanged: _currentPosition == null 
-                          ? null // Disable if no current position
-                          : (value) {
-                              setState(() {
-                                _useRadiusFilter = value!;
-                              });
-                              setDialogState(() {});
-                            },
-                    ),
-                    Expanded(
-                      child: Text(
-                        'Filter by radius from current location',
-                        style: TextStyle(
-                          color: _currentPosition == null ? Colors.grey : Colors.black,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (_useRadiusFilter && _currentPosition != null) ...[
-                  const SizedBox(height: 8),
-                  Text('Radius: ${_radiusInKm.toStringAsFixed(1)} km'),
-                  Slider(
-                    value: _radiusInKm,
-                    min: 1.0, // Starting from 1km
-                    max: 100.0,
-                    divisions: 20,
-                    label: '${_radiusInKm.toStringAsFixed(1)} km',
-                    onChanged: (value) {
-                      setState(() {
-                        _radiusInKm = value;
-                      });
-                      setDialogState(() {});
-                    },
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    children: _availableRadiusOptions.map((radius) {
-                      return ChoiceChip(
-                        label: Text('${radius.toInt()} km'),
-                        selected: _radiusInKm == radius,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _radiusInKm = radius;
-                            });
-                            setDialogState(() {});
-                          }
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ],
-                if (_currentPosition == null && _useRadiusFilter)
-                  const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text(
-                      'Enable location access to use radius filter',
-                      style: TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -1028,8 +884,6 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                 setState(() {
                   _selectedZone = 'All Zones';
                   _selectedDistrict = 'All Districts';
-                  _useRadiusFilter = false;
-                  _radiusInKm = 5.0;
                 });
                 _applyFilters();
                 Navigator.pop(context);
