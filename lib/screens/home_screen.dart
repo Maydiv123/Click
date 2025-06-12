@@ -239,6 +239,9 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         MaterialPageRoute(builder: (context) => const OpenStreetMapScreen()),
       );
+    } else if (index == 4) {
+      // For profile tab, navigate to ProfileScreen
+      Navigator.pushNamed(context, '/profile');
     } else {
       setState(() {
         _selectedIndex = index;
@@ -686,7 +689,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           );
                         },
-                        hasNew: true,
+                        // hasNew: true,
                       ),
                       
                       _buildDrawerItem(
@@ -1397,57 +1400,72 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),*/
-                    const SizedBox(height: 8),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      width: MediaQuery.of(context).size.width - 32,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Row(
-                          children: [
-                            _buildActionCard(
-                              context,
-                              'View Map',
-                              Icons.map,
-                              Colors.blue,
-                              () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => const OpenStreetMapScreen()),
-                                );
-                              },
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Quick Actions',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(width: 12),
-                            _buildActionCard(
-                              context,
-                              'Search',
-                              Icons.search,
-                              Colors.green,
-                              () {
-                                Navigator.push(
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 120,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              children: [
+                                _buildActionCard(
                                   context,
-                                  MaterialPageRoute(builder: (context) => const SearchPetrolPumpsScreen()),
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            _buildActionCard(
-                              context,
-                              'Add Pump',
-                              Icons.add_location,
-                              Colors.orange,
-                              () {
-                                Navigator.push(
+                                  'View Map',
+                                  'Explore petrol pumps in your area',
+                                  Icons.map,
+                                  const Color(0xFF4A6FFF),
+                                  () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const OpenStreetMapScreen()),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 12),
+                                _buildActionCard(
                                   context,
-                                  MaterialPageRoute(builder: (context) => const AddPetrolPumpScreen()),
-                                );
-                              },
+                                  'Search',
+                                  'Find petrol pumps by name or location',
+                                  Icons.search,
+                                  const Color(0xFF35C2C1),
+                                  () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const SearchPetrolPumpsScreen()),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 12),
+                                _buildActionCard(
+                                  context,
+                                  'Add Pump',
+                                  'Contribute by adding a new petrol pump',
+                                  Icons.add_location,
+                                  const Color(0xFFF9746D),
+                                  () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const AddPetrolPumpScreen()),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 16),
+                              ],
                             ),
-                            // Ensures there's space at the end for better UX
-                            const SizedBox(width: 50),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
 
@@ -1496,8 +1514,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),*/
 
-                    // Team Information Card
-                    Container(
+                    // Team Information Card - Commented out as requested
+                    /*Container(
                       margin: const EdgeInsets.all(16),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -1571,60 +1589,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                          // Team Performance section commented out
-                          /*const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  spreadRadius: 1,
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Team Performance',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF35C2C1),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                  children: [
-                                    _buildTeamStat(
-                                      'Total Visits',
-                                      (stats['teamVisits'] ?? 0).toString(),
-                                      Icons.location_on,
-                                    ),
-                                    _buildTeamStat(
-                                      'Uploads',
-                                      (stats['teamUploads'] ?? 0).toString(),
-                                      Icons.upload,
-                                    ),
-                                    _buildTeamStat(
-                                      'Rating',
-                                      '${(stats['teamRating'] ?? 0.0).toStringAsFixed(1)}',
-                                      Icons.star,
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),*/
                         ],
                       ),
-                    ),
+                    ),*/
 
                     // Most Visited Stations
                     Padding(
@@ -2043,12 +2010,54 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.white,
                   ),
                 ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/profile');
+                    },
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 24),
 
-          // Team Information
+          // Notice about Profile Screen
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF35C2C1).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF35C2C1).withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Color(0xFF35C2C1)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: const Text(
+                    'Please use the Edit Profile button to view and modify your complete profile details.',
+                    style: TextStyle(color: Color(0xFF35C2C1)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Account Actions section
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -2067,121 +2076,41 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Team Information',
+                  'Account Actions',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildInfoRow(Icons.group, 'Team Name', userData['teamName'] ?? 'No Team'),
-                const Divider(height: 16, color: Colors.white24),
-                _buildInfoRow(Icons.tag, 'Team Code', userData['teamCode'] ?? 'N/A'),
-                const Divider(height: 16, color: Colors.white24),
-                _buildInfoRow(Icons.people, 'Team Role', userData['userType']?.toString().replaceAll('UserType.', '') ?? 'N/A'),
+                _buildSettingItem(Icons.logout, 'Logout', () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Logout'),
+                      content: const Text('Are you sure you want to logout?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            FirebaseAuth.instance.signOut();
+                            Navigator.pushReplacementNamed(context, '/welcome');
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          child: const Text('Logout'),
+                        ),
+                      ],
+                    ),
+                  );
+                }, iconColor: Colors.red),
               ],
             ),
           ),
-          const SizedBox(height: 24),
-
-          // Statistics
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 5,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Statistics',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatItem('Visits', userData['stats']['visits'].toString(), Icons.location_on),
-                    _buildStatItem('Uploads', userData['stats']['uploads'].toString(), Icons.upload),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Settings
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 5,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Settings',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildSettingItem(Icons.notifications_outlined, 'Notifications', () {}),
-                _buildSettingItem(Icons.lock_outline, 'Privacy', () {}),
-                _buildSettingItem(Icons.language, 'Language', () {}),
-                _buildSettingItem(Icons.help_outline, 'Help & Support', () {}),
-                _buildSettingItem(Icons.info_outline, 'About', () {}),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Logout Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pushReplacementNamed(context, '/welcome');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Logout',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
         ],
       ),
     );
@@ -2323,19 +2252,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSettingItem(IconData icon, String title, VoidCallback onTap) {
+  Widget _buildSettingItem(IconData icon, String title, VoidCallback onTap, {Color? iconColor}) {
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            Icon(icon, color: Colors.grey[600], size: 24),
+            Icon(icon, color: iconColor ?? Colors.grey[600], size: 24),
             const SizedBox(width: 12),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
+                color: iconColor,
               ),
             ),
             const Spacer(),
@@ -2407,44 +2337,79 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildActionCard(
     BuildContext context,
     String title,
+    String subtitle,
     IconData icon,
     Color color,
     VoidCallback onTap,
   ) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: (MediaQuery.of(context).size.width - 70) / 2,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 180,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [color, color.withOpacity(0.8)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Background pattern
+            Positioned(
+              right: -20,
+              bottom: -20,
+              child: Icon(
+                icon,
+                size: 80,
+                color: Colors.white.withOpacity(0.1),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 10,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
