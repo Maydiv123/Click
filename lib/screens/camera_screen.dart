@@ -40,14 +40,25 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Future<void> _initializeCamera() async {
     // Request camera permission
-    final status = await Permission.camera.request();
-    if (status.isDenied) {
+    final cameraStatus = await Permission.camera.request();
+    if (cameraStatus.isDenied) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Camera permission is required to take photos')),
         );
       }
       return;
+    }
+    
+    // Request storage permission for saving photos
+    final storageStatus = await Permission.photos.request();
+    if (storageStatus.isDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Storage permission is required to save photos')),
+        );
+      }
+      // Continue anyway as user might grant permission later
     }
 
     // Get available cameras
