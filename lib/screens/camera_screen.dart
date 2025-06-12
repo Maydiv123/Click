@@ -28,6 +28,9 @@ class _CameraScreenState extends State<CameraScreen> {
   bool _isCameraInitialized = false;
   bool _isCapturing = false;
   final GlobalKey _previewKey = GlobalKey();
+  double _currentZoom = 1.0;
+  final List<double> _zoomLevels = [0.6, 1.0, 2.0];
+  bool _isTorchOn = false;
 
   @override
   void initState() {
@@ -101,83 +104,114 @@ class _CameraScreenState extends State<CameraScreen> {
     // Draw the original image
     canvas.drawImage(image, Offset.zero, Paint());
 
-    // Prepare watermark text
+    // Prepare watermark content
     final now = DateTime.now();
-    final dateTimeStr = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
-    final pumpName = widget.location?.customerName ?? 'Unknown Location';
-    final pumpAddress = widget.location?.addressLine1 ?? '';
-    final coordinates = widget.location != null 
-        ? 'Lat: ${widget.location!.latitude.toStringAsFixed(6)}\nLong: ${widget.location!.longitude.toStringAsFixed(6)}'
+    final dateTimeStr = DateFormat('dd/MM/yyyy hh:mm a').format(now);
+    final locationName = widget.location?.location ?? 'Unknown Location';
+    final address = widget.location?.addressLine1 ?? '';
+    final coordinates = widget.location != null
+        ? 'Lat ${widget.location!.latitude.toStringAsFixed(6)}  Long ${widget.location!.longitude.toStringAsFixed(6)}'
         : '';
+    final zoomStr = _currentZoom == 1.0 ? '1x' : '${_currentZoom}x';
 
-    // Create text style for watermark
-    final textStyle = TextStyle(
+    // Card dimensions
+    final double cardWidth = imageWidth * 0.92;
+    final double cardPadding = 18;
+    final double cardHeight = imageHeight * 0.19;
+    final double cardLeft = (imageWidth - cardWidth) / 2;
+    final double cardTop = imageHeight - cardHeight - imageHeight * 0.025;
+    final double borderRadius = 24;
+
+    // Draw card background (semi-transparent black with rounded corners)
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(cardLeft, cardTop, cardWidth, cardHeight),
+      Radius.circular(borderRadius),
+    );
+    canvas.drawRRect(
+      rrect,
+      Paint()..color = Colors.black.withOpacity(0.75),
+    );
+
+    // Prepare text styles
+    final locationStyle = ui.TextStyle(
       color: Colors.white,
-      fontSize: imageWidth * 0.025, // Slightly smaller font size for better readability
-      fontWeight: FontWeight.w500,
-      height: 1.2, // Line height for better readability
+      fontSize: imageWidth * 0.045,
+      fontWeight: FontWeight.bold,
+    );
+    final addressStyle = ui.TextStyle(
+      color: Colors.white.withOpacity(0.85),
+      fontSize: imageWidth * 0.032,
+      fontWeight: FontWeight.w400,
+    );
+    final coordStyle = ui.TextStyle(
+      color: Colors.white.withOpacity(0.85),
+      fontSize: imageWidth * 0.032,
+      fontWeight: FontWeight.w400,
+    );
+    final dateStyle = ui.TextStyle(
+      color: Colors.white.withOpacity(0.85),
+      fontSize: imageWidth * 0.032,
+      fontWeight: FontWeight.w400,
+    );
+    final badgeStyle = ui.TextStyle(
+      color: Colors.black,
+      fontSize: imageWidth * 0.032,
+      fontWeight: FontWeight.bold,
     );
 
-    // Create text painter for watermark
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: '📍 $pumpName\n'
-              '🏢 $pumpAddress\n'
-              '🕒 $dateTimeStr\n'
-              '🌍 $coordinates',
-        style: textStyle,
-      ),
+    // Layout text
+    final textPainter1 = TextPainter(
+      text: TextSpan(text: locationName, style: locationStyle),
       textDirection: ui.TextDirection.ltr,
-    );
+      maxLines: 1,
+    )..layout(maxWidth: cardWidth - 2 * cardPadding);
+    final textPainter2 = TextPainter(
+      text: TextSpan(text: address, style: addressStyle),
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 2,
+    )..layout(maxWidth: cardWidth - 2 * cardPadding);
+    final textPainter3 = TextPainter(
+      text: TextSpan(text: coordinates, style: coordStyle),
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: cardWidth - 2 * cardPadding);
+    final textPainter4 = TextPainter(
+      text: TextSpan(text: dateTimeStr, style: dateStyle),
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: cardWidth - 2 * cardPadding - 60);
 
-    // Layout the text
-    textPainter.layout(
-      minWidth: 0,
-      maxWidth: imageWidth * 0.7, // Slightly narrower for better readability
-    );
+    // Draw text
+    double y = cardTop + cardPadding;
+    textPainter1.paint(canvas, Offset(cardLeft + cardPadding, y));
+    y += textPainter1.height + 4;
+    textPainter2.paint(canvas, Offset(cardLeft + cardPadding, y));
+    y += textPainter2.height + 2;
+    textPainter3.paint(canvas, Offset(cardLeft + cardPadding, y));
+    y += textPainter3.height + 10;
 
-    // Draw semi-transparent background for watermark
-    final watermarkRect = Rect.fromLTWH(
-      imageWidth * 0.03, // 3% from left
-      imageHeight * 0.03, // 3% from top
-      textPainter.width + 24, // More padding
-      textPainter.height + 24,
+    // Draw zoom badge and date/time in a row
+    final badgeWidth = 48.0;
+    final badgeHeight = 28.0;
+    final badgeRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(cardLeft + cardPadding, y, badgeWidth, badgeHeight),
+      Radius.circular(8),
     );
-
-    // Draw gradient background for better readability
-    final gradient = ui.Gradient.linear(
-      Offset(watermarkRect.left, watermarkRect.top),
-      Offset(watermarkRect.right, watermarkRect.bottom),
-      [
-        Colors.black.withOpacity(0.7),
-        Colors.black.withOpacity(0.5),
-      ],
+    canvas.drawRRect(
+      badgeRect,
+      Paint()..color = const Color(0xFFFFD600),
     );
-
-    canvas.drawRect(
-      watermarkRect,
-      Paint()
-        ..shader = gradient
-        ..style = PaintingStyle.fill,
-    );
-
-    // Draw border around watermark
-    canvas.drawRect(
-      watermarkRect,
-      Paint()
-        ..color = Colors.white.withOpacity(0.3)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
-
-    // Draw the watermark text
-    textPainter.paint(
+    final badgePainter = TextPainter(
+      text: TextSpan(text: zoomStr, style: badgeStyle),
+      textDirection: ui.TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: badgeWidth);
+    badgePainter.paint(
       canvas,
-      Offset(
-        imageWidth * 0.03 + 12, // 3% from left + padding
-        imageHeight * 0.03 + 12, // 3% from top + padding
-      ),
+      Offset(cardLeft + cardPadding + (badgeWidth - badgePainter.width) / 2, y + (badgeHeight - badgePainter.height) / 2),
     );
+    // Date/time to the right of badge
+    textPainter4.paint(canvas, Offset(cardLeft + cardPadding + badgeWidth + 12, y + (badgeHeight - textPainter4.height) / 2));
 
     // Convert the canvas to an image
     final picture = recorder.endRecording();
@@ -218,6 +252,24 @@ class _CameraScreenState extends State<CameraScreen> {
     } finally {
       setState(() {
         _isCapturing = false;
+      });
+    }
+  }
+
+  Future<void> _setZoom(double zoom) async {
+    if (_controller != null && _controller!.value.isInitialized) {
+      await _controller!.setZoomLevel(zoom);
+      setState(() {
+        _currentZoom = zoom;
+      });
+    }
+  }
+
+  Future<void> _toggleTorch() async {
+    if (_controller != null && _controller!.value.isInitialized) {
+      await _controller!.setFlashMode(_isTorchOn ? FlashMode.off : FlashMode.torch);
+      setState(() {
+        _isTorchOn = !_isTorchOn;
       });
     }
   }
@@ -296,37 +348,135 @@ class _CameraScreenState extends State<CameraScreen> {
         children: [
           // Camera Preview
           CameraPreview(_controller!),
-          
-          // Captured Images Preview
-          if (_capturedImages.isNotEmpty)
-            Positioned(
-              bottom: 100,
-              left: 16,
-              child: Container(
-                height: 80,
-                width: 80,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white, width: 2),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+
+          // Zoom Controls (above capture button)
+          Positioned(
+            bottom: 120,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: _zoomLevels.map((zoom) {
+                final isSelected = _currentZoom == zoom;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: GestureDetector(
+                    onTap: () => _setZoom(zoom),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF222222) : Colors.white.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xFF35C2C1) : Colors.grey.shade300,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Text(
+                        zoom == 1.0 ? '1X' : zoom.toString(),
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.file(
-                    _capturedImages.last,
-                    fit: BoxFit.cover,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          // Bottom controls row
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 32,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Image preview (bottom left)
+                if (_capturedImages.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ImageReviewScreen(
+                            images: _capturedImages,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      height: 60,
+                      width: 60,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white, width: 2),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(
+                          _capturedImages.last,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 60),
+
+                // Capture button (bottom center)
+                GestureDetector(
+                  onTap: _isCapturing ? null : _takePicture,
+                  child: Container(
+                    height: 72,
+                    width: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFF35C2C1), width: 4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: _isCapturing
+                          ? const CircularProgressIndicator(color: Color(0xFF35C2C1))
+                          : const Icon(Icons.camera_alt, color: Color(0xFF35C2C1), size: 36),
+                    ),
                   ),
                 ),
-              ),
+
+                // Torch button (bottom right)
+                IconButton(
+                  icon: Icon(
+                    _isTorchOn ? Icons.flash_on : Icons.flash_off,
+                    color: _isTorchOn ? const Color(0xFF35C2C1) : Colors.white,
+                    size: 36,
+                  ),
+                  onPressed: _toggleTorch,
+                  splashRadius: 28,
+                  tooltip: 'Toggle Flash',
+                ),
+              ],
             ),
-          
-          // Image Count Badge
+          ),
+
+          // Image Count Badge (top right)
           if (_capturedImages.isNotEmpty)
             Positioned(
               top: 16,
@@ -348,37 +498,6 @@ class _CameraScreenState extends State<CameraScreen> {
             ),
         ],
       ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          if (_capturedImages.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: FloatingActionButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ImageReviewScreen(
-                        images: _capturedImages,
-                      ),
-                    ),
-                  );
-                },
-                backgroundColor: Colors.white,
-                child: const Icon(Icons.photo_library, color: Color(0xFF35C2C1)),
-              ),
-            ),
-          FloatingActionButton(
-            onPressed: _isCapturing ? null : _takePicture,
-            backgroundColor: const Color(0xFF35C2C1),
-            child: _isCapturing
-                ? const CircularProgressIndicator(color: Colors.white)
-                : const Icon(Icons.camera, color: Colors.white),
-          ),
-        ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 } 
