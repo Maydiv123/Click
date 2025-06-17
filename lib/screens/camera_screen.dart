@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'image_review_screen.dart';
 import '../models/map_location.dart';
 
@@ -40,14 +41,28 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Future<void> _initializeCamera() async {
     // Request camera permission
-    final status = await Permission.camera.request();
-    if (status.isDenied) {
+    final cameraStatus = await Permission.camera.request();
+    if (cameraStatus.isDenied) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Camera permission is required to take photos')),
         );
       }
       return;
+    }
+    
+    // Request storage permission for saving photos
+    // For Android 10+ we need to request multiple permissions
+    final storageStatus = await Permission.photos.request();
+    final mediaStatus = await Permission.storage.request();
+    
+    if (storageStatus.isDenied || mediaStatus.isDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Storage permission is required to save photos')),
+        );
+      }
+      // Continue anyway as user might grant permission later
     }
 
     // Get available cameras
@@ -239,6 +254,34 @@ class _CameraScreenState extends State<CameraScreen> {
       final XFile photo = await _controller!.takePicture();
       final watermarkedFile = await _addWatermark(File(photo.path));
       
+      // Save to gallery directly
+      final result = await ImageGallerySaver.saveFile(
+        watermarkedFile.path,
+        name: "click_${DateTime.now().millisecondsSinceEpoch}"
+      );
+      
+      if (result['isSuccess']) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image saved to gallery successfully'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to save image to gallery'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+      
       setState(() {
         _capturedImages.add(watermarkedFile);
       });
@@ -246,7 +289,10 @@ class _CameraScreenState extends State<CameraScreen> {
       debugPrint('Error taking picture: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error taking picture')),
+          SnackBar(
+            content: Text('Error taking picture: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
