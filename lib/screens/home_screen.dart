@@ -5,6 +5,7 @@ import 'openstreet_map_screen.dart';
 import 'camera_screen.dart';
 import 'search_petrol_pumps_screen.dart';
 import 'add_petrol_pump_screen.dart';
+import 'nearest_petrol_pumps_screen.dart';
 import '../widgets/profile_completion_indicator.dart';
 import 'create_team_screen.dart';
 import 'join_team_screen.dart';
@@ -247,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         MaterialPageRoute(builder: (context) => const OpenStreetMapScreen()),
       );
-    } else if (index == 4) {
+    } else if (index == 3) {
       // For profile tab, navigate to ProfileScreen
       Navigator.pushNamed(context, '/profile');
     } else {
@@ -822,7 +823,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [Colors.purple.withOpacity(0.7), Colors.purple.withOpacity(0.9)],
+                                colors: [Colors.teal.withOpacity(0.7), Colors.teal.withOpacity(0.9)],
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                               ),
@@ -1613,8 +1614,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           // Map View with options
           _buildMapSelectionView(),
-          // Empty Container for Camera (since it's a FAB)
-          Container(),
           // Search View
           const SearchPetrolPumpsScreen(),
           // Profile View
@@ -1633,7 +1632,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const CameraScreen()),
+            MaterialPageRoute(builder: (context) => const NearestPetrolPumpsScreen()),
           );
         },
         backgroundColor: const Color(0xFF35C2C1),
@@ -2361,7 +2360,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (pageIndex == _currentPage) {
       switch (pageIndex) {
         case 0:
-          buttonColor = Colors.purple.withOpacity(0.7);
+          buttonColor = Colors.teal.withOpacity(0.7);
           break;
         case 1:
           buttonColor = Colors.teal.withOpacity(0.7);

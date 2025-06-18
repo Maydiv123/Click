@@ -11,6 +11,7 @@ import 'screens/map_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/camera_screen.dart';
 import 'screens/upload_image_screen.dart';
+import 'screens/nearest_petrol_pumps_screen.dart';
 import 'firebase_options.dart';
 import 'screens/profile_screen.dart';
 import 'services/firestore_init_service.dart';
@@ -61,6 +62,7 @@ class MyApp extends StatelessWidget {
         '/camera': (context) => const CameraScreen(),
         '/upload-image': (context) => const UploadImageScreen(),
         '/profile': (context) => ProfileScreen(),
+        '/nearest-petrol-pumps': (context) => const NearestPetrolPumpsScreen(),
       },
     );
   }
