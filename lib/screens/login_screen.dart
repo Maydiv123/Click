@@ -68,171 +68,137 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
+    
     setState(() {
       _isLoading = true;
       _errorMessage = "Starting login process...";
     });
     
     try {
-      setState(() {
-        _errorMessage = "Authenticating...";
-      });
       final email = _phoneController.text + '@click.com';
-      final userCredential = await _authService.signInWithEmailAndPassword(
-        email: email,
-        password: _passwordController.text,
-      );
       
-      String uid = userCredential.user?.uid ?? 'null';
       setState(() {
-        _errorMessage = "Auth successful! UID: $uid";
+        _errorMessage = "Direct login attempt with Firebase...";
       });
-      await Future.delayed(Duration(milliseconds: 500));
+      await Future.delayed(Duration(milliseconds: 300));
       
-      if (mounted && userCredential.user != null) {
-        try {
-          // Verify user document exists in Firestore
+      try {
+        // Use Firebase Auth directly for debugging
+        final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: _passwordController.text,
+        );
+        
+        final uid = userCredential.user?.uid;
+        setState(() {
+          _errorMessage = "Auth successful! UID: $uid";
+        });
+        await Future.delayed(Duration(milliseconds: 300));
+        
+        // Only proceed if we have a user
+        if (userCredential.user == null) {
           setState(() {
-            _errorMessage = "Fetching user document...";
+            _errorMessage = "ERROR: User is null after successful auth";
+            _isLoading = false;
           });
-          await Future.delayed(Duration(milliseconds: 500));
-          
+          return;
+        }
+        
+        // Check Firestore user document
+        setState(() {
+          _errorMessage = "Checking Firestore user document...";
+        });
+        await Future.delayed(Duration(milliseconds: 300));
+        
+        try {
           final userDoc = await FirebaseFirestore.instance
               .collection('users')
-              .doc(userCredential.user!.uid)
+              .doc(uid)
               .get();
-          
-          String docStatus = userDoc.exists ? "EXISTS" : "MISSING";
-          
-          if (userDoc.exists) {
-            Map<String, dynamic>? data = userDoc.data();
-            
-            // Create a string representation of important fields
-            List<String> dataInfo = [];
-            if (data != null) {
-              if (data.containsKey('firstName')) dataInfo.add('firstName: ${data['firstName']}');
-              if (data.containsKey('lastName')) dataInfo.add('lastName: ${data['lastName']}');
-              if (data.containsKey('userType')) dataInfo.add('userType: ${data['userType']}');
-              if (data.containsKey('mobile')) dataInfo.add('mobile: ${data['mobile']}');
-              if (data.containsKey('teamCode')) dataInfo.add('teamCode: ${data['teamCode']}');
-            }
-            String docData = dataInfo.isNotEmpty ? dataInfo.join(', ') : "Empty document";
-            
-            setState(() {
-              _errorMessage = "USER DATA - $docStatus\n$docData";
-            });
-            await Future.delayed(Duration(seconds: 2));
-          }
-          
+              
           if (!userDoc.exists) {
             setState(() {
-              _errorMessage = 'ERROR: User profile not found. UID: $uid';
+              _errorMessage = "ERROR: No user document found for UID: $uid";
               _isLoading = false;
             });
             return;
           }
           
-          // Update last login timestamp
-          setState(() {
-            _errorMessage = "Updating last login timestamp...";
-          });
-          await Future.delayed(Duration(milliseconds: 500));
-          
-          try {
-            await _authService.updateLastLogin(userCredential.user!.uid);
-            setState(() {
-              _errorMessage = "Timestamp updated successfully!";
-            });
-            await Future.delayed(Duration(milliseconds: 500));
-          } catch (timestampError) {
-            setState(() {
-              _errorMessage = 'ERROR: Auth OK, Doc OK, but timestamp update failed: ${timestampError.toString()}';
-              _isLoading = false;
-            });
-            return;
-          }
-          
-          // Navigation check
-          setState(() {
-            _errorMessage = "Navigating to home screen...";
-          });
-          await Future.delayed(Duration(milliseconds: 500));
-          
-          try {
-            if (mounted) {
-              setState(() {
-                _errorMessage = "Login successful! Redirecting...";
-              });
-              Navigator.pushReplacementNamed(context, '/home');
-            } else {
-              setState(() {
-                _errorMessage = 'ERROR: Auth & Doc OK, but widget not mounted for navigation';
-                _isLoading = false;
-              });
+          // Show user data briefly
+          Map<String, dynamic>? data = userDoc.data();
+          String dataStr = "User document exists";
+          if (data != null) {
+            List<String> fields = [];
+            if (data['firstName'] != null) fields.add("firstName: ${data['firstName']}");
+            if (data['lastName'] != null) fields.add("lastName: ${data['lastName']}");
+            if (data['mobile'] != null) fields.add("mobile: ${data['mobile']}");
+            if (fields.isNotEmpty) {
+              dataStr = fields.join(", ");
             }
-          } catch (navError) {
+          }
+          
+          setState(() {
+            _errorMessage = "User data: $dataStr";
+          });
+          await Future.delayed(Duration(milliseconds: 500));
+          
+          // Try updating last login
+          setState(() {
+            _errorMessage = "Updating last login...";
+          });
+          
+          try {
+            await FirebaseFirestore.instance.collection('users').doc(uid).update({
+              'lastLogin': FieldValue.serverTimestamp(),
+            });
+            
             setState(() {
-              _errorMessage = 'ERROR: Auth & Doc OK, but navigation failed: ${navError.toString()}';
+              _errorMessage = "Last login updated successfully";
+            });
+            await Future.delayed(Duration(milliseconds: 300));
+            
+            // Success! Navigate to home
+            setState(() {
+              _errorMessage = "Login successful! Redirecting...";
+            });
+            
+            // Navigate with delay to show message
+            await Future.delayed(Duration(milliseconds: 500));
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+          } catch (updateError) {
+            setState(() {
+              _errorMessage = "ERROR updating lastLogin: ${updateError.toString()}";
               _isLoading = false;
             });
           }
+          
         } catch (firestoreError) {
-          if (firestoreError is FirebaseException) {
-            setState(() {
-              _errorMessage = 'ERROR: Firestore [${firestoreError.code}]: ${firestoreError.message}. UID: $uid';
-              _isLoading = false;
-            });
-          } else {
-            setState(() {
-              _errorMessage = 'ERROR: Database: ${firestoreError.toString()}. UID: $uid';
-              _isLoading = false;
-            });
-          }
+          setState(() {
+            _errorMessage = "Firestore error: ${firestoreError.toString()}";
+            _isLoading = false;
+          });
         }
-      } else {
-        setState(() {
-          _errorMessage = 'ERROR: Authentication succeeded but user data is missing. UID: $uid';
-          _isLoading = false;
-        });
+      } catch (authError) {
+        if (authError is FirebaseAuthException) {
+          String message = "Firebase Auth Error: [${authError.code}] ${authError.message}";
+          setState(() {
+            _errorMessage = message;
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = "Auth error: ${authError.toString()}";
+            _isLoading = false;
+          });
+        }
       }
-    } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      switch (e.code) {
-        case 'invalid-email':
-          errorMessage = 'ERROR: Invalid email format';
-          break;
-        case 'user-not-found':
-          errorMessage = 'ERROR: No account found for this phone number';
-          break;
-        case 'wrong-password':
-          errorMessage = 'ERROR: Incorrect password';
-          break;
-        case 'too-many-requests':
-          errorMessage = 'ERROR: Too many attempts. Try again later';
-          break;
-        default:
-          errorMessage = 'ERROR: Auth [${e.code}]: ${e.message}';
-      }
-      setState(() {
-        _errorMessage = errorMessage;
-        _isLoading = false;
-      });
     } catch (e) {
-      String stackTrace = '';
-      try {
-        stackTrace = StackTrace.current.toString().split('\n').take(5).join('\n');
-      } catch (_) {}
-      
       setState(() {
-        _errorMessage = 'ERROR: [${e.runtimeType}]: ${e.toString()}\nStack: $stackTrace';
+        _errorMessage = "Unexpected error: [${e.runtimeType}] ${e.toString()}";
         _isLoading = false;
       });
-    } finally {
-      if (mounted && _isLoading) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 

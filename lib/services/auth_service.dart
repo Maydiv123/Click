@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'user_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -62,19 +64,41 @@ class AuthService {
     required String password,
   }) async {
     try {
+      // Check if Firebase is initialized
+      if (Firebase.apps.isEmpty) {
+        throw 'Firebase is not initialized. Please restart the app.';
+      }
+      
       return await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
     } on FirebaseAuthException catch (e) {
+      print('FirebaseAuthException in auth_service: ${e.code} - ${e.message}');
       if (e.code == 'user-not-found') {
         throw 'No user found for that email.';
       } else if (e.code == 'wrong-password') {
         throw 'Wrong password provided for that user.';
-      }
+      } else if (e.code == 'invalid-email') {
+        throw 'Invalid email format.';
+      } else if (e.code == 'user-disabled') {
+        throw 'This user account has been disabled.';
+      } else if (e.code == 'operation-not-allowed') {
+        throw 'Email/password sign-in is not enabled.';
+      } else if (e.code == 'too-many-requests') {
+        throw 'Too many failed login attempts. Try again later.';
+      } else if (e.code == 'network-request-failed') {
+        throw 'Network error. Check your internet connection.';
+      } else if (e.code == 'app-not-authorized') {
+        throw 'App not authorized to use Firebase Authentication.';
+      } 
       throw e.message ?? 'An error occurred during sign in.';
+    } on PlatformException catch (e) {
+      print('PlatformException in auth_service: ${e.code} - ${e.message}');
+      throw 'Platform error: [${e.code}] ${e.message}';
     } catch (e) {
-      throw 'An error occurred during sign in.';
+      print('General error in auth_service: ${e.toString()} (${e.runtimeType})');
+      throw 'Sign in error: ${e.toString()} (${e.runtimeType})';
     }
   }
 
