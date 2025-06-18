@@ -1,9 +1,12 @@
+import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 import 'map_screen.dart';
-import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/auth_service.dart';
+import '../firebase_options.dart';
 
 class LoginScreen extends StatefulWidget { 
   const LoginScreen({Key? key}) : super(key: key);
@@ -64,30 +67,51 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
+
     try {
+      // 🔒 Ensure Firebase is initialized
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
+
       final email = _phoneController.text + '@click.com';
       final userCredential = await _authService.signInWithEmailAndPassword(
         email: email,
         password: _passwordController.text,
       );
-      
-      // Wait for the auth state to be updated
+
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       if (mounted && userCredential.user != null) {
-        // Update last login timestamp
         await _authService.updateLastLogin(userCredential.user!.uid);
-        
-        // Navigate to home screen
         Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        if (e is FirebaseAuthException) {
+          switch (e.code) {
+            case 'user-not-found':
+              _errorMessage = 'No account found for this number.';
+              break;
+            case 'wrong-password':
+              _errorMessage = 'Incorrect password.';
+              break;
+            case 'network-request-failed':
+              _errorMessage = 'Check your internet connection.';
+              break;
+            default:
+              _errorMessage = 'Login failed: ${e.message}';
+          }
+        } else {
+          _errorMessage = 'Unexpected error: ${e.toString()}';
+        }
       });
     } finally {
       setState(() {
@@ -129,7 +153,27 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   keyboardType: TextInputType.phone,
                   maxLength: 10,
                   decoration: InputDecoration(
-                    hintText: 'Enter your phone number',
+                    prefixIcon: Container(
+                      // margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(10),
+                          bottomLeft: Radius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        '+91',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                    hintText: 'Enter your Mobile Number',
                     hintStyle: TextStyle(color: Colors.grey[600]),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -138,6 +182,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     fillColor: Colors.grey[200],
                     filled: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    counterText: "",
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) return 'Please enter your phone number';

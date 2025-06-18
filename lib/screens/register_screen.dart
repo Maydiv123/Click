@@ -30,9 +30,6 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   // Form controllers
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _dobController = TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _aadharController = TextEditingController();
   final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _teamCodeController = TextEditingController();
   final TextEditingController _teamNameController = TextEditingController();
@@ -80,29 +77,12 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     _controller.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _dobController.dispose();
-    _addressController.dispose();
-    _aadharController.dispose();
     _mobileController.dispose();
     _teamCodeController.dispose();
     _teamNameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) {
-      setState(() {
-        _dobController.text = "${picked.day}/${picked.month}/${picked.year}";
-      });
-    }
   }
 
   void _checkPasswordMatch(String confirmPassword) {
@@ -149,9 +129,6 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       await _userService.updateUserDocument(
         userCredential.user!.uid,
         {
-          'dob': _dobController.text,
-          'address': _addressController.text,
-          'aadharNo': _aadharController.text,
           'preferredCompanies': preferredCompanies,
           if (_selectedUserType == UserType.teamOwner) 'teamName': _teamNameController.text,
         },
@@ -332,51 +309,6 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         ),
                         const SizedBox(height: 20),
                         
-                        // DOB
-                        TextFormField(
-                          controller: _dobController,
-                          readOnly: true,
-                          validator: (value) => value?.isEmpty ?? true ? 'Please select your date of birth' : null,
-                          onTap: () => _selectDate(context),
-                          decoration: _buildInputDecoration(
-                            'Date of Birth',
-                            'Select your date of birth',
-                            Icons.calendar_today,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        // Address
-                        TextFormField(
-                          controller: _addressController,
-                          validator: (value) => value?.isEmpty ?? true ? 'Please enter your address' : null,
-                          maxLines: 3,
-                          decoration: _buildInputDecoration(
-                            'Address',
-                            'Enter your complete address',
-                            Icons.location_on_outlined,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        // Aadhar No
-                        TextFormField(
-                          controller: _aadharController,
-                          validator: (value) {
-                            if (value?.isEmpty ?? true) return 'Please enter your Aadhar number';
-                            if (value!.length != 12) return 'Aadhar number must be 12 digits';
-                            return null;
-                          },
-                          keyboardType: TextInputType.number,
-                          maxLength: 12,
-                          decoration: _buildInputDecoration(
-                            'Aadhar No',
-                            'Enter your 12-digit Aadhar number',
-                            Icons.credit_card,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        
                         // Mobile No
                         TextFormField(
                           controller: _mobileController,
@@ -421,19 +353,38 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
                         const SizedBox(height: 20),
                         
-                        // Oil Company Checkboxes
+                        // Oil Company Selection
                         const Text(
-                          'Select Oil Company',
+                          'Select Your Company',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        _buildCompanyCheckbox('IOCL', _ioclChecked, (value) => setState(() => _ioclChecked = value ?? false)),
-                        _buildCompanyCheckbox('HPCL', _hpclChecked, (value) => setState(() => _hpclChecked = value ?? false)),
-                        _buildCompanyCheckbox('BPCL', _bpclChecked, (value) => setState(() => _bpclChecked = value ?? false)),
+                        const SizedBox(height: 16),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildCompanyCard(
+                                'IOCL',
+                                _ioclChecked,
+                                () => setState(() => _ioclChecked = !_ioclChecked),
+                              ),
+                              _buildCompanyCard(
+                                'HPCL',
+                                _hpclChecked,
+                                () => setState(() => _hpclChecked = !_hpclChecked),
+                              ),
+                              _buildCompanyCard(
+                                'BPCL',
+                                _bpclChecked,
+                                () => setState(() => _bpclChecked = !_bpclChecked),
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 20),
                         
                         // Password Field
@@ -567,21 +518,150 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildCompanyCheckbox(String title, bool value, Function(bool?) onChanged) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+  Widget _buildCompanyCard(String companyName, bool isSelected, VoidCallback onTap) {
+    if (companyName == 'IOCL') {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 100,
+          height: 120,
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.blue.shade50 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? Colors.blue : Colors.grey.shade300,
+              width: 2,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              isSelected
+                ? 'assets/images/IOCL Color.png'
+                : 'assets/images/IOCL B&W.png',
+              width: 100,
+              height: 120,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (companyName == 'HPCL') {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 100,
+          height: 120,
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.blue.shade50 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? Colors.blue : Colors.grey.shade300,
+              width: 2,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              isSelected
+                ? 'assets/images/HPCL Color.png'
+                : 'assets/images/HPCL B&W1.png',
+              width: 100,
+              height: 120,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (companyName == 'BPCL') {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 100,
+          height: 120,
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.blue.shade50 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? Colors.blue : Colors.grey.shade300,
+              width: 2,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              isSelected
+                ? 'assets/images/BPCL Color.png'
+                : 'assets/images/BPCL B&W1.png',
+              width: 100,
+              height: 120,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // For other companies, keep the existing design
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 100,
+        height: 120,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.shade50 : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey.shade300,
+            width: 2,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: CheckboxListTile(
-        title: Text(title),
-        value: value,
-        onChanged: onChanged,
-        activeColor: Colors.blue,
-        checkColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  companyName.substring(0, 1),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.blue : Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              companyName,
+              style: TextStyle(
+                color: isSelected ? Colors.blue : Colors.grey,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
       ),
     );

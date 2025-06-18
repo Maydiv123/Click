@@ -58,9 +58,16 @@ class _HomeScreenState extends State<HomeScreen> {
     ],
   };
 
+  // Add this controller as a class field
+  late PageController _pageController;
+
+  // Add this field to track current page
+  int _currentPage = 0;
+
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(viewportFraction: 1.0);
     _getCurrentLocation();
     _fetchTodayDistance();
     
@@ -74,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _locationTimer?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -527,7 +535,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Padding(
                           padding: EdgeInsets.only(left: 16, top: 16, bottom: 8),
                           child: Text(
-                            'TEAM OPTIONS',
+                            'TEAM',
                             style: TextStyle(
                               color: Colors.grey,
                               fontSize: 12,
@@ -582,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Padding(
                         padding: EdgeInsets.only(left: 16, bottom: 8),
                         child: Text(
-                          'NAVIGATION',
+                          'SERVICES',
                           style: TextStyle(
                             color: Colors.grey,
                             fontSize: 12,
@@ -783,15 +791,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Navigation Buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildNavButton('Profile', 0),
+                        const SizedBox(width: 8),
+                        _buildNavButton('Team', 1),
+                        const SizedBox(width: 8),
+                        _buildNavButton('Stats', 2),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     // User Status Card
                     Container(
-                      margin: const EdgeInsets.all(16),
-                      height: 200,
+                      height: 150,
                       child: PageView(
-                        physics: const BouncingScrollPhysics(),
+                        physics: const NeverScrollableScrollPhysics(),
                         pageSnapping: true,
                         padEnds: false,
-                        controller: PageController(viewportFraction: 0.85),
+                        controller: _pageController,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _currentPage = index;
+                          });
+                        },
                         children: [
                           // First Card - User Details
                           Container(
@@ -843,7 +867,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                           ),
                                           Text(
-                                            'Last login: ${userData['lastLogin'] != null ? DateTime.fromMillisecondsSinceEpoch(userData['lastLogin'].millisecondsSinceEpoch).toString() : 'N/A'}',
+                                            '',
                                             style: TextStyle(
                                               color: Colors.white.withOpacity(0.7),
                                               fontSize: 11,
@@ -856,27 +880,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                       onTap: () {
                                         Navigator.pushNamed(context, '/profile');
                                       },
-                                      child: Column(
+                                      child: Row(
                                         children: [
                                           ProfileCompletionIndicator(
                                             completionPercentage: completionPercentage,
-                                            size: 35,
+                                            size: 40,
                                             strokeWidth: 3,
                                             progressColor: Colors.white,
                                             backgroundColor: Colors.white,
                                             percentageStyle: const TextStyle(
-                                              fontSize: 9,
+                                              fontSize: 10,
                                               fontWeight: FontWeight.bold,
                                               color: Colors.white,
                                             ),
                                           ),
-                                          const SizedBox(height: 2),
+                                          const SizedBox(width: 4),
                                           Text(
                                             "Profile",
                                             style: TextStyle(
                                               color: Colors.white.withOpacity(0.8),
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w500,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
                                             ),
                                           ),
                                         ],
@@ -957,47 +981,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                Center(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.4),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.4),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               ],
                             ),
                           ),
                           
                           // Second Card - Team Details
                           Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 10),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -1102,47 +1091,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ],
                                   ),
                                 ),
-                                const Spacer(),
-                                Center(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.4),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.4),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               ],
                             ),
                           ),
                           
                           // Third Card - Statistics
                           Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 10),
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -1212,81 +1166,47 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 8),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                        children: [
-                                          Column(
-                                            children: [
-                                              Text(
-                                                '${_todayDistance.toStringAsFixed(1)} km',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              Row(
-                                                children: [
-                                                  Text(
-                                                    'Today',
-                                                    style: TextStyle(
-                                                      color: Colors.white.withOpacity(0.7),
-                                                      fontSize: 10,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 2),
-                                                  Icon(
-                                                    Icons.directions_car,
-                                                    color: Colors.white.withOpacity(0.7),
-                                                    size: 8,
-                                                  ),
-                                                ],
-                                              ),
-                                              Text(
-                                                'Total: ${(stats['totalDistance'] ?? 0).toStringAsFixed(1)} km',
-                                                style: TextStyle(
-                                                  color: Colors.white.withOpacity(0.5),
-                                                  fontSize: 8,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Spacer(),
-                                Center(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 5,
-                                        height: 5,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.4),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Container(
-                                        width: 5,
-                                        height: 5,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.4),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Container(
-                                        width: 5,
-                                        height: 5,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
+                                      // Row(
+                                      //   mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      //   children: [
+                                      //     Column(
+                                      //       children: [
+                                      //         Text(
+                                      //           '${_todayDistance.toStringAsFixed(1)} km',
+                                      //           style: const TextStyle(
+                                      //             color: Colors.white,
+                                      //             fontSize: 14,
+                                      //             fontWeight: FontWeight.bold,
+                                      //           ),
+                                      //         ),
+                                      //         Row(
+                                      //           children: [
+                                      //             Text(
+                                      //               'Today',
+                                      //               style: TextStyle(
+                                      //                 color: Colors.white.withOpacity(0.7),
+                                      //                 fontSize: 10,
+                                      //               ),
+                                      //             ),
+                                      //             const SizedBox(width: 2),
+                                      //             Icon(
+                                      //               Icons.directions_car,
+                                      //               color: Colors.white.withOpacity(0.7),
+                                      //               size: 8,
+                                      //             ),
+                                      //           ],
+                                      //         ),
+                                      //         Text(
+                                      //           'Total: ${(stats['totalDistance'] ?? 0).toStringAsFixed(1)} km',
+                                      //           style: TextStyle(
+                                      //             color: Colors.white.withOpacity(0.5),
+                                      //             fontSize: 8,
+                                      //           ),
+                                      //         ),
+                                      //       ],
+                                      //     ),
+                                      //   ],
+                                      // ),
                                     ],
                                   ),
                                 ),
@@ -1296,87 +1216,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
-
-                    // Daily Distance Summary - Commented out as requested
-                    /*if (_todayDistance > 0)
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              spreadRadius: 1,
-                              blurRadius: 5,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.directions_car, color: Colors.blue),
-                                ),
-                                const SizedBox(width: 12),
-                                const Text(
-                                  'Today\'s Travel',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const Spacer(),
-                                TextButton.icon(
-                                  icon: const Icon(Icons.history, size: 16),
-                                  label: const Text('History'),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => const LocationHistoryScreen(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                _buildDistanceStat(
-                                  'Distance',
-                                  '${_todayDistance.toStringAsFixed(1)} km',
-                                  Icons.straighten,
-                                  Colors.blue,
-                                ),
-                                _buildDistanceStat(
-                                  'Checkpoints',
-                                  '${(_todayDistance / 0.5).ceil()}',
-                                  Icons.location_on,
-                                  Colors.red,
-                                ),
-                                _buildDistanceStat(
-                                  'Avg. Speed',
-                                  '${(_todayDistance * 5).toStringAsFixed(1)} km/h',
-                                  Icons.speed,
-                                  Colors.amber,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),*/
 
                     // Quick Actions section - title and view all button commented out
                     /*Padding(
@@ -1414,17 +1253,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          SizedBox(
-                            height: 120,
-                            child: ListView(
-                              scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(),
-                              children: [
-                                _buildActionCard(
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildActionCard(
                                   context,
-                                  'View Map',
-                                  'Explore petrol pumps in your area',
-                                  Icons.map,
+                                  'Map',
+                                  '',
+                                  Icons.location_on,
                                   const Color(0xFF4A6FFF),
                                   () {
                                     Navigator.push(
@@ -1433,8 +1269,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     );
                                   },
                                 ),
-                                const SizedBox(width: 12),
-                                _buildActionCard(
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildActionCard(
                                   context,
                                   'Search',
                                   'Find petrol pumps by name or location',
@@ -1447,8 +1285,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     );
                                   },
                                 ),
-                                const SizedBox(width: 12),
-                                _buildActionCard(
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildActionCard(
                                   context,
                                   'Add Pump',
                                   'Contribute by adding a new petrol pump',
@@ -1461,9 +1301,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     );
                                   },
                                 ),
-                                const SizedBox(width: 16),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -1594,119 +1433,119 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),*/
 
                     // Most Visited Stations
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Most Visited Stations',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: staticData['frequentVisits'].length,
-                            itemBuilder: (context, index) {
-                              final station = staticData['frequentVisits'][index];
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: ListTile(
-                                  leading: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(Icons.local_gas_station, color: Colors.blue),
-                                  ),
-                                  title: Text(station['name']),
-                                  subtitle: Text('${station['visits']} visits • Last: ${station['lastVisit']}'),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.star, color: Colors.amber, size: 16),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        station['rating'].toString(),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  onTap: () {
-                                    // TODO: Show station details
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Padding(
+                    //   padding: const EdgeInsets.all(16),
+                    //   child: Column(
+                    //     crossAxisAlignment: CrossAxisAlignment.start,
+                    //     children: [
+                    //       const Text(
+                    //         'Most Visited Stations',
+                    //         style: TextStyle(
+                    //           fontSize: 18,
+                    //           fontWeight: FontWeight.bold,
+                    //         ),
+                    //       ),
+                    //       const SizedBox(height: 12),
+                    //       ListView.builder(
+                    //         shrinkWrap: true,
+                    //         physics: const NeverScrollableScrollPhysics(),
+                    //         itemCount: staticData['frequentVisits'].length,
+                    //         itemBuilder: (context, index) {
+                    //           final station = staticData['frequentVisits'][index];
+                    //           return Card(
+                    //             margin: const EdgeInsets.only(bottom: 8),
+                    //             child: ListTile(
+                    //               leading: Container(
+                    //                 padding: const EdgeInsets.all(8),
+                    //                 decoration: BoxDecoration(
+                    //                   color: Colors.blue.withOpacity(0.1),
+                    //                   borderRadius: BorderRadius.circular(8),
+                    //                 ),
+                    //                 child: const Icon(Icons.local_gas_station, color: Colors.blue),
+                    //               ),
+                    //               title: Text(station['name']),
+                    //               subtitle: Text('${station['visits']} visits • Last: ${station['lastVisit']}'),
+                    //               trailing: Row(
+                    //                 mainAxisSize: MainAxisSize.min,
+                    //                 children: [
+                    //                   const Icon(Icons.star, color: Colors.amber, size: 16),
+                    //                   const SizedBox(width: 4),
+                    //                   Text(
+                    //                     station['rating'].toString(),
+                    //                     style: const TextStyle(
+                    //                       fontWeight: FontWeight.bold,
+                    //                     ),
+                    //                   ),
+                    //                 ],
+                    //               ),
+                    //               onTap: () {
+                    //                 // TODO: Show station details
+                    //               },
+                    //             ),
+                    //           );
+                    //         },
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
 
-                    // Recent Activity
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Recent Activity',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: staticData['recentActivities'].length,
-                            itemBuilder: (context, index) {
-                              final activity = staticData['recentActivities'][index];
-                              return ListTile(
-                                leading: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF35C2C1).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    activity['type'] == 'visit' 
-                                        ? Icons.location_on 
-                                        : activity['type'] == 'upload'
-                                            ? Icons.upload
-                                            : Icons.chat,
-                                    color: const Color(0xFF35C2C1),
-                                  ),
-                                ),
-                                title: Text(activity['location']),
-                                subtitle: Text(activity['time']),
-                                trailing: activity['type'] == 'visit'
-                                    ? Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.star, color: Colors.amber, size: 16),
-                                          const SizedBox(width: 4),
-                                          Text(activity['rating'].toString()),
-                                        ],
-                                      )
-                                    : const Icon(Icons.arrow_forward_ios, size: 16),
-                                onTap: () {
-                                  // TODO: Show activity details
-                                },
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
+                    // // Recent Activity
+                    // Padding(
+                    //   padding: const EdgeInsets.all(16),
+                    //   child: Column(
+                    //     crossAxisAlignment: CrossAxisAlignment.start,
+                    //     children: [
+                    //       const Text(
+                    //         'Recent Activity',
+                    //         style: TextStyle(
+                    //           fontSize: 18,
+                    //           fontWeight: FontWeight.bold,
+                    //         ),
+                    //       ),
+                    //       const SizedBox(height: 16),
+                    //       ListView.builder(
+                    //         shrinkWrap: true,
+                    //         physics: const NeverScrollableScrollPhysics(),
+                    //         itemCount: staticData['recentActivities'].length,
+                    //         itemBuilder: (context, index) {
+                    //           final activity = staticData['recentActivities'][index];
+                    //           return ListTile(
+                    //             leading: Container(
+                    //               padding: const EdgeInsets.all(8),
+                    //               decoration: BoxDecoration(
+                    //                 color: const Color(0xFF35C2C1).withOpacity(0.1),
+                    //                 borderRadius: BorderRadius.circular(8),
+                    //               ),
+                    //               child: Icon(
+                    //                 activity['type'] == 'visit' 
+                    //                     ? Icons.location_on 
+                    //                     : activity['type'] == 'upload'
+                    //                         ? Icons.upload
+                    //                         : Icons.chat,
+                    //                 color: const Color(0xFF35C2C1),
+                    //               ),
+                    //             ),
+                    //             title: Text(activity['location']),
+                    //             subtitle: Text(activity['time']),
+                    //             trailing: activity['type'] == 'visit'
+                    //                 ? Row(
+                    //                     mainAxisSize: MainAxisSize.min,
+                    //                     children: [
+                    //                       const Icon(Icons.star, color: Colors.amber, size: 16),
+                    //                       const SizedBox(width: 4),
+                    //                       Text(activity['rating'].toString()),
+                    //                     ],
+                    //                   )
+                    //                 : const Icon(Icons.arrow_forward_ios, size: 16),
+                    //             onTap: () {
+                    //               // TODO: Show activity details
+                    //             },
+                    //           );
+                    //         },
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
 
                     // Upcoming Tasks - Commented out as functionality is not working
                     /*Container(
@@ -2365,12 +2204,12 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Background pattern
             Positioned(
-              right: -20,
-              bottom: -20,
+              right: -15,
+              bottom: -15,
               child: Icon(
                 icon,
-                size: 80,
-                color: Colors.white.withOpacity(0.1),
+                size: 90,
+                color: Colors.white.withOpacity(0.15),
               ),
             ),
             // Content
@@ -2392,20 +2231,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 14,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 10,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  // Text(
+                  //   subtitle,
+                  //   style: TextStyle(
+                  //     color: Colors.white.withOpacity(0.8),
+                  //     fontSize: 10,
+                  //   ),
+                  //   maxLines: 2,
+                  //   overflow: TextOverflow.ellipsis,
+                  // ),
                 ],
               ),
             ),
@@ -2513,6 +2352,64 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: onTap,
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+    );
+  }
+
+  // Add this method to the class
+  Widget _buildNavButton(String label, int pageIndex) {
+    Color buttonColor;
+    if (pageIndex == _currentPage) {
+      switch (pageIndex) {
+        case 0:
+          buttonColor = Colors.purple.withOpacity(0.7);
+          break;
+        case 1:
+          buttonColor = Colors.teal.withOpacity(0.7);
+          break;
+        case 2:
+          buttonColor = Colors.deepPurple.withOpacity(0.7);
+          break;
+        default:
+          buttonColor = Colors.grey.withOpacity(0.7);
+      }
+    } else {
+      buttonColor = Colors.grey.withOpacity(0.3);
+    }
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentPage = pageIndex;
+        });
+        _pageController.animateToPage(
+          pageIndex,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), // Increased padding
+        decoration: BoxDecoration(
+          color: buttonColor,
+          borderRadius: BorderRadius.circular(20), // Increased border radius
+          boxShadow: [
+            BoxShadow(
+              color: buttonColor.withOpacity(0.3),
+              spreadRadius: 1,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15, // Increased font size
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -32,7 +32,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
   List<String> _districts = ['All Districts'];
   
   // Radius filter
-  double _radiusInKm = 5.0;  // Default radius 5km
+  double _radiusInKm = 1.0;  // Default radius 5km
   bool _useRadiusFilter = false;
   final List<double> _availableRadiusOptions = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0];
   
@@ -445,19 +445,18 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
           ),
           
           // Stats bar
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            color: Colors.blue[50],
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                // _buildStatItem('Total', _allLocations.length.toString()),
-                _buildStatItem('In Radius', _filteredLocations.length.toString()),
-                if (_useRadiusFilter && _currentPosition != null)
+          if (_useRadiusFilter && _currentPosition != null)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              color: Colors.blue[50],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildStatItem('In Radius', _filteredLocations.length.toString()),
                   _buildStatItem('Radius', '${_radiusInKm.toStringAsFixed(1)} km'),
-              ],
+                ],
+              ),
             ),
-          ),
           
           // Top 50%: Map
           Expanded(
@@ -636,6 +635,8 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
         onPressed: () {
           setState(() {
             _isLoading = true;
+            _useRadiusFilter = false;
+            _radiusInKm = 1.0;
           });
           _loadMapLocations();
           _getCurrentLocation();
