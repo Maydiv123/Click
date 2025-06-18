@@ -8,6 +8,7 @@ import 'map_screen.dart';
 import '../services/auth_service.dart';
 import '../firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget { 
   const LoginScreen({Key? key}) : super(key: key);
@@ -71,133 +72,45 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     
     setState(() {
       _isLoading = true;
-      _errorMessage = "Starting login process...";
+      _errorMessage = null;
     });
     
     try {
-      final email = _phoneController.text + '@click.com';
-      
-      setState(() {
-        _errorMessage = "Attempting login with workaround...";
-      });
-      
+      // Step 1: Force sign out first
       try {
-        // Use a workaround approach to avoid PigeonUserDetails cast error
-        // First authenticate without accessing the User object directly
-        setState(() {
-          _errorMessage = "Authenticating...";
-        });
-        
-        // Use Future.then to avoid the PigeonUserDetails issue
+        await FirebaseAuth.instance.signOut();
+      } catch (e) {
+        // Ignore sign out errors
+      }
+      
+      // Step 2: Email construction & simple login
+      final email = _phoneController.text + '@click.com';
+      final password = _passwordController.text;
+      
+      // Step 3: Do a simple login with try-catch
+      try {
         await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: email,
-          password: _passwordController.text,
-        ).then((userCredential) async {
-          // Successfully authenticated
-          setState(() {
-            _errorMessage = "Auth successful with workaround!";
-          });
-          await Future.delayed(Duration(milliseconds: 300));
-          
-          // Get UID safely
-          final uid = FirebaseAuth.instance.currentUser?.uid;
-          if (uid == null) {
-            setState(() {
-              _errorMessage = "ERROR: Authentication succeeded but UID is null";
-              _isLoading = false;
-            });
-            return;
-          }
-          
-          setState(() {
-            _errorMessage = "Checking Firestore user document...";
-          });
-          
-          try {
-            // Check if user document exists
-            final userDoc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(uid)
-                .get();
-                
-            if (!userDoc.exists) {
-              setState(() {
-                _errorMessage = "ERROR: No user document found for UID: $uid";
-                _isLoading = false;
-              });
-              return;
-            }
-            
-            // Try to update last login without using AuthService
-            setState(() {
-              _errorMessage = "Updating last login timestamp...";
-            });
-            
-            try {
-              await FirebaseFirestore.instance.collection('users').doc(uid).update({
-                'lastLogin': FieldValue.serverTimestamp(),
-              });
-              
-              setState(() {
-                _errorMessage = "Login successful! Redirecting...";
-              });
-              
-              // Navigate to home screen
-              await Future.delayed(Duration(milliseconds: 500));
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/home');
-              }
-            } catch (updateError) {
-              setState(() {
-                _errorMessage = "ERROR updating lastLogin: ${updateError.toString()}";
-                _isLoading = false;
-              });
-            }
-          } catch (firestoreError) {
-            setState(() {
-              _errorMessage = "Firestore error: ${firestoreError.toString()}";
-              _isLoading = false;
-            });
-          }
-        });
-      } catch (authError) {
-        // Handle authentication errors
-        if (authError is FirebaseAuthException) {
-          String code = authError.code;
-          String errorMsg ="Firebase Auth Error: [${authError.code}] ${authError.message}";
-          
-          switch (code) {
-            case 'user-not-found':
-              errorMsg = "No account found with this phone number";
-              break;
-            case 'wrong-password':
-              errorMsg = "Incorrect password";
-              break;
-            case 'invalid-email':
-              errorMsg = "Invalid email format";
-              break;
-            case 'too-many-requests':
-              errorMsg = "Too many login attempts, try again later";
-              break;
-            default:
-              errorMsg += " " + (authError.message ?? "");
-              break;
-          }
-          
-          setState(() {
-            _errorMessage = errorMsg;
-            _isLoading = false;
-          });
-        } else {
-          setState(() {
-            _errorMessage = "Auth error: ${authError.toString()}";
-            _isLoading = false;
-          });
+          password: password,
+        );
+        
+        // Wait to ensure firebase has time to update internal state
+        await Future.delayed(Duration(seconds: 1));
+        
+        // Step 4: Navigate directly to home screen
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
         }
+      } catch (e) {
+        // Simple error handling
+        setState(() {
+          _errorMessage = "Login failed: ${e.toString()}";
+          _isLoading = false;
+        });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = "Unexpected error: [${e.runtimeType}] ${e.toString()}";
+        _errorMessage = "Error: ${e.toString()}";
         _isLoading = false;
       });
     }
