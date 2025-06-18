@@ -70,65 +70,169 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
+      _errorMessage = "Starting login process...";
     });
+    
     try {
+      setState(() {
+        _errorMessage = "Authenticating...";
+      });
       final email = _phoneController.text + '@click.com';
       final userCredential = await _authService.signInWithEmailAndPassword(
         email: email,
         password: _passwordController.text,
       );
       
+      String uid = userCredential.user?.uid ?? 'null';
+      setState(() {
+        _errorMessage = "Auth successful! UID: $uid";
+      });
+      await Future.delayed(Duration(milliseconds: 500));
+      
       if (mounted && userCredential.user != null) {
-        // Verify user document exists in Firestore
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userCredential.user!.uid)
-            .get();
-        
-        if (!userDoc.exists) {
+        try {
+          // Verify user document exists in Firestore
           setState(() {
-            _errorMessage = 'User profile not found. Please contact support.';
-            _isLoading = false;
+            _errorMessage = "Fetching user document...";
           });
-          return;
+          await Future.delayed(Duration(milliseconds: 500));
+          
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .get();
+          
+          String docStatus = userDoc.exists ? "EXISTS" : "MISSING";
+          
+          if (userDoc.exists) {
+            Map<String, dynamic>? data = userDoc.data();
+            
+            // Create a string representation of important fields
+            List<String> dataInfo = [];
+            if (data != null) {
+              if (data.containsKey('firstName')) dataInfo.add('firstName: ${data['firstName']}');
+              if (data.containsKey('lastName')) dataInfo.add('lastName: ${data['lastName']}');
+              if (data.containsKey('userType')) dataInfo.add('userType: ${data['userType']}');
+              if (data.containsKey('mobile')) dataInfo.add('mobile: ${data['mobile']}');
+              if (data.containsKey('teamCode')) dataInfo.add('teamCode: ${data['teamCode']}');
+            }
+            String docData = dataInfo.isNotEmpty ? dataInfo.join(', ') : "Empty document";
+            
+            setState(() {
+              _errorMessage = "USER DATA - $docStatus\n$docData";
+            });
+            await Future.delayed(Duration(seconds: 2));
+          }
+          
+          if (!userDoc.exists) {
+            setState(() {
+              _errorMessage = 'ERROR: User profile not found. UID: $uid';
+              _isLoading = false;
+            });
+            return;
+          }
+          
+          // Update last login timestamp
+          setState(() {
+            _errorMessage = "Updating last login timestamp...";
+          });
+          await Future.delayed(Duration(milliseconds: 500));
+          
+          try {
+            await _authService.updateLastLogin(userCredential.user!.uid);
+            setState(() {
+              _errorMessage = "Timestamp updated successfully!";
+            });
+            await Future.delayed(Duration(milliseconds: 500));
+          } catch (timestampError) {
+            setState(() {
+              _errorMessage = 'ERROR: Auth OK, Doc OK, but timestamp update failed: ${timestampError.toString()}';
+              _isLoading = false;
+            });
+            return;
+          }
+          
+          // Navigation check
+          setState(() {
+            _errorMessage = "Navigating to home screen...";
+          });
+          await Future.delayed(Duration(milliseconds: 500));
+          
+          try {
+            if (mounted) {
+              setState(() {
+                _errorMessage = "Login successful! Redirecting...";
+              });
+              Navigator.pushReplacementNamed(context, '/home');
+            } else {
+              setState(() {
+                _errorMessage = 'ERROR: Auth & Doc OK, but widget not mounted for navigation';
+                _isLoading = false;
+              });
+            }
+          } catch (navError) {
+            setState(() {
+              _errorMessage = 'ERROR: Auth & Doc OK, but navigation failed: ${navError.toString()}';
+              _isLoading = false;
+            });
+          }
+        } catch (firestoreError) {
+          if (firestoreError is FirebaseException) {
+            setState(() {
+              _errorMessage = 'ERROR: Firestore [${firestoreError.code}]: ${firestoreError.message}. UID: $uid';
+              _isLoading = false;
+            });
+          } else {
+            setState(() {
+              _errorMessage = 'ERROR: Database: ${firestoreError.toString()}. UID: $uid';
+              _isLoading = false;
+            });
+          }
         }
-        
-        // Update last login timestamp
-        await _authService.updateLastLogin(userCredential.user!.uid);
-        
-        // Navigate to home screen
-        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        setState(() {
+          _errorMessage = 'ERROR: Authentication succeeded but user data is missing. UID: $uid';
+          _isLoading = false;
+        });
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
         case 'invalid-email':
-          errorMessage = 'Invalid email format';
+          errorMessage = 'ERROR: Invalid email format';
           break;
         case 'user-not-found':
-          errorMessage = 'No account found for this phone number';
+          errorMessage = 'ERROR: No account found for this phone number';
           break;
         case 'wrong-password':
-          errorMessage = 'Incorrect password';
+          errorMessage = 'ERROR: Incorrect password';
           break;
         case 'too-many-requests':
-          errorMessage = 'Too many attempts. Try again later';
+          errorMessage = 'ERROR: Too many attempts. Try again later';
           break;
         default:
-          errorMessage = 'Authentication failed: ${e.message}';
+          errorMessage = 'ERROR: Auth [${e.code}]: ${e.message}';
       }
       setState(() {
         _errorMessage = errorMessage;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'An unexpected error occurred. Please try again.';
-      });
-    } finally {
-      setState(() {
         _isLoading = false;
       });
+    } catch (e) {
+      String stackTrace = '';
+      try {
+        stackTrace = StackTrace.current.toString().split('\n').take(5).join('\n');
+      } catch (_) {}
+      
+      setState(() {
+        _errorMessage = 'ERROR: [${e.runtimeType}]: ${e.toString()}\nStack: $stackTrace';
+        _isLoading = false;
+      });
+    } finally {
+      if (mounted && _isLoading) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
