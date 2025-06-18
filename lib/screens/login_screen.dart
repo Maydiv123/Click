@@ -78,113 +78,114 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       final email = _phoneController.text + '@click.com';
       
       setState(() {
-        _errorMessage = "Direct login attempt with Firebase...";
+        _errorMessage = "Attempting login with workaround...";
       });
-      await Future.delayed(Duration(milliseconds: 300));
       
       try {
-        // Use Firebase Auth directly for debugging
-        final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        // Use a workaround approach to avoid PigeonUserDetails cast error
+        // First authenticate without accessing the User object directly
+        setState(() {
+          _errorMessage = "Authenticating...";
+        });
+        
+        // Use Future.then to avoid the PigeonUserDetails issue
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: email,
           password: _passwordController.text,
-        );
-        
-        final uid = userCredential.user?.uid;
-        setState(() {
-          _errorMessage = "Auth successful! UID: $uid";
-        });
-        await Future.delayed(Duration(milliseconds: 300));
-        
-        // Only proceed if we have a user
-        if (userCredential.user == null) {
+        ).then((userCredential) async {
+          // Successfully authenticated
           setState(() {
-            _errorMessage = "ERROR: User is null after successful auth";
-            _isLoading = false;
+            _errorMessage = "Auth successful with workaround!";
           });
-          return;
-        }
-        
-        // Check Firestore user document
-        setState(() {
-          _errorMessage = "Checking Firestore user document...";
-        });
-        await Future.delayed(Duration(milliseconds: 300));
-        
-        try {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .get();
-              
-          if (!userDoc.exists) {
+          await Future.delayed(Duration(milliseconds: 300));
+          
+          // Get UID safely
+          final uid = FirebaseAuth.instance.currentUser?.uid;
+          if (uid == null) {
             setState(() {
-              _errorMessage = "ERROR: No user document found for UID: $uid";
+              _errorMessage = "ERROR: Authentication succeeded but UID is null";
               _isLoading = false;
             });
             return;
           }
           
-          // Show user data briefly
-          Map<String, dynamic>? data = userDoc.data();
-          String dataStr = "User document exists";
-          if (data != null) {
-            List<String> fields = [];
-            if (data['firstName'] != null) fields.add("firstName: ${data['firstName']}");
-            if (data['lastName'] != null) fields.add("lastName: ${data['lastName']}");
-            if (data['mobile'] != null) fields.add("mobile: ${data['mobile']}");
-            if (fields.isNotEmpty) {
-              dataStr = fields.join(", ");
-            }
-          }
-          
           setState(() {
-            _errorMessage = "User data: $dataStr";
-          });
-          await Future.delayed(Duration(milliseconds: 500));
-          
-          // Try updating last login
-          setState(() {
-            _errorMessage = "Updating last login...";
+            _errorMessage = "Checking Firestore user document...";
           });
           
           try {
-            await FirebaseFirestore.instance.collection('users').doc(uid).update({
-              'lastLogin': FieldValue.serverTimestamp(),
-            });
-            
-            setState(() {
-              _errorMessage = "Last login updated successfully";
-            });
-            await Future.delayed(Duration(milliseconds: 300));
-            
-            // Success! Navigate to home
-            setState(() {
-              _errorMessage = "Login successful! Redirecting...";
-            });
-            
-            // Navigate with delay to show message
-            await Future.delayed(Duration(milliseconds: 500));
-            if (mounted) {
-              Navigator.pushReplacementNamed(context, '/home');
+            // Check if user document exists
+            final userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(uid)
+                .get();
+                
+            if (!userDoc.exists) {
+              setState(() {
+                _errorMessage = "ERROR: No user document found for UID: $uid";
+                _isLoading = false;
+              });
+              return;
             }
-          } catch (updateError) {
+            
+            // Try to update last login without using AuthService
             setState(() {
-              _errorMessage = "ERROR updating lastLogin: ${updateError.toString()}";
+              _errorMessage = "Updating last login timestamp...";
+            });
+            
+            try {
+              await FirebaseFirestore.instance.collection('users').doc(uid).update({
+                'lastLogin': FieldValue.serverTimestamp(),
+              });
+              
+              setState(() {
+                _errorMessage = "Login successful! Redirecting...";
+              });
+              
+              // Navigate to home screen
+              await Future.delayed(Duration(milliseconds: 500));
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/home');
+              }
+            } catch (updateError) {
+              setState(() {
+                _errorMessage = "ERROR updating lastLogin: ${updateError.toString()}";
+                _isLoading = false;
+              });
+            }
+          } catch (firestoreError) {
+            setState(() {
+              _errorMessage = "Firestore error: ${firestoreError.toString()}";
               _isLoading = false;
             });
           }
-          
-        } catch (firestoreError) {
-          setState(() {
-            _errorMessage = "Firestore error: ${firestoreError.toString()}";
-            _isLoading = false;
-          });
-        }
+        });
       } catch (authError) {
+        // Handle authentication errors
         if (authError is FirebaseAuthException) {
-          String message = "Firebase Auth Error: [${authError.code}] ${authError.message}";
+          String code = authError.code;
+          String errorMsg ="Firebase Auth Error: [${authError.code}] ${authError.message}";
+          
+          switch (code) {
+            case 'user-not-found':
+              errorMsg = "No account found with this phone number";
+              break;
+            case 'wrong-password':
+              errorMsg = "Incorrect password";
+              break;
+            case 'invalid-email':
+              errorMsg = "Invalid email format";
+              break;
+            case 'too-many-requests':
+              errorMsg = "Too many login attempts, try again later";
+              break;
+            default:
+              errorMsg += " " + (authError.message ?? "");
+              break;
+          }
+          
           setState(() {
-            _errorMessage = message;
+            _errorMessage = errorMsg;
             _isLoading = false;
           });
         } else {
