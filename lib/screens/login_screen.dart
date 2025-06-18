@@ -7,6 +7,7 @@ import 'register_screen.dart';
 import 'map_screen.dart';
 import '../services/auth_service.dart';
 import '../firebase_options.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget { 
   const LoginScreen({Key? key}) : super(key: key);
@@ -67,51 +68,62 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
-      // 🔒 Ensure Firebase is initialized
-      if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        );
-      }
-
       final email = _phoneController.text + '@click.com';
       final userCredential = await _authService.signInWithEmailAndPassword(
         email: email,
         password: _passwordController.text,
       );
-
-      await Future.delayed(const Duration(milliseconds: 500));
-
+      
       if (mounted && userCredential.user != null) {
+        // Verify user document exists in Firestore
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .get();
+        
+        if (!userDoc.exists) {
+          setState(() {
+            _errorMessage = 'User profile not found. Please contact support.';
+            _isLoading = false;
+          });
+          return;
+        }
+        
+        // Update last login timestamp
         await _authService.updateLastLogin(userCredential.user!.uid);
+        
+        // Navigate to home screen
         Navigator.pushReplacementNamed(context, '/home');
       }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'invalid-email':
+          errorMessage = 'Invalid email format';
+          break;
+        case 'user-not-found':
+          errorMessage = 'No account found for this phone number';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Incorrect password';
+          break;
+        case 'too-many-requests':
+          errorMessage = 'Too many attempts. Try again later';
+          break;
+        default:
+          errorMessage = 'Authentication failed: ${e.message}';
+      }
+      setState(() {
+        _errorMessage = errorMessage;
+      });
     } catch (e) {
       setState(() {
-        if (e is FirebaseAuthException) {
-          switch (e.code) {
-            case 'user-not-found':
-              _errorMessage = 'No account found for this number.';
-              break;
-            case 'wrong-password':
-              _errorMessage = 'Incorrect password.';
-              break;
-            case 'network-request-failed':
-              _errorMessage = 'Check your internet connection.';
-              break;
-            default:
-              _errorMessage = 'Login failed: ${e.message}';
-          }
-        } else {
-          _errorMessage = 'Unexpected error: ${e.toString()}';
-        }
+        _errorMessage = 'An unexpected error occurred. Please try again.';
       });
     } finally {
       setState(() {
