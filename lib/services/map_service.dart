@@ -141,4 +141,18 @@ class MapService {
       throw Exception('Failed to delete map location: $e');
     }
   }
+
+  // Get all map locations as a Future
+  Future<List<MapLocation>> getAllMapLocations() async {
+    try {
+      // Get a single snapshot of all locations
+      QuerySnapshot snapshot = await _firestore.collection(_collection).get();
+      return snapshot.docs
+          .map((doc) => MapLocation.fromMap(doc.data() as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      print('Error getting all map locations: $e');
+      return [];
+    }
+  }
 } 

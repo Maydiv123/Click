@@ -31,8 +31,31 @@ class DatabaseService {
     }
   }
 
-  // Update user location
+  // Update user location (legacy method)
+  @Deprecated('Use updateUserLocationWithDetails instead')
   Future<void> updateUserLocation({
+    required double latitude,
+    required double longitude,
+    required DateTime timestamp,
+  }) async {
+    await updateUserLocationWithDetails(
+      latitude: latitude,
+      longitude: longitude,
+      timestamp: timestamp,
+    );
+  }
+  
+  // Simplified update user location method
+  Future<void> updateSimpleUserLocation(double latitude, double longitude) async {
+    await updateUserLocationWithDetails(
+      latitude: latitude,
+      longitude: longitude,
+      timestamp: DateTime.now(),
+    );
+  }
+  
+  // Update user location with details
+  Future<void> updateUserLocationWithDetails({
     required double latitude,
     required double longitude,
     required DateTime timestamp,
