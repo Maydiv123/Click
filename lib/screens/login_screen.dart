@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
-import 'map_screen.dart';
-import '../services/auth_service.dart';
-import '../firebase_options.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'home_screen.dart';
+import '../services/custom_auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget { 
@@ -29,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _isLoading = false;
   String? _errorMessage;
 
-  final AuthService _authService = AuthService();
+  final CustomAuthService _authService = CustomAuthService();
 
   @override
   void initState() {
@@ -57,6 +53,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
 
     _controller.forward();
+    _checkIfLoggedIn();
+  }
+
+  Future<void> _checkIfLoggedIn() async {
+    final isLoggedIn = await _authService.isUserLoggedIn();
+    if (isLoggedIn && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    }
   }
 
   @override
@@ -76,36 +83,26 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     });
     
     try {
-      // Step 1: Force sign out first
-      try {
-        await FirebaseAuth.instance.signOut();
-      } catch (e) {
-        // Ignore sign out errors
-      }
+      // Use custom auth service for login
+      final result = await _authService.loginUser(
+        mobile: _phoneController.text.trim(),
+        password: _passwordController.text,
+      );
       
-      // Step 2: Email construction & simple login
-      final email = _phoneController.text + '@click.com';
-      final password = _passwordController.text;
+      setState(() {
+        _isLoading = false;
+      });
       
-      // Step 3: Do a simple login with try-catch
-      try {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-        
-        // Wait to ensure firebase has time to update internal state
-        await Future.delayed(Duration(seconds: 1));
-        
-        // Step 4: Navigate directly to home screen
+      if (result['success']) {
         if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
         }
-      } catch (e) {
-        // Simple error handling
+      } else {
         setState(() {
-          _errorMessage = "Login failed: ${e.toString()}";
-          _isLoading = false;
+          _errorMessage = result['message'];
         });
       }
     } catch (e) {

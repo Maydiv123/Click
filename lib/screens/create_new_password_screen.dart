@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
 import 'password_changed_screen.dart';
+import '../services/custom_auth_service.dart';
 
 class CreateNewPasswordScreen extends StatefulWidget {
-  const CreateNewPasswordScreen({Key? key}) : super(key: key);
+  final String mobile;
+  final String otp;
+  
+  const CreateNewPasswordScreen({
+    Key? key,
+    required this.mobile,
+    required this.otp,
+  }) : super(key: key);
 
   @override
   State<CreateNewPasswordScreen> createState() => _CreateNewPasswordScreenState();
@@ -14,6 +22,13 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> with 
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  final CustomAuthService _authService = CustomAuthService();
+  
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+  
+  bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -46,7 +61,60 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> with 
   @override
   void dispose() {
     _controller.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
+  }
+  
+  Future<void> _resetPassword() async {
+    if (_newPasswordController.text.isEmpty) {
+      setState(() {
+        _errorMessage = 'Please enter a new password';
+      });
+      return;
+    }
+    
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      setState(() {
+        _errorMessage = 'Passwords do not match';
+      });
+      return;
+    }
+    
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      final result = await _authService.verifyOtpAndResetPassword(
+        mobile: widget.mobile,
+        otp: widget.otp,
+        newPassword: _newPasswordController.text,
+      );
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (result['success']) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const PasswordChangedScreen()),
+          );
+        }
+      } else {
+        setState(() {
+          _errorMessage = result['message'];
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+    }
   }
 
   @override
@@ -81,6 +149,7 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> with 
               ),
               const SizedBox(height: 40),
               TextField(
+                controller: _newPasswordController,
                 obscureText: !_isNewPasswordVisible,
                 decoration: InputDecoration(
                   hintText: 'New Password',
@@ -107,6 +176,7 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> with 
               ),
               const SizedBox(height: 20),
               TextField(
+                controller: _confirmPasswordController,
                 obscureText: !_isConfirmPasswordVisible,
                 decoration: InputDecoration(
                   hintText: 'Confirm Password',
@@ -131,6 +201,14 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> with 
                   ),
                 ),
               ),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
               const SizedBox(height: 40),
               FadeTransition(
                 opacity: _fadeAnimation,
@@ -140,12 +218,7 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> with 
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       ElevatedButton(
-                        onPressed: () {
-                           Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const PasswordChangedScreen()),
-                          );
-                        },
+                        onPressed: _isLoading ? null : _resetPassword,
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 56),
                           backgroundColor: Colors.black,
@@ -155,7 +228,9 @@ class _CreateNewPasswordScreenState extends State<CreateNewPasswordScreen> with 
                           ),
                           elevation: 0,
                         ),
-                        child: const Text('Reset Password', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text('Reset Password', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../widgets/profile_completion_indicator.dart';
 import '../services/database_service.dart';
 import '../services/user_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/custom_auth_service.dart';
+import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -14,7 +15,40 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final DatabaseService _databaseService = DatabaseService();
   final UserService _userService = UserService();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final CustomAuthService _authService = CustomAuthService();
+  
+  Map<String, dynamic> _userData = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      // Get user data from CustomAuthService
+      final userData = await _authService.getCurrentUserData();
+      if (mounted) {
+        setState(() {
+          _userData = userData;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   void _showEditProfileModal(Map<String, dynamic> userData) {
     final _formKey = GlobalKey<FormState>();
@@ -186,8 +220,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: ElevatedButton(
                       onPressed: () async {
                         if (_formKey.currentState!.validate()) {
-                          final uid = _auth.currentUser?.uid;
-                          if (uid == null) return;
+                          final userId = await _authService.getCurrentUserId();
+                          if (userId == null) return;
                           final data = {
                             'firstName': firstNameController.text.trim(),
                             'lastName': lastNameController.text.trim(),
@@ -197,7 +231,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             'mobile': mobileController.text.trim(),
                             'preferredCompanies': oilCompanies,
                           };
-                          await _userService.updateUserDocument(uid, data);
+                          await _authService.updateUserProfile(userId, data);
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -236,6 +270,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (userData['address'] != null && userData['address'].toString().isNotEmpty) completedFields++;
     if (userData['aadharNo'] != null && userData['aadharNo'].toString().isNotEmpty) completedFields++;
     return (completedFields / totalFields) * 100;
+  }
+
+  void _signOut() async {
+    try {
+      await _authService.signOut();
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error signing out: ${e.toString()}')),
+      );
+    }
   }
 
   @override
@@ -600,32 +651,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: const Icon(Icons.logout, color: Colors.red, size: 20),
                       ),
                       title: const Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500)),
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Logout'),
-                            content: const Text('Are you sure you want to logout?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Cancel'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {
-                                  FirebaseAuth.instance.signOut();
-                                  Navigator.pop(context);
-                                  Navigator.pushReplacementNamed(context, '/welcome');
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                ),
-                                child: const Text('Logout'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                      onTap: _signOut,
                     ),
                   ],
                 ),

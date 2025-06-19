@@ -12,10 +12,11 @@ import 'join_team_screen.dart';
 import 'location_history_screen.dart';
 import '../services/database_service.dart';
 import '../services/user_service.dart';
+import '../services/custom_auth_service.dart';
+import 'login_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -28,7 +29,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final DatabaseService _databaseService = DatabaseService();
   final UserService _userService = UserService();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final CustomAuthService _authService = CustomAuthService();
+  
+  // User data
+  Map<String, dynamic> _userData = {};
+  bool _isLoadingUserData = true;
   
   // Location variables
   Position? _currentPosition;
@@ -71,6 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _pageController = PageController(viewportFraction: 1.0);
     _getCurrentLocation();
     _fetchTodayDistance();
+    _loadUserData();
     
     // Set up periodic location updates (every 5 minutes)
     _locationTimer = Timer.periodic(
@@ -270,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     
     // If no userId provided, use current user's ID
-    final currentUserId = _auth.currentUser?.uid;
+    final currentUserId = await _authService.getCurrentUserId();
     final userIdToUse = userId ?? currentUserId;
     
     if (userIdToUse == null) {
@@ -284,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
     
     try {
       print('Attempting to leave team: $teamCode for user: $userIdToUse');
-      await _userService.removeTeamMember(teamCode, userIdToUse);
+      await _userService.removeTeamMember(teamCode, userIdToUse.toString());
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -325,13 +331,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      drawer: StreamBuilder<Map<String, dynamic>>(
-        stream: _databaseService.getUserData(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Drawer();
-          }
-          final userData = snapshot.data!;
+      drawer: _isLoadingUserData 
+        ? const Drawer() 
+        : Builder(
+          builder: (context) {
+          final userData = _userData;
           final completionPercentage = _calculateProfileCompletion(userData);
           final bool inTeam = userData['teamCode'] != null && userData['teamCode'].toString().isNotEmpty;
           final String userId = userData['uid'] ?? '';
@@ -488,6 +492,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   builder: (context) => TeamDetailsScreen(
                                     teamCode: userData['teamCode'] ?? '',
                                     teamName: userData['teamName'] ?? 'Your Team',
+                                    userData: userData,
                                   ),
                                 ),
                               );
@@ -751,7 +756,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      Navigator.pushReplacementNamed(context, '/welcome');
+                      _signOut();
                     },
                     icon: const Icon(Icons.logout, size: 18),
                     label: const Text('Logout'),
@@ -776,14 +781,11 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _selectedIndex,
         children: [
           // Home/Dashboard View
-          StreamBuilder<Map<String, dynamic>>(
-            stream: _databaseService.getUserData(),
-            builder: (context, userSnapshot) {
-              if (!userSnapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final userData = userSnapshot.data!;
+          _isLoadingUserData 
+          ? const Center(child: CircularProgressIndicator()) 
+          : Builder(
+            builder: (context) {
+              final userData = _userData;
               final completionPercentage = _calculateProfileCompletion(userData);
               final stats = userData['stats'] as Map<String, dynamic>? ?? {};
 
@@ -1610,22 +1612,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               );
-            },
+            }
           ),
           // Map View with options
           _buildMapSelectionView(),
           // Search View
           const SearchPetrolPumpsScreen(),
           // Profile View
-          StreamBuilder<Map<String, dynamic>>(
-            stream: _databaseService.getUserData(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              return _buildProfileView(snapshot.data!);
-            },
-          ),
+          _isLoadingUserData 
+          ? const Center(child: CircularProgressIndicator())
+          : _buildProfileView(_userData),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -1934,8 +1930,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         ElevatedButton(
                           onPressed: () {
-                            FirebaseAuth.instance.signOut();
-                            Navigator.pushReplacementNamed(context, '/welcome');
+                            _signOut();
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
@@ -2411,306 +2406,345 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  // Load user data from custom auth service
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoadingUserData = true;
+    });
+    
+    try {
+      final userData = await _authService.getCurrentUserData();
+      if (mounted) {
+        setState(() {
+          _userData = userData;
+          _isLoadingUserData = false;
+        });
+        print('Loaded user data: $_userData');
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingUserData = false;
+        });
+      }
+    }
+  }
+
+  // Update the signOut method to use CustomAuthService
+  void _signOut() async {
+    try {
+      await _authService.signOut();
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error signing out: ${e.toString()}')),
+      );
+    }
+  }
 }
 
-class TeamDetailsScreen extends StatelessWidget {
+class TeamDetailsScreen extends StatefulWidget {
   final String teamCode;
   final String teamName;
-
+  final Map<String, dynamic> userData;
+  
   const TeamDetailsScreen({
     Key? key,
     required this.teamCode,
     required this.teamName,
+    required this.userData,
   }) : super(key: key);
+  
+  @override
+  State<TeamDetailsScreen> createState() => _TeamDetailsScreenState();
+}
 
+class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
+  final UserService userService = UserService();
+  final CustomAuthService _authService = CustomAuthService();
+  
   @override
   Widget build(BuildContext context) {
-    final DatabaseService databaseService = DatabaseService();
-    final UserService userService = UserService();
-    
     return Scaffold(
       appBar: AppBar(
-        title: Text(teamName),
+        title: Text(widget.teamName),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: StreamBuilder<Map<String, dynamic>>(
-        stream: databaseService.getUserData(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final userData = snapshot.data!;
-          
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Team Header Card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [const Color(0xFF35C2C1), const Color(0xFF35C2C1).withOpacity(0.7)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Team Header Card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF35C2C1), const Color(0xFF35C2C1).withOpacity(0.7)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              shape: BoxShape.circle,
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.groups, color: Colors.white, size: 30),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.teamName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            child: const Icon(Icons.groups, color: Colors.white, size: 30),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            const SizedBox(height: 4),
+                            Row(
                               children: [
-                                Text(
-                                  teamName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.tag, color: Colors.white, size: 12),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        widget.teamCode,
+                                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.tag, color: Colors.white, size: 12),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            teamCode,
-                                            style: const TextStyle(color: Colors.white, fontSize: 12),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    InkWell(
-                                      onTap: () {
-                                        // TODO: Copy to clipboard
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Team code copied to clipboard')),
-                                        );
-                                      },
-                                      child: const Icon(Icons.copy, color: Colors.white, size: 16),
-                                    ),
-                                  ],
+                                const SizedBox(width: 8),
+                                InkWell(
+                                  onTap: () {
+                                    // TODO: Copy to clipboard
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Team code copied to clipboard')),
+                                    );
+                                  },
+                                  child: const Icon(Icons.copy, color: Colors.white, size: 16),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 24),
-                
-                // Team Members Section
-                const Text(
-                  'Team Members',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: 3, // Placeholder count
-                    separatorBuilder: (context, index) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      // Placeholder member data
-                      final memberName = index == 0 
-                          ? '${userData['firstName'] ?? 'You'} ${userData['lastName'] ?? ''} (You)'
-                          : 'Team Member ${index + 1}';
-                      final memberRole = index == 0 
-                          ? 'Owner' 
-                          : 'Member';
-                      
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: index == 0 
-                              ? const Color(0xFF35C2C1).withOpacity(0.2)
-                              : Colors.grey.withOpacity(0.2),
-                          child: Icon(
-                            Icons.person,
-                            color: index == 0 ? const Color(0xFF35C2C1) : Colors.grey,
-                          ),
+                          ],
                         ),
-                        title: Text(memberName),
-                        subtitle: Text(memberRole),
-                        trailing: index == 0
-                            ? Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF35C2C1).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Text(
-                                  'Active',
-                                  style: TextStyle(
-                                    color: Color(0xFF35C2C1),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              )
-                            : null,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Team Members Section
+            const Text(
+              'Team Members',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 3, // Placeholder count
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  // Placeholder member data
+                  final memberName = index == 0 
+                      ? '${widget.userData['firstName'] ?? 'You'} ${widget.userData['lastName'] ?? ''} (You)'
+                      : 'Team Member ${index + 1}';
+                  final memberRole = index == 0 
+                      ? 'Owner' 
+                      : 'Member';
+                  
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: index == 0 
+                          ? const Color(0xFF35C2C1).withOpacity(0.2)
+                          : Colors.grey.withOpacity(0.2),
+                      child: Icon(
+                        Icons.person,
+                        color: index == 0 ? const Color(0xFF35C2C1) : Colors.grey,
+                      ),
+                    ),
+                    title: Text(memberName),
+                    subtitle: Text(memberRole),
+                    trailing: index == 0
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF35C2C1).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Active',
+                              style: TextStyle(
+                                color: Color(0xFF35C2C1),
+                                fontSize: 12,
+                              ),
+                            ),
+                          )
+                        : null,
+                  );
+                },
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Team Settings Section
+            const Text(
+              'Team Settings',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF35C2C1).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.edit, color: Color(0xFF35C2C1)),
+                    ),
+                    title: const Text('Edit Team Profile'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      // TODO: Navigate to edit team profile screen
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF35C2C1).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.person_add, color: Color(0xFF35C2C1)),
+                    ),
+                    title: const Text('Invite Members'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      // TODO: Navigate to invite members screen
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.logout, color: Colors.red),
+                    ),
+                    title: const Text('Leave Team', style: TextStyle(color: Colors.red)),
+                    onTap: () async {
+                      // Show confirmation dialog
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Leave Team'),
+                          content: const Text('Are you sure you want to leave this team? This action cannot be undone.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                // Implement leave team functionality
+                                try {
+                                  final userId = await _authService.getCurrentUserId();
+                                  if (userId != null) {
+                                    await userService.removeTeamMember(widget.teamCode, userId.toString());
+                                    Navigator.pop(context); // Go back to previous screen
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('You have left the team'))
+                                    );
+                                  }
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error: ${e.toString()}'))
+                                  );
+                                }
+                              },
+                              child: const Text('Leave', style: TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        ),
                       );
                     },
                   ),
-                ),
-                
-                const SizedBox(height: 24),
-                
-                // Team Settings Section
-                const Text(
-                  'Team Settings',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF35C2C1).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.edit, color: Color(0xFF35C2C1)),
-                        ),
-                        title: const Text('Edit Team Profile'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: () {
-                          // TODO: Navigate to edit team profile screen
-                        },
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF35C2C1).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.person_add, color: Color(0xFF35C2C1)),
-                        ),
-                        title: const Text('Invite Members'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: () {
-                          // TODO: Navigate to invite members screen
-                        },
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.logout, color: Colors.red),
-                        ),
-                        title: const Text('Leave Team', style: TextStyle(color: Colors.red)),
-                        onTap: () async {
-                          // Show confirmation dialog
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Leave Team'),
-                              content: const Text('Are you sure you want to leave this team? This action cannot be undone.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () async {
-                                    Navigator.pop(context);
-                                    // Implement leave team functionality
-                                    try {
-                                      final userId = FirebaseAuth.instance.currentUser?.uid;
-                                      if (userId != null) {
-                                        await userService.removeTeamMember(teamCode, userId);
-                                        Navigator.pop(context); // Go back to previous screen
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('You have left the team'))
-                                        );
-                                      }
-                                    } catch (e) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Error: ${e.toString()}'))
-                                      );
-                                    }
-                                  },
-                                  child: const Text('Leave', style: TextStyle(color: Colors.red)),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }

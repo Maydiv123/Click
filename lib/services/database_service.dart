@@ -1,28 +1,34 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'custom_auth_service.dart';
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final CustomAuthService _authService = CustomAuthService();
 
   // Get user data
-  Stream<Map<String, dynamic>> getUserData() {
-    final userId = _auth.currentUser?.uid;
+  Stream<Map<String, dynamic>> getUserData() async* {
+    final userId = await _authService.getCurrentUserId();
     print('Current user ID: $userId'); // Debug print
     if (userId == null) {
       print('No user ID found, returning empty map'); // Debug print
-      return Stream.value({});
+      yield {};
+      return;
     }
 
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .snapshots()
-        .map((doc) {
-          print('User data received: ${doc.data()}'); // Debug print
-          return doc.data() ?? {};
-        });
+    // Get the document once and convert to a stream
+    final doc = await _firestore.collection('user_data').doc(userId).get();
+    if (doc.exists) {
+      final data = doc.data() ?? {};
+      print('User data received: $data'); // Debug print
+      yield data;
+    } else {
+      print('No user data found for ID: $userId');
+      yield {};
+    }
   }
 
   // Update user location
@@ -31,7 +37,7 @@ class DatabaseService {
     required double longitude,
     required DateTime timestamp,
   }) async {
-    final userId = _auth.currentUser?.uid;
+    final userId = await _authService.getCurrentUserId();
     if (userId == null) {
       print('No user ID found, cannot update location');
       return;
@@ -39,11 +45,11 @@ class DatabaseService {
 
     try {
       // Get user data to check last location and last login date
-      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final userDoc = await _firestore.collection('user_data').doc(userId).get();
       final userData = userDoc.data() ?? {};
       
       // Update location in user document
-      await _firestore.collection('users').doc(userId).update({
+      await _firestore.collection('user_data').doc(userId).update({
         'location': {
           'latitude': latitude,
           'longitude': longitude,
@@ -86,7 +92,7 @@ class DatabaseService {
       
       // Check if we have a daily tracking document for today
       final dailyTrackingRef = _firestore
-          .collection('users')
+          .collection('user_data')
           .doc(userId)
           .collection('dailyTracking')
           .doc(todayStr);
@@ -162,7 +168,7 @@ class DatabaseService {
           final totalDistance = (currentStats['totalDistance'] as num?)?.toDouble() ?? 0.0;
           final newTotalStats = totalDistance + distanceInKm;
           
-          await _firestore.collection('users').doc(userId).update({
+          await _firestore.collection('user_data').doc(userId).update({
             'stats.totalDistance': newTotalStats,
             'stats.lastUpdated': Timestamp.fromDate(timestamp),
           });
@@ -213,7 +219,7 @@ class DatabaseService {
 
   // Get today's distance traveled
   Future<double> getTodaysDistance() async {
-    final userId = _auth.currentUser?.uid;
+    final userId = await _authService.getCurrentUserId();
     if (userId == null) return 0.0;
 
     final today = DateTime.now();
@@ -221,7 +227,7 @@ class DatabaseService {
     
     try {
       final doc = await _firestore
-          .collection('users')
+          .collection('user_data')
           .doc(userId)
           .collection('dailyTracking')
           .doc(todayStr)
@@ -237,23 +243,26 @@ class DatabaseService {
   }
 
   // Get upcoming tasks
-  Stream<List<Map<String, dynamic>>> getUpcomingTasks() {
-    final userId = _auth.currentUser?.uid;
+  Stream<List<Map<String, dynamic>>> getUpcomingTasks() async* {
+    final userId = await _authService.getCurrentUserId();
     print('Fetching upcoming tasks for user: $userId'); // Debug print
-    if (userId == null) return Stream.value([]);
+    if (userId == null) {
+      yield [];
+      return;
+    }
 
     final now = DateTime.now();
 
-    return _firestore
+    final snapshot = await _firestore
         .collection('tasks')
         .where('userId', isEqualTo: userId)
         .where('dueDate', isGreaterThanOrEqualTo: now)
         .orderBy('dueDate')
-        .snapshots()
-        .map((snapshot) {
-          print('Upcoming tasks received: ${snapshot.docs.length}'); // Debug print
-          return snapshot.docs.map((doc) => doc.data()).toList();
-        });
+        .limit(5)
+        .get();
+    
+    print('Upcoming tasks received: ${snapshot.docs.length}'); // Debug print
+    yield snapshot.docs.map((doc) => doc.data()).toList();
   }
 
   // Get user statistics
@@ -291,21 +300,23 @@ class DatabaseService {
   }
 
   // Get recent activities
-  Stream<List<Map<String, dynamic>>> getRecentActivities() {
-    final userId = _auth.currentUser?.uid;
+  Stream<List<Map<String, dynamic>>> getRecentActivities() async* {
+    final userId = await _authService.getCurrentUserId();
     print('Fetching recent activities for user: $userId'); // Debug print
-    if (userId == null) return Stream.value([]);
+    if (userId == null) {
+      yield [];
+      return;
+    }
 
-    return _firestore
+    final snapshot = await _firestore
         .collection('activities')
         .where('userId', isEqualTo: userId)
         .orderBy('timestamp', descending: true)
-        .limit(5)
-        .snapshots()
-        .map((snapshot) {
-          print('Recent activities received: ${snapshot.docs.length}'); // Debug print
-          return snapshot.docs.map((doc) => doc.data()).toList();
-        });
+        .limit(10)
+        .get();
+    
+    print('Recent activities received: ${snapshot.docs.length}'); // Debug print
+    yield snapshot.docs.map((doc) => doc.data()).toList();
   }
 
   // Get daily tracking history
@@ -350,6 +361,133 @@ class DatabaseService {
     } catch (e) {
       print('Error getting daily tracking for date $dateStr: $e');
       return {};
+    }
+  }
+
+  // Get location history
+  Future<List<Map<String, dynamic>>> getLocationHistory(int days) async {
+    final userId = await _authService.getCurrentUserId();
+    if (userId == null) return [];
+
+    final now = DateTime.now();
+    final startDate = now.subtract(Duration(days: days));
+    
+    try {
+      // Get all daily tracking documents for the specified period
+      final querySnapshot = await _firestore
+          .collection('user_data')
+          .doc(userId)
+          .collection('dailyTracking')
+          .where('date', isGreaterThanOrEqualTo: startDate)
+          .orderBy('date', descending: true)
+          .get();
+      
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      print('Error getting location history: $e');
+      return [];
+    }
+  }
+
+  // Get most visited petrol pumps
+  Future<List<Map<String, dynamic>>> getMostVisitedPumps() async {
+    final userId = await _authService.getCurrentUserId();
+    if (userId == null) return [];
+    
+    try {
+      // Get user's visits
+      final visitsSnapshot = await _firestore
+          .collection('visits')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      // Count visits per petrol pump
+      final Map<String, int> pumpVisits = {};
+      final Map<String, Map<String, dynamic>> pumpDetails = {};
+      
+      for (var doc in visitsSnapshot.docs) {
+        final data = doc.data();
+        final pumpId = data['pumpId'] as String?;
+        
+        if (pumpId != null) {
+          pumpVisits[pumpId] = (pumpVisits[pumpId] ?? 0) + 1;
+          pumpDetails[pumpId] = data['pumpDetails'] as Map<String, dynamic>? ?? {};
+        }
+      }
+      
+      // Convert to list and sort by visit count
+      final result = pumpDetails.entries.map((entry) {
+        final pumpId = entry.key;
+        final details = entry.value;
+        
+        return {
+          ...details,
+          'pumpId': pumpId,
+          'visitCount': pumpVisits[pumpId] ?? 0,
+        };
+      }).toList();
+      
+      // Sort by visit count (descending)
+      result.sort((a, b) => (b['visitCount'] as int).compareTo(a['visitCount'] as int));
+      
+      return result;
+    } catch (e) {
+      print('Error getting most visited pumps: $e');
+      return [];
+    }
+  }
+
+  // Add a petrol pump visit
+  Future<bool> addPumpVisit(String pumpId, Map<String, dynamic> pumpDetails) async {
+    final userId = await _authService.getCurrentUserId();
+    if (userId == null) return false;
+    
+    try {
+      // Add visit record
+      await _firestore.collection('visits').add({
+        'userId': userId,
+        'pumpId': pumpId,
+        'pumpDetails': pumpDetails,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      
+      // Update user stats
+      await _firestore.collection('user_data').doc(userId).update({
+        'stats.visits': FieldValue.increment(1),
+      });
+      
+      return true;
+    } catch (e) {
+      print('Error adding pump visit: $e');
+      return false;
+    }
+  }
+
+  // Add image upload
+  Future<bool> addImageUpload(String imageUrl, String pumpId, Map<String, dynamic> metadata) async {
+    final userId = await _authService.getCurrentUserId();
+    if (userId == null) return false;
+    
+    try {
+      // Add upload record
+      await _firestore.collection('uploads').add({
+        'userId': userId,
+        'pumpId': pumpId,
+        'imageUrl': imageUrl,
+        'metadata': metadata,
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'pending', // pending, approved, rejected
+      });
+      
+      // Update user stats
+      await _firestore.collection('user_data').doc(userId).update({
+        'stats.uploads': FieldValue.increment(1),
+      });
+      
+      return true;
+    } catch (e) {
+      print('Error adding image upload: $e');
+      return false;
     }
   }
 } 

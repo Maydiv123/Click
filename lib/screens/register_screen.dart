@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome package
 import 'login_screen.dart'; // Import Login screen for navigation
-import 'package:firebase_auth/firebase_auth.dart';
-import '../services/user_service.dart';
-import '../services/auth_service.dart';
+import '../services/custom_auth_service.dart';
+import 'home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -14,10 +13,9 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _userService = UserService();
-  final _authService = AuthService();
+  final CustomAuthService _authService = CustomAuthService();
   bool _isLoading = false;
-  UserType _selectedUserType = UserType.individual;
+  String _selectedUserType = 'User';
   
   // Password visibility states
   bool _isPasswordVisible = false;
@@ -43,6 +41,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
   // Add a variable to track password match status
   String? _passwordMatchError;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -105,7 +104,10 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     if (!_formKey.currentState!.validate()) return;
     if (_passwordMatchError != null) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
       // Get selected companies
@@ -114,45 +116,48 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       if (_hpclChecked) preferredCompanies.add('HPCL');
       if (_bpclChecked) preferredCompanies.add('BPCL');
 
-      // Create user with Firebase Auth
-      UserCredential userCredential = await _authService.createUserWithEmailAndPassword(
-        email: _mobileController.text + '@click.com', // Using mobile as email
+      // Use custom auth service instead of Firebase
+      final result = await _authService.registerUser(
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        mobile: _mobileController.text.trim(),
         password: _passwordController.text,
-        firstName: _firstNameController.text,
-        lastName: _lastNameController.text,
-        phoneNumber: _mobileController.text,
-        userType: _selectedUserType.toString().split('.').last,
-        teamId: _selectedUserType == UserType.teamMember ? _teamCodeController.text : null,
+        userType: _selectedUserType,
+        teamCode: _selectedUserType == 'Team Member' ? _teamCodeController.text.trim() : null,
+        teamName: _selectedUserType == 'Team Leader' ? _teamNameController.text.trim() : null,
+        preferredCompanies: preferredCompanies,
       );
 
-      // Update user document with additional details
-      await _userService.updateUserDocument(
-        userCredential.user!.uid,
-        {
-          'preferredCompanies': preferredCompanies,
-          if (_selectedUserType == UserType.teamOwner) 'teamName': _teamNameController.text,
-        },
-      );
+      setState(() {
+        _isLoading = false;
+      });
 
-      if (mounted) {
+      if (result['success']) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registration successful!')),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } else {
+        setState(() {
+          _errorMessage = result['message'];
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration successful!')),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          SnackBar(content: Text(_errorMessage ?? 'Registration failed')),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed: ${e.toString()}')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() {
+        _errorMessage = "Error: ${e.toString()}";
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registration failed: ${e.toString()}')),
+      );
     }
   }
 
@@ -173,7 +178,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
           children: [
             Expanded(
               child: _buildUserTypeCard(
-                UserType.individual,
+                'User',
                 'Individual',
                 Icons.person,
               ),
@@ -181,7 +186,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             const SizedBox(width: 10),
             Expanded(
               child: _buildUserTypeCard(
-                UserType.teamMember,
+                'Team Member',
                 'Team Member',
                 Icons.group,
               ),
@@ -189,7 +194,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             const SizedBox(width: 10),
             Expanded(
               child: _buildUserTypeCard(
-                UserType.teamOwner,
+                'Team Leader',
                 'Team Owner',
                 Icons.admin_panel_settings,
               ),
@@ -200,10 +205,12 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildUserTypeCard(UserType type, String title, IconData icon) {
+  Widget _buildUserTypeCard(String type, String title, IconData icon) {
     bool isSelected = _selectedUserType == type;
     return InkWell(
-      onTap: () => setState(() => _selectedUserType = type),
+      onTap: () => setState(() {
+        _selectedUserType = type;
+      }),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -236,6 +243,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       ),
     );
   }
+
+  bool get _showTeamCode => _selectedUserType == 'Team Member';
+  bool get _showTeamName => _selectedUserType == 'Team Leader';
 
   @override
   Widget build(BuildContext context) {
@@ -328,7 +338,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         const SizedBox(height: 20),
 
                         // Team Code (for team members)
-                        if (_selectedUserType == UserType.teamMember)
+                        if (_showTeamCode)
                           TextFormField(
                             controller: _teamCodeController,
                             validator: (value) => value?.isEmpty ?? true ? 'Please enter team code' : null,
@@ -340,7 +350,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           ),
 
                         // Team Name (for team owners)
-                        if (_selectedUserType == UserType.teamOwner)
+                        if (_showTeamName)
                           TextFormField(
                             controller: _teamNameController,
                             validator: (value) => value?.isEmpty ?? true ? 'Please enter team name' : null,

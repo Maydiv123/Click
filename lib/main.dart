@@ -15,7 +15,7 @@ import 'screens/nearest_petrol_pumps_screen.dart';
 import 'firebase_options.dart';
 import 'screens/profile_screen.dart';
 import 'services/firestore_init_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'services/custom_auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,8 +54,6 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/forgot-password': (context) => const ForgotPasswordScreen(),
-        '/otp-verification': (context) => const OtpVerificationScreen(),
-        '/create-new-password': (context) => const CreateNewPasswordScreen(),
         '/password-changed': (context) => const PasswordChangedScreen(),
         '/map': (context) => const MapScreen(),
         '/home': (context) => const HomeScreen(),
@@ -63,6 +61,25 @@ class MyApp extends StatelessWidget {
         '/upload-image': (context) => const UploadImageScreen(),
         '/profile': (context) => ProfileScreen(),
         '/nearest-petrol-pumps': (context) => const NearestPetrolPumpsScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/otp-verification') {
+          final args = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => OtpVerificationScreen(
+              mobile: args['mobile'],
+            ),
+          );
+        } else if (settings.name == '/create-new-password') {
+          final args = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => CreateNewPasswordScreen(
+              mobile: args['mobile'],
+              otp: args['otp'],
+            ),
+          );
+        }
+        return null;
       },
     );
   }
@@ -76,6 +93,8 @@ class InitializationScreen extends StatefulWidget {
 }
 
 class _InitializationScreenState extends State<InitializationScreen> {
+  final CustomAuthService _authService = CustomAuthService();
+
   @override
   void initState() {
     super.initState();
@@ -94,9 +113,9 @@ class _InitializationScreenState extends State<InitializationScreen> {
       await firestoreInitService.initializeCollections();
       
       if (mounted) {
-        // Check if user is already logged in
-        final currentUser = FirebaseAuth.instance.currentUser;
-        if (currentUser != null) {
+        // Check if user is already logged in using CustomAuthService
+        final isLoggedIn = await _authService.isUserLoggedIn();
+        if (isLoggedIn) {
           // User is logged in, navigate to home screen
           Navigator.pushReplacementNamed(context, '/home');
         } else {

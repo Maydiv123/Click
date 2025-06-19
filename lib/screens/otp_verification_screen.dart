@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'create_new_password_screen.dart';
+import '../services/custom_auth_service.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
-  const OtpVerificationScreen({Key? key}) : super(key: key);
+  final String mobile;
+  
+  const OtpVerificationScreen({
+    Key? key,
+    required this.mobile,
+  }) : super(key: key);
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -12,6 +18,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> with Sing
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  final CustomAuthService _authService = CustomAuthService();
+  bool _isLoading = false;
+  String? _errorMessage;
 
   final List<TextEditingController> _otpControllers = List.generate(4, (_) => TextEditingController());
 
@@ -52,6 +61,38 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> with Sing
     super.dispose();
   }
 
+  String get _getOtpCode {
+    return _otpControllers.map((controller) => controller.text).join();
+  }
+
+  Future<void> _verifyOtp() async {
+    final otp = _getOtpCode;
+    
+    if (otp.length != 4) {
+      setState(() {
+        _errorMessage = 'Please enter the complete OTP';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    // In a real implementation, this would verify the OTP
+    // For now, just navigate to the next screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateNewPasswordScreen(
+          mobile: widget.mobile,
+          otp: otp,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,7 +120,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> with Sing
               ),
               const SizedBox(height: 10),
               Text(
-                'Enter the verification code we just sent on your email address.',
+                'Enter the verification code we just sent on your mobile number ${widget.mobile}.',
                 style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               ),
               const SizedBox(height: 40),
@@ -92,6 +133,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> with Sing
                   _buildOtpTextField(context, 3),
                 ],
               ),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               const SizedBox(height: 40),
               FadeTransition(
                 opacity: _fadeAnimation,
@@ -101,12 +151,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> with Sing
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       ElevatedButton(
-                        onPressed: () {
-                           Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const CreateNewPasswordScreen()),
-                          );
-                        },
+                        onPressed: _isLoading ? null : _verifyOtp,
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 56),
                           backgroundColor: Colors.black,
@@ -116,7 +161,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> with Sing
                           ),
                           elevation: 0,
                         ),
-                        child: const Text('Verify', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text('Verify', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -132,7 +179,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> with Sing
                   ),
                   TextButton(
                     onPressed: () {
-                      // Resend code logic
+                      // Resend code logic using CustomAuthService
+                      _authService.resetPassword(widget.mobile);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('OTP resent successfully')),
+                      );
                     },
                     child: Text(
                       'Resend',
