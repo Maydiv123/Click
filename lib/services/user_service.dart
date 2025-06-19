@@ -9,7 +9,7 @@ class UserService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Collection references
-  final CollectionReference _usersCollection = FirebaseFirestore.instance.collection('users');
+  final CollectionReference _usersCollection = FirebaseFirestore.instance.collection('user_data');
   final CollectionReference _teamsCollection = FirebaseFirestore.instance.collection('teams');
   final CollectionReference _teamRequestsCollection = FirebaseFirestore.instance.collection('teamRequests');
 

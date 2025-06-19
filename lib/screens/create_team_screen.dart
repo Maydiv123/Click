@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
+import '../services/custom_auth_service.dart';
 
 class CreateTeamScreen extends StatefulWidget {
   const CreateTeamScreen({Key? key}) : super(key: key);
@@ -29,6 +30,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final CustomAuthService _authService = CustomAuthService();
 
   Future<String> _generateUniqueTeamCode() async {
     String code;
@@ -50,13 +52,19 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
       _errorMessage = null;
     });
     try {
-      final user = _auth.currentUser;
-      if (user == null) throw 'User not logged in.';
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      if (userDoc['teamCode'] != null && userDoc['teamCode'].toString().isNotEmpty) {
+      final userId = await _authService.getCurrentUserId();
+      if (userId == null) throw 'User not logged in.';
+      
+      final userDoc = await _firestore.collection('user_data').doc(userId).get();
+      if (!userDoc.exists) throw 'User data not found.';
+      
+      final userData = userDoc.data() as Map<String, dynamic>;
+      if (userData['teamCode'] != null && userData['teamCode'].toString().isNotEmpty) {
         throw 'You are already in a team. Leave your current team to create a new one.';
       }
+      
       final teamCode = await _generateUniqueTeamCode();
+      
       // Create team document
       await _firestore.collection('teams').doc(teamCode).set({
         'teamCode': teamCode,
@@ -65,7 +73,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
         'address': _addressController.text.trim(),
         'phone': _phoneController.text.trim(),
         'email': _emailController.text.trim(),
-        'ownerId': user.uid,
+        'ownerId': userId,
         'createdAt': FieldValue.serverTimestamp(),
         'memberCount': 1,
         'activeMembers': 1,
@@ -77,14 +85,16 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
           'totalFuelConsumption': 0,
         },
       });
+      
       // Update user document
-      await _firestore.collection('users').doc(user.uid).update({
+      await _firestore.collection('user_data').doc(userId).update({
         'teamCode': teamCode,
         'teamName': _companyNameController.text.trim(),
         'isTeamOwner': true,
-        'userType': 'teamOwner',
+        'userType': 'Team Leader',
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Team created successfully!'), backgroundColor: Colors.green),
@@ -234,7 +244,19 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
-                  Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 30),
                 SizedBox(
@@ -243,7 +265,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _createTeam,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: const Color(0xFF35C2C1),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
