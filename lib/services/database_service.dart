@@ -326,7 +326,7 @@ class DatabaseService {
 
     try {
       final querySnapshot = await _firestore
-          .collection('users')
+          .collection('user_data')
           .doc(userId)
           .collection('dailyTracking')
           .orderBy('date', descending: true)
@@ -349,7 +349,7 @@ class DatabaseService {
     
     try {
       final doc = await _firestore
-          .collection('users')
+          .collection('user_data')
           .doc(userId)
           .collection('dailyTracking')
           .doc(dateStr)

@@ -63,7 +63,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final TextEditingController addressController = TextEditingController(text: userData['address'] ?? '');
     final TextEditingController aadharController = TextEditingController(text: userData['aadharNo'] ?? '');
     final TextEditingController mobileController = TextEditingController(text: userData['mobile'] ?? '');
-    List<String> oilCompanies = List<String>.from(userData['preferredCompanies'] ?? []);
+    
+    // Convert to Set to remove duplicates, then back to List
+    List<String> oilCompanies = userData['preferredCompanies'] != null 
+        ? List<String>.from(Set<String>.from(userData['preferredCompanies'] as List))
+        : [];
 
     showModalBottomSheet(
       context: context,
@@ -73,193 +77,206 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 24,
-          ),
-          child: SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 20,
+                right: 20,
+                top: 24,
+              ),
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Edit Profile', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: firstNameController,
-                    decoration: InputDecoration(
-                      labelText: 'First Name',
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                    validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: lastNameController,
-                    decoration: InputDecoration(
-                      labelText: 'Last Name',
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                    validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: dobController,
-                    decoration: InputDecoration(
-                      labelText: 'Date of Birth',
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      suffixIcon: Icon(Icons.calendar_today, size: 18, color: Colors.grey[600]),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: addressController,
-                    decoration: InputDecoration(
-                      labelText: 'Address',
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: aadharController,
-                    decoration: InputDecoration(
-                      labelText: 'Aadhar No',
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: mobileController,
-                    decoration: InputDecoration(
-                      labelText: 'Mobile No',
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Preferred Oil Companies', style: TextStyle(fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ['IOCL', 'HPCL', 'BPCL', 'Shell', 'Total'].map((company) {
-                      final isSelected = oilCompanies.contains(company);
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (isSelected) {
-                              oilCompanies.remove(company);
-                            } else {
-                              oilCompanies.add(company);
-                            }
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF35C2C1) : Colors.grey[100],
-                            borderRadius: BorderRadius.circular(16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Edit Profile', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
                           ),
-                          child: Text(
-                            company,
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.black87,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: firstNameController,
+                        decoration: InputDecoration(
+                          labelText: 'First Name',
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
                           ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        if (_formKey.currentState!.validate()) {
-                          final userId = await _authService.getCurrentUserId();
-                          if (userId == null) return;
-                          final data = {
-                            'firstName': firstNameController.text.trim(),
-                            'lastName': lastNameController.text.trim(),
-                            'dob': dobController.text.trim(),
-                            'address': addressController.text.trim(),
-                            'aadharNo': aadharController.text.trim(),
-                            'mobile': mobileController.text.trim(),
-                            'preferredCompanies': oilCompanies,
-                          };
-                          await _authService.updateUserProfile(userId, data);
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Profile updated successfully!'),
-                              backgroundColor: Color(0xFF35C2C1),
+                        validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: lastNameController,
+                        decoration: InputDecoration(
+                          labelText: 'Last Name',
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                        validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: dobController,
+                        decoration: InputDecoration(
+                          labelText: 'Date of Birth',
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          suffixIcon: Icon(Icons.calendar_today, size: 18, color: Colors.grey[600]),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: addressController,
+                        decoration: InputDecoration(
+                          labelText: 'Address',
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: aadharController,
+                        decoration: InputDecoration(
+                          labelText: 'Aadhar No',
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: mobileController,
+                        decoration: InputDecoration(
+                          labelText: 'Mobile No',
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('Preferred Oil Companies', style: TextStyle(fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: ['IOCL', 'HPCL', 'BPCL'].map((company) {
+                          final isSelected = oilCompanies.contains(company);
+                          return GestureDetector(
+                            onTap: () {
+                              setModalState(() {
+                                if (isSelected) {
+                                  oilCompanies.remove(company);
+                                } else {
+                                  oilCompanies.add(company);
+                                }
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFF35C2C1) : Colors.grey[100],
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                company,
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : Colors.black87,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
                             ),
                           );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF35C2C1),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        }).toList(),
                       ),
-                      child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (_formKey.currentState!.validate()) {
+                              final userId = await _authService.getCurrentUserId();
+                              if (userId == null) return;
+                              final data = {
+                                'firstName': firstNameController.text.trim(),
+                                'lastName': lastNameController.text.trim(),
+                                'dob': dobController.text.trim(),
+                                'address': addressController.text.trim(),
+                                'aadharNo': aadharController.text.trim(),
+                                'mobile': mobileController.text.trim(),
+                                'preferredCompanies': oilCompanies,
+                              };
+                              await _authService.updateUserProfile(userId, data);
+                              
+                              // Refresh user data immediately
+                              final updatedUserData = await _authService.getCurrentUserData();
+                              if (mounted) {
+                                setState(() {
+                                  _userData = updatedUserData;
+                                });
+                              }
+                              
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Profile updated successfully!'),
+                                  backgroundColor: Color(0xFF35C2C1),
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF35C2C1),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          }
         );
       },
     );
