@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import '../widgets/profile_completion_indicator.dart';
+import '../widgets/bottom_navigation_bar_widget.dart';
+import '../widgets/app_drawer.dart';
 import '../services/database_service.dart';
 import '../services/user_service.dart';
 import '../services/custom_auth_service.dart';
 import 'login_screen.dart';
+import 'openstreet_map_screen.dart';
+import 'search_petrol_pumps_screen.dart';
+import 'nearest_petrol_pumps_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -293,6 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
+      drawer: const AppDrawer(currentScreen: 'profile'),
       appBar: AppBar(
         title: const Text(
           'Profile',
@@ -661,6 +667,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const NearestPetrolPumpsScreen()),
+          );
+        },
+        backgroundColor: const Color(0xFF35C2C1),
+        child: const Icon(Icons.camera_alt, color: Colors.white),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: CustomBottomNavigationBar(
+        currentIndex: 4, // Profile index
+        onTap: (index) {
+          switch (index) {
+            case 0: // Home
+              Navigator.pushReplacementNamed(context, '/home');
+              break;
+            case 1: // Map
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const OpenStreetMapScreen()),
+              );
+              break;
+            case 3: // Search
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const SearchPetrolPumpsScreen()),
+              );
+              break;
+            case 4: // Profile
+              // Already on profile screen, do nothing
+              break;
+          }
+        },
+        showFloatingActionButton: true,
       ),
     );
   }

@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/map_location.dart';
 import '../services/map_service.dart';
+import '../widgets/bottom_navigation_bar_widget.dart';
+import '../widgets/app_drawer.dart';
 import 'petrol_pump_details_screen.dart';
+import 'openstreet_map_screen.dart';
+import 'nearest_petrol_pumps_screen.dart';
 
 class SearchPetrolPumpsScreen extends StatefulWidget {
   const SearchPetrolPumpsScreen({Key? key}) : super(key: key);
@@ -40,6 +44,7 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      drawer: const AppDrawer(currentScreen: 'search'),
       appBar: AppBar(
         title: const Text(
           'Search Petrol Pumps',
@@ -280,6 +285,40 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const NearestPetrolPumpsScreen()),
+          );
+        },
+        backgroundColor: const Color(0xFF35C2C1),
+        child: const Icon(Icons.camera_alt, color: Colors.white),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: CustomBottomNavigationBar(
+        currentIndex: 3, // Search index
+        onTap: (index) {
+          switch (index) {
+            case 0: // Home
+              Navigator.pushReplacementNamed(context, '/home');
+              break;
+            case 1: // Map
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const OpenStreetMapScreen()),
+              );
+              break;
+            case 3: // Search
+              // Already on search screen, do nothing
+              break;
+            case 4: // Profile
+              Navigator.pushReplacementNamed(context, '/profile');
+              break;
+          }
+        },
+        showFloatingActionButton: true,
       ),
     );
   }

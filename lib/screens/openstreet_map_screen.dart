@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/map_location.dart';
 import '../services/map_service.dart';
+import '../services/database_service.dart';
+import '../widgets/bottom_navigation_bar_widget.dart';
+import '../widgets/app_drawer.dart';
 import 'petrol_pump_details_screen.dart';
 import 'search_petrol_pumps_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -392,6 +397,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(currentScreen: 'map'),
       appBar: AppBar(
         title: const Text(
           'Petrol Pump Locations',
@@ -613,23 +619,28 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: Container(
-          height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildNavItem(0, Icons.home_outlined, 'Home'),
-              _buildNavItem(1, Icons.map_outlined, 'Map'),
-              const SizedBox(width: 40), // Space for FAB
-              _buildNavItem(3, Icons.search, 'Search'),
-              _buildNavItem(4, Icons.person_outline, 'Profile'),
-            ],
-          ),
-        ),
+      bottomNavigationBar: CustomBottomNavigationBar(
+        currentIndex: 1, // Map index
+        onTap: (index) {
+          switch (index) {
+            case 0: // Home
+              Navigator.pop(context);
+              break;
+            case 1: // Map
+              // Already on map screen, do nothing
+              break;
+            case 3: // Search
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SearchPetrolPumpsScreen()),
+              );
+              break;
+            case 4: // Profile
+              Navigator.pushNamed(context, '/profile');
+              break;
+          }
+        },
+        showFloatingActionButton: true,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -645,47 +656,6 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
         child: const Icon(Icons.refresh, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    );
-  }
-
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    return InkWell(
-      onTap: () {
-        switch (index) {
-          case 0: // Home
-            Navigator.pop(context);
-            break;
-          case 1: // Map
-            // Already on map screen, do nothing
-            break;
-          case 3: // Search
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SearchPetrolPumpsScreen()),
-            );
-            break;
-          case 4: // Profile
-            Navigator.pushNamed(context, '/profile');
-            break;
-        }
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: index == 1 ? const Color(0xFF35C2C1) : Colors.grey,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: index == 1 ? const Color(0xFF35C2C1) : Colors.grey,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

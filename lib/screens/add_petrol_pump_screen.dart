@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/map_service.dart';
 import '../models/map_location.dart';
+import '../widgets/app_drawer.dart';
 
 class AddPetrolPumpScreen extends StatefulWidget {
   const AddPetrolPumpScreen({Key? key}) : super(key: key);
@@ -366,6 +367,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(currentScreen: 'add_pump'),
       appBar: AppBar(
         title: const Text(
           'Add Petrol Pump',
