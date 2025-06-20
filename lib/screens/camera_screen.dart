@@ -10,6 +10,8 @@ import 'package:intl/intl.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'image_review_screen.dart';
 import '../models/map_location.dart';
+import '../services/custom_auth_service.dart';
+import '../services/database_service.dart';
 
 class CameraScreen extends StatefulWidget {
   final MapLocation? location;
@@ -30,13 +32,19 @@ class _CameraScreenState extends State<CameraScreen> {
   bool _isCapturing = false;
   final GlobalKey _previewKey = GlobalKey();
   double _currentZoom = 1.0;
-  final List<double> _zoomLevels = [0.6, 1.0, 2.0];
+  final List<double> _zoomLevels = [1.0, 2.0];
   bool _isTorchOn = false;
+  
+  // User data for watermark
+  Map<String, dynamic> _userData = {};
+  final CustomAuthService _authService = CustomAuthService();
+  final DatabaseService _databaseService = DatabaseService();
 
   @override
   void initState() {
     super.initState();
     _initializeCamera();
+    _loadUserData();
   }
 
   Future<void> _initializeCamera() async {
@@ -100,6 +108,19 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
+  Future<void> _loadUserData() async {
+    try {
+      final userData = await _authService.getCurrentUserData();
+      if (mounted) {
+        setState(() {
+          _userData = userData;
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
+  }
+
   Future<File> _addWatermark(File imageFile) async {
     // Create a temporary directory for the watermarked image
     final tempDir = await getTemporaryDirectory();
@@ -119,23 +140,32 @@ class _CameraScreenState extends State<CameraScreen> {
     // Draw the original image
     canvas.drawImage(image, Offset.zero, Paint());
 
-    // Prepare watermark content
+    // Prepare enhanced watermark content
     final now = DateTime.now();
     final dateTimeStr = DateFormat('dd/MM/yyyy hh:mm a').format(now);
-    final locationName = widget.location?.location ?? 'Unknown Location';
+    final locationName = widget.location?.customerName ?? widget.location?.location ?? 'Unknown Location';
     final address = widget.location?.addressLine1 ?? '';
+    final district = widget.location?.district ?? '';
+    final zone = widget.location?.zone ?? '';
     final coordinates = widget.location != null
         ? 'Lat ${widget.location!.latitude.toStringAsFixed(6)}  Long ${widget.location!.longitude.toStringAsFixed(6)}'
         : '';
     final zoomStr = _currentZoom == 1.0 ? '1x' : '${_currentZoom}x';
+    
+    // User information
+    final userName = '${_userData['firstName'] ?? ''} ${_userData['lastName'] ?? ''}'.trim();
+    final userMobile = _userData['mobile'] ?? '';
+    final userType = _userData['userType']?.toString().replaceAll('UserType.', '') ?? 'User';
+    final teamName = _userData['teamName'] ?? '';
+    final teamCode = _userData['teamCode'] ?? '';
 
-    // Card dimensions
-    final double cardWidth = imageWidth * 0.92;
-    final double cardPadding = 18;
-    final double cardHeight = imageHeight * 0.19;
+    // Enhanced card dimensions for more content
+    final double cardWidth = imageWidth * 0.94;
+    final double cardPadding = 16;
+    final double cardHeight = imageHeight * 0.28; // Increased height for more content
     final double cardLeft = (imageWidth - cardWidth) / 2;
-    final double cardTop = imageHeight - cardHeight - imageHeight * 0.025;
-    final double borderRadius = 24;
+    final double cardTop = imageHeight - cardHeight - imageHeight * 0.02;
+    final double borderRadius = 20;
 
     // Draw card background (semi-transparent black with rounded corners)
     final rrect = RRect.fromRectAndRadius(
@@ -144,73 +174,120 @@ class _CameraScreenState extends State<CameraScreen> {
     );
     canvas.drawRRect(
       rrect,
-      Paint()..color = Colors.black.withOpacity(0.75),
+      Paint()..color = Colors.black.withOpacity(0.8),
     );
 
-    // Prepare text styles
-    final locationStyle = TextStyle(
+    // Prepare enhanced text styles
+    final titleStyle = TextStyle(
       color: Colors.white,
-      fontSize: imageWidth * 0.045,
+      fontSize: imageWidth * 0.042,
       fontWeight: FontWeight.bold,
     );
-    final addressStyle = TextStyle(
-      color: Colors.white.withOpacity(0.85),
-      fontSize: imageWidth * 0.032,
+    final subtitleStyle = TextStyle(
+      color: Colors.white.withOpacity(0.9),
+      fontSize: imageWidth * 0.035,
+      fontWeight: FontWeight.w500,
+    );
+    final detailStyle = TextStyle(
+      color: Colors.white.withOpacity(0.8),
+      fontSize: imageWidth * 0.028,
       fontWeight: FontWeight.w400,
     );
-    final coordStyle = TextStyle(
-      color: Colors.white.withOpacity(0.85),
-      fontSize: imageWidth * 0.032,
-      fontWeight: FontWeight.w400,
-    );
-    final dateStyle = TextStyle(
-      color: Colors.white.withOpacity(0.85),
-      fontSize: imageWidth * 0.032,
+    final smallStyle = TextStyle(
+      color: Colors.white.withOpacity(0.7),
+      fontSize: imageWidth * 0.025,
       fontWeight: FontWeight.w400,
     );
     final badgeStyle = TextStyle(
       color: Colors.black,
-      fontSize: imageWidth * 0.032,
+      fontSize: imageWidth * 0.025,
       fontWeight: FontWeight.bold,
     );
 
-    // Layout text
-    final textPainter1 = TextPainter(
-      text: TextSpan(text: locationName, style: locationStyle),
-      textDirection: ui.TextDirection.ltr,
-      maxLines: 1,
-    )..layout(maxWidth: cardWidth - 2 * cardPadding);
-    final textPainter2 = TextPainter(
-      text: TextSpan(text: address, style: addressStyle),
-      textDirection: ui.TextDirection.ltr,
-      maxLines: 2,
-    )..layout(maxWidth: cardWidth - 2 * cardPadding);
-    final textPainter3 = TextPainter(
-      text: TextSpan(text: coordinates, style: coordStyle),
-      textDirection: ui.TextDirection.ltr,
-      maxLines: 1,
-    )..layout(maxWidth: cardWidth - 2 * cardPadding);
-    final textPainter4 = TextPainter(
-      text: TextSpan(text: dateTimeStr, style: dateStyle),
-      textDirection: ui.TextDirection.ltr,
-      maxLines: 1,
-    )..layout(maxWidth: cardWidth - 2 * cardPadding - 60);
-
-    // Draw text
+    // Layout and draw text
     double y = cardTop + cardPadding;
-    textPainter1.paint(canvas, Offset(cardLeft + cardPadding, y));
-    y += textPainter1.height + 4;
-    textPainter2.paint(canvas, Offset(cardLeft + cardPadding, y));
-    y += textPainter2.height + 2;
-    textPainter3.paint(canvas, Offset(cardLeft + cardPadding, y));
-    y += textPainter3.height + 10;
-
-    // Draw zoom badge and date/time in a row
-    final badgeWidth = 48.0;
-    final badgeHeight = 28.0;
+    
+    // Location name (main title)
+    final locationPainter = TextPainter(
+      text: TextSpan(text: locationName, style: titleStyle),
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: cardWidth - 2 * cardPadding);
+    locationPainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+    y += locationPainter.height + 6;
+    
+    // Address and district
+    final addressText = address.isNotEmpty && district.isNotEmpty ? '$address, $district' : address.isNotEmpty ? address : district;
+    if (addressText.isNotEmpty) {
+      final addressPainter = TextPainter(
+        text: TextSpan(text: addressText, style: subtitleStyle),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 2,
+      )..layout(maxWidth: cardWidth - 2 * cardPadding);
+      addressPainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+      y += addressPainter.height + 4;
+    }
+    
+    // Zone information
+    if (zone.isNotEmpty) {
+      final zonePainter = TextPainter(
+        text: TextSpan(text: 'Zone: $zone', style: detailStyle),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout(maxWidth: cardWidth - 2 * cardPadding);
+      zonePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+      y += zonePainter.height + 4;
+    }
+    
+    // Coordinates
+    if (coordinates.isNotEmpty) {
+      final coordPainter = TextPainter(
+        text: TextSpan(text: coordinates, style: detailStyle),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout(maxWidth: cardWidth - 2 * cardPadding);
+      coordPainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+      y += coordPainter.height + 8;
+    }
+    
+    // User information section
+    if (userName.isNotEmpty) {
+      final userPainter = TextPainter(
+        text: TextSpan(text: 'Captured by: $userName', style: subtitleStyle),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout(maxWidth: cardWidth - 2 * cardPadding);
+      userPainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+      y += userPainter.height + 4;
+    }
+    
+    // User details row
+    final userDetailsRow = <String>[];
+    if (userType.isNotEmpty) userDetailsRow.add('Type: $userType');
+    if (userMobile.isNotEmpty) userDetailsRow.add('Mobile: $userMobile');
+    if (teamName.isNotEmpty) userDetailsRow.add('Team: $teamName');
+    if (teamCode.isNotEmpty) userDetailsRow.add('Code: $teamCode');
+    
+    if (userDetailsRow.isNotEmpty) {
+      final userDetailsText = userDetailsRow.join(' | ');
+      final userDetailsPainter = TextPainter(
+        text: TextSpan(text: userDetailsText, style: smallStyle),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 2,
+      )..layout(maxWidth: cardWidth - 2 * cardPadding);
+      userDetailsPainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+      y += userDetailsPainter.height + 8;
+    }
+    
+    // Bottom row with zoom badge, date/time, and app info
+    final bottomRowY = cardTop + cardHeight - 32;
+    
+    // Zoom badge
+    final badgeWidth = 50.0;
+    final badgeHeight = 24.0;
     final badgeRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cardLeft + cardPadding, y, badgeWidth, badgeHeight),
-      Radius.circular(8),
+      Rect.fromLTWH(cardLeft + cardPadding, bottomRowY, badgeWidth, badgeHeight),
+      Radius.circular(6),
     );
     canvas.drawRRect(
       badgeRect,
@@ -223,10 +300,29 @@ class _CameraScreenState extends State<CameraScreen> {
     )..layout(maxWidth: badgeWidth);
     badgePainter.paint(
       canvas,
-      Offset(cardLeft + cardPadding + (badgeWidth - badgePainter.width) / 2, y + (badgeHeight - badgePainter.height) / 2),
+      Offset(cardLeft + cardPadding + (badgeWidth - badgePainter.width) / 2, bottomRowY + (badgeHeight - badgePainter.height) / 2),
     );
-    // Date/time to the right of badge
-    textPainter4.paint(canvas, Offset(cardLeft + cardPadding + badgeWidth + 12, y + (badgeHeight - textPainter4.height) / 2));
+    
+    // Date/time
+    final datePainter = TextPainter(
+      text: TextSpan(text: dateTimeStr, style: detailStyle),
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: cardWidth - 2 * cardPadding - badgeWidth - 20);
+    datePainter.paint(canvas, Offset(cardLeft + cardPadding + badgeWidth + 12, bottomRowY + (badgeHeight - datePainter.height) / 2));
+    
+    // App watermark
+    final appWatermark = 'Click App';
+    final appPainter = TextPainter(
+      text: TextSpan(text: appWatermark, style: TextStyle(
+        color: Colors.white.withOpacity(0.6),
+        fontSize: imageWidth * 0.022,
+        fontWeight: FontWeight.w400,
+      )),
+      textDirection: ui.TextDirection.ltr,
+      textAlign: TextAlign.right,
+    )..layout(maxWidth: cardWidth - 2 * cardPadding);
+    appPainter.paint(canvas, Offset(cardLeft + cardWidth - cardPadding - appPainter.width, bottomRowY + (badgeHeight - appPainter.height) / 2));
 
     // Convert the canvas to an image
     final picture = recorder.endRecording();
@@ -254,37 +350,21 @@ class _CameraScreenState extends State<CameraScreen> {
       final XFile photo = await _controller!.takePicture();
       final watermarkedFile = await _addWatermark(File(photo.path));
       
-      // Save to gallery directly
-      final result = await ImageGallerySaver.saveFile(
-        watermarkedFile.path,
-        name: "click_${DateTime.now().millisecondsSinceEpoch}"
-      );
-      
-      if (result['isSuccess']) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Image saved to gallery successfully'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to save image to gallery'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
+      // Don't save to gallery automatically - user will save on image review screen
       
       setState(() {
         _capturedImages.add(watermarkedFile);
       });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Photo captured successfully'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('Error taking picture: $e');
       if (mounted) {

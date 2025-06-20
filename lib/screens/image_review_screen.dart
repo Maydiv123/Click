@@ -16,15 +16,18 @@ class ImageReviewScreen extends StatefulWidget {
 }
 
 class _ImageReviewScreenState extends State<ImageReviewScreen> {
+  List<File> _images = [];
   List<bool> _savedStatus = [];
   List<String> _errorMessages = [];
   
   @override
   void initState() {
     super.initState();
+    // Make images list mutable
+    _images = List.from(widget.images);
     // Initialize all images as not saved
-    _savedStatus = List.generate(widget.images.length, (_) => false);
-    _errorMessages = List.generate(widget.images.length, (_) => '');
+    _savedStatus = List.generate(_images.length, (_) => false);
+    _errorMessages = List.generate(_images.length, (_) => '');
     _checkStoragePermission();
   }
   
@@ -47,7 +50,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
   
   Future<void> _saveImageToGallery(int index) async {
     try {
-      final File imageFile = widget.images[index];
+      final File imageFile = _images[index];
       final result = await ImageGallerySaver.saveFile(
         imageFile.path,
         name: "click_${DateTime.now().millisecondsSinceEpoch}"
@@ -120,10 +123,10 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
       ),
     );
     
-    for (int i = 0; i < widget.images.length; i++) {
+    for (int i = 0; i < _images.length; i++) {
       if (!_savedStatus[i]) {
         try {
-          final File imageFile = widget.images[i];
+          final File imageFile = _images[i];
           final result = await ImageGallerySaver.saveFile(
             imageFile.path,
             name: "click_${DateTime.now().millisecondsSinceEpoch}_$i"
@@ -185,13 +188,27 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
     }
   }
 
+  // Remove image at specific index
+  void _removeImage(int index) {
+    setState(() {
+      _images.removeAt(index);
+      _savedStatus.removeAt(index);
+      _errorMessages.removeAt(index);
+    });
+  }
+  
+  // Navigate back to camera screen
+  void _goBackToCamera() {
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
-          'Review Photos (${widget.images.length})',
+          'Review Photos (${_images.length})',
           style: const TextStyle(
             color: Colors.black,
             fontSize: 20,
@@ -202,6 +219,12 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
+          // Add camera button to go back to camera
+          IconButton(
+            icon: const Icon(Icons.add_a_photo),
+            tooltip: 'Take more photos',
+            onPressed: _goBackToCamera,
+          ),
           // Add save all button
           IconButton(
             icon: const Icon(Icons.save_alt),
@@ -222,7 +245,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                 Icon(Icons.photo_library, color: Colors.grey[600], size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  '${widget.images.length} photos captured',
+                  '${_images.length} photos captured',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontWeight: FontWeight.w500,
@@ -240,7 +263,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
               ),
-              itemCount: widget.images.length,
+              itemCount: _images.length,
               itemBuilder: (context, index) {
                 return GestureDetector(
                   onTap: () {
@@ -255,6 +278,15 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                             elevation: 0,
                             iconTheme: const IconThemeData(color: Colors.white),
                             actions: [
+                              // Remove button
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _removeImage(index);
+                                },
+                              ),
+                              // Save button
                               IconButton(
                                 icon: Icon(
                                   _savedStatus[index] ? Icons.check : Icons.save_alt, 
@@ -270,7 +302,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                               children: [
                                 Expanded(
                                   child: Image.file(
-                                    widget.images[index],
+                                    _images[index],
                                     fit: BoxFit.contain,
                                   ),
                                 ),
@@ -308,8 +340,28 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                         fit: StackFit.expand,
                         children: [
                           Image.file(
-                            widget.images[index],
+                            _images[index],
                             fit: BoxFit.cover,
+                          ),
+                          // Remove button (cross icon)
+                          Positioned(
+                            top: 8,
+                            left: 8,
+                            child: GestureDetector(
+                              onTap: () => _removeImage(index),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.8),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
                           ),
                           // Save status indicator
                           if (_savedStatus[index])
@@ -333,7 +385,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                           if (_errorMessages[index].isNotEmpty)
                             Positioned(
                               top: 8,
-                              left: 8,
+                              right: 8,
                               child: Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: const BoxDecoration(
@@ -425,19 +477,56 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
             ),
           ],
         ),
-        child: ElevatedButton.icon(
-          onPressed: _saveAllImagesToGallery,
-          icon: const Icon(Icons.save_alt),
-          label: const Text('Save All to Gallery'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF35C2C1),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
+        child: _images.isEmpty
+            ? ElevatedButton.icon(
+                onPressed: _goBackToCamera,
+                icon: const Icon(Icons.add_a_photo),
+                label: const Text('Take More Photos'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF35C2C1),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              )
+            : Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _goBackToCamera,
+                      icon: const Icon(Icons.add_a_photo),
+                      label: const Text('More Photos'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[200],
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: _saveAllImagesToGallery,
+                      icon: const Icon(Icons.save_alt),
+                      label: const Text('Save All'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF35C2C1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
