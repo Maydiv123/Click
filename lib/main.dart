@@ -9,7 +9,7 @@ import 'screens/create_new_password_screen.dart';
 import 'screens/password_changed_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/camera_screen.dart';
+import 'screens/camera_selection_screen.dart';
 import 'screens/upload_image_screen.dart';
 import 'screens/nearest_petrol_pumps_screen.dart';
 import 'firebase_options.dart';
@@ -57,7 +57,7 @@ class MyApp extends StatelessWidget {
         '/password-changed': (context) => const PasswordChangedScreen(),
         '/map': (context) => const MapScreen(),
         '/home': (context) => const HomeScreen(),
-        '/camera': (context) => const CameraScreen(),
+        '/camera': (context) => const CameraSelectionScreen(),
         '/upload-image': (context) => const UploadImageScreen(),
         '/profile': (context) => ProfileScreen(),
         '/nearest-petrol-pumps': (context) => const NearestPetrolPumpsScreen(),

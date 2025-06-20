@@ -13,6 +13,7 @@ import 'search_petrol_pumps_screen.dart';
 import 'camera_screen.dart';
 import 'image_review_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'camera_selection_screen.dart';
 // import '../widgets/custom_bottom_navigation_bar.dart';
 
 class NearestPetrolPumpsScreen extends StatefulWidget {
@@ -596,7 +597,7 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CameraScreen(location: location),
+        builder: (context) => CameraSelectionScreen(location: location),
       ),
     );
   }

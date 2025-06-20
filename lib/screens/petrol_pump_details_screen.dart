@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/map_location.dart';
-import 'camera_screen.dart';
+import 'camera_selection_screen.dart';
 
 class PetrolPumpDetailsScreen extends StatelessWidget {
   final MapLocation location;
@@ -249,7 +249,7 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => CameraScreen(location: location),
+                  builder: (context) => CameraSelectionScreen(location: location),
                 ),
               );
             },

@@ -7,7 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../screens/openstreet_map_screen.dart';
 import '../screens/search_petrol_pumps_screen.dart';
 import '../screens/add_petrol_pump_screen.dart';
-import '../screens/camera_screen.dart';
+import '../screens/camera_selection_screen.dart';
 import '../screens/location_history_screen.dart';
 import '../screens/create_team_screen.dart';
 import '../screens/join_team_screen.dart';
@@ -379,7 +379,7 @@ class AppDrawer extends StatelessWidget {
                         Navigator.pop(context);
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const NearestPetrolPumpsScreen()),
+                          MaterialPageRoute(builder: (context) => const CameraSelectionScreen()),
                         );
                       },
                     ),

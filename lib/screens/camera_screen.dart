@@ -15,10 +15,12 @@ import '../services/database_service.dart';
 
 class CameraScreen extends StatefulWidget {
   final MapLocation? location;
+  final String photoType;
 
   const CameraScreen({
     Key? key,
     this.location,
+    required this.photoType,
   }) : super(key: key);
 
   @override
@@ -140,32 +142,35 @@ class _CameraScreenState extends State<CameraScreen> {
     // Draw the original image
     canvas.drawImage(image, Offset.zero, Paint());
 
-    // Prepare enhanced watermark content
+    // Prepare watermark content
     final now = DateTime.now();
     final dateTimeStr = DateFormat('dd/MM/yyyy hh:mm a').format(now);
-    final locationName = widget.location?.customerName ?? widget.location?.location ?? 'Unknown Location';
-    final address = widget.location?.addressLine1 ?? '';
-    final district = widget.location?.district ?? '';
+    
+    // Process address line 1 - extract first word and add "cl"
+    String processedAddress = '';
+    if (widget.location?.addressLine1.isNotEmpty == true) {
+      final firstWord = widget.location!.addressLine1.split(' ').first;
+      processedAddress = '${firstWord}cl';
+    }
+    
+    // Location information
+    final customerName = widget.location?.customerName ?? 'Unknown Location';
+    final sapCode = widget.location?.sapCode ?? '';
     final zone = widget.location?.zone ?? '';
-    final coordinates = widget.location != null
-        ? 'Lat ${widget.location!.latitude.toStringAsFixed(6)}  Long ${widget.location!.longitude.toStringAsFixed(6)}'
-        : '';
-    final zoomStr = _currentZoom == 1.0 ? '1x' : '${_currentZoom}x';
+    final salesArea = widget.location?.salesArea ?? '';
+    final district = widget.location?.district ?? '';
     
     // User information
     final userName = '${_userData['firstName'] ?? ''} ${_userData['lastName'] ?? ''}'.trim();
-    final userMobile = _userData['mobile'] ?? '';
-    final userType = _userData['userType']?.toString().replaceAll('UserType.', '') ?? 'User';
     final teamName = _userData['teamName'] ?? '';
-    final teamCode = _userData['teamCode'] ?? '';
-
-    // Enhanced card dimensions for more content
+    
+    // Enhanced card dimensions for new layout
     final double cardWidth = imageWidth * 0.94;
     final double cardPadding = 16;
-    final double cardHeight = imageHeight * 0.28; // Increased height for more content
+    final double cardHeight = imageHeight * 0.25; // Optimized height
     final double cardLeft = (imageWidth - cardWidth) / 2;
     final double cardTop = imageHeight - cardHeight - imageHeight * 0.02;
-    final double borderRadius = 20;
+    final double borderRadius = 16;
 
     // Draw card background (semi-transparent black with rounded corners)
     final rrect = RRect.fromRectAndRadius(
@@ -174,13 +179,13 @@ class _CameraScreenState extends State<CameraScreen> {
     );
     canvas.drawRRect(
       rrect,
-      Paint()..color = Colors.black.withOpacity(0.8),
+      Paint()..color = Colors.black.withOpacity(0.85),
     );
 
-    // Prepare enhanced text styles
+    // Prepare text styles
     final titleStyle = TextStyle(
       color: Colors.white,
-      fontSize: imageWidth * 0.042,
+      fontSize: imageWidth * 0.045,
       fontWeight: FontWeight.bold,
     );
     final subtitleStyle = TextStyle(
@@ -198,131 +203,78 @@ class _CameraScreenState extends State<CameraScreen> {
       fontSize: imageWidth * 0.025,
       fontWeight: FontWeight.w400,
     );
-    final badgeStyle = TextStyle(
-      color: Colors.black,
-      fontSize: imageWidth * 0.025,
-      fontWeight: FontWeight.bold,
-    );
 
     // Layout and draw text
     double y = cardTop + cardPadding;
     
-    // Location name (main title)
-    final locationPainter = TextPainter(
-      text: TextSpan(text: locationName, style: titleStyle),
+    // First line: Before/Working/After
+    final firstLinePainter = TextPainter(
+      text: TextSpan(text: widget.photoType, style: titleStyle),
       textDirection: ui.TextDirection.ltr,
       maxLines: 1,
     )..layout(maxWidth: cardWidth - 2 * cardPadding);
-    locationPainter.paint(canvas, Offset(cardLeft + cardPadding, y));
-    y += locationPainter.height + 6;
+    firstLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+    y += firstLinePainter.height + 8;
     
-    // Address and district
-    final addressText = address.isNotEmpty && district.isNotEmpty ? '$address, $district' : address.isNotEmpty ? address : district;
-    if (addressText.isNotEmpty) {
-      final addressPainter = TextPainter(
-        text: TextSpan(text: addressText, style: subtitleStyle),
-        textDirection: ui.TextDirection.ltr,
-        maxLines: 2,
-      )..layout(maxWidth: cardWidth - 2 * cardPadding);
-      addressPainter.paint(canvas, Offset(cardLeft + cardPadding, y));
-      y += addressPainter.height + 4;
+    // Second line: processedAddress date and time
+    final secondLineParts = <String>[];
+    if (processedAddress.isNotEmpty) {
+      secondLineParts.add(processedAddress);
     }
+    secondLineParts.add(dateTimeStr);
     
-    // Zone information
-    if (zone.isNotEmpty) {
-      final zonePainter = TextPainter(
-        text: TextSpan(text: 'Zone: $zone', style: detailStyle),
-        textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
-      )..layout(maxWidth: cardWidth - 2 * cardPadding);
-      zonePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
-      y += zonePainter.height + 4;
-    }
-    
-    // Coordinates
-    if (coordinates.isNotEmpty) {
-      final coordPainter = TextPainter(
-        text: TextSpan(text: coordinates, style: detailStyle),
-        textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
-      )..layout(maxWidth: cardWidth - 2 * cardPadding);
-      coordPainter.paint(canvas, Offset(cardLeft + cardPadding, y));
-      y += coordPainter.height + 8;
-    }
-    
-    // User information section
-    if (userName.isNotEmpty) {
-      final userPainter = TextPainter(
-        text: TextSpan(text: 'Captured by: $userName', style: subtitleStyle),
-        textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
-      )..layout(maxWidth: cardWidth - 2 * cardPadding);
-      userPainter.paint(canvas, Offset(cardLeft + cardPadding, y));
-      y += userPainter.height + 4;
-    }
-    
-    // User details row
-    final userDetailsRow = <String>[];
-    if (userType.isNotEmpty) userDetailsRow.add('Type: $userType');
-    if (userMobile.isNotEmpty) userDetailsRow.add('Mobile: $userMobile');
-    if (teamName.isNotEmpty) userDetailsRow.add('Team: $teamName');
-    if (teamCode.isNotEmpty) userDetailsRow.add('Code: $teamCode');
-    
-    if (userDetailsRow.isNotEmpty) {
-      final userDetailsText = userDetailsRow.join(' | ');
-      final userDetailsPainter = TextPainter(
-        text: TextSpan(text: userDetailsText, style: smallStyle),
-        textDirection: ui.TextDirection.ltr,
-        maxLines: 2,
-      )..layout(maxWidth: cardWidth - 2 * cardPadding);
-      userDetailsPainter.paint(canvas, Offset(cardLeft + cardPadding, y));
-      y += userDetailsPainter.height + 8;
-    }
-    
-    // Bottom row with zoom badge, date/time, and app info
-    final bottomRowY = cardTop + cardHeight - 32;
-    
-    // Zoom badge
-    final badgeWidth = 50.0;
-    final badgeHeight = 24.0;
-    final badgeRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cardLeft + cardPadding, bottomRowY, badgeWidth, badgeHeight),
-      Radius.circular(6),
-    );
-    canvas.drawRRect(
-      badgeRect,
-      Paint()..color = const Color(0xFFFFD600),
-    );
-    final badgePainter = TextPainter(
-      text: TextSpan(text: zoomStr, style: badgeStyle),
-      textDirection: ui.TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout(maxWidth: badgeWidth);
-    badgePainter.paint(
-      canvas,
-      Offset(cardLeft + cardPadding + (badgeWidth - badgePainter.width) / 2, bottomRowY + (badgeHeight - badgePainter.height) / 2),
-    );
-    
-    // Date/time
-    final datePainter = TextPainter(
-      text: TextSpan(text: dateTimeStr, style: detailStyle),
+    final secondLineText = secondLineParts.join(' ');
+    final secondLinePainter = TextPainter(
+      text: TextSpan(text: secondLineText, style: subtitleStyle),
       textDirection: ui.TextDirection.ltr,
       maxLines: 1,
-    )..layout(maxWidth: cardWidth - 2 * cardPadding - badgeWidth - 20);
-    datePainter.paint(canvas, Offset(cardLeft + cardPadding + badgeWidth + 12, bottomRowY + (badgeHeight - datePainter.height) / 2));
-    
-    // App watermark
-    final appWatermark = 'Click App';
-    final appPainter = TextPainter(
-      text: TextSpan(text: appWatermark, style: TextStyle(
-        color: Colors.white.withOpacity(0.6),
-        fontSize: imageWidth * 0.022,
-        fontWeight: FontWeight.w400,
-      )),
-      textDirection: ui.TextDirection.ltr,
-      textAlign: TextAlign.right,
     )..layout(maxWidth: cardWidth - 2 * cardPadding);
-    appPainter.paint(canvas, Offset(cardLeft + cardWidth - cardPadding - appPainter.width, bottomRowY + (badgeHeight - appPainter.height) / 2));
+    secondLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+    y += secondLinePainter.height + 8;
+    
+    // Third line: customerName - sapCode
+    if (customerName.isNotEmpty || sapCode.isNotEmpty) {
+      final thirdLineText = sapCode.isNotEmpty ? '$customerName - $sapCode' : customerName;
+      final thirdLinePainter = TextPainter(
+        text: TextSpan(text: thirdLineText, style: subtitleStyle),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout(maxWidth: cardWidth - 2 * cardPadding);
+      thirdLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+      y += thirdLinePainter.height + 8;
+    }
+    
+    // Fourth line: zone, salesArea, district
+    final locationParts = <String>[];
+    if (zone.isNotEmpty) locationParts.add(zone);
+    if (salesArea.isNotEmpty) locationParts.add(salesArea);
+    if (district.isNotEmpty) locationParts.add(district);
+    
+    if (locationParts.isNotEmpty) {
+      final fourthLineText = locationParts.join(', ');
+      final fourthLinePainter = TextPainter(
+        text: TextSpan(text: fourthLineText, style: detailStyle),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout(maxWidth: cardWidth - 2 * cardPadding);
+      fourthLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+      y += fourthLinePainter.height + 8;
+    }
+    
+    // Fifth line: userName, teamName (if available)
+    final userParts = <String>[];
+    if (userName.isNotEmpty) userParts.add(userName);
+    if (teamName.isNotEmpty) userParts.add(teamName);
+    
+    if (userParts.isNotEmpty) {
+      final fifthLineText = userParts.join(', ');
+      final fifthLinePainter = TextPainter(
+        text: TextSpan(text: fifthLineText, style: smallStyle),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout(maxWidth: cardWidth - 2 * cardPadding);
+      fifthLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+    }
 
     // Convert the canvas to an image
     final picture = recorder.endRecording();
@@ -350,21 +302,50 @@ class _CameraScreenState extends State<CameraScreen> {
       final XFile photo = await _controller!.takePicture();
       final watermarkedFile = await _addWatermark(File(photo.path));
       
-      // Don't save to gallery automatically - user will save on image review screen
+      // Automatically save to gallery
+      try {
+        final result = await ImageGallerySaver.saveFile(
+          watermarkedFile.path,
+          name: "click_${DateTime.now().millisecondsSinceEpoch}"
+        );
+        
+        if (result['isSuccess']) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Photo captured and saved to gallery'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Photo captured but failed to save to gallery: ${result['errorMessage'] ?? 'Unknown error'}'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Photo captured but failed to save to gallery: ${e.toString()}'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
       
       setState(() {
         _capturedImages.add(watermarkedFile);
       });
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Photo captured successfully'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
     } catch (e) {
       debugPrint('Error taking picture: $e');
       if (mounted) {
