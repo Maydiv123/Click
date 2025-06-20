@@ -400,8 +400,35 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
+  Future<void> _turnOffTorch() async {
+    if (_controller != null && _controller!.value.isInitialized && _isTorchOn) {
+      await _controller!.setFlashMode(FlashMode.off);
+      setState(() {
+        _isTorchOn = false;
+      });
+    }
+  }
+
+  void _navigateToImageReview() async {
+    // Turn off torch before navigating
+    await _turnOffTorch();
+    
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ImageReviewScreen(
+            images: _capturedImages,
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
+    // Turn off torch before disposing
+    _turnOffTorch();
     _controller?.dispose();
     super.dispose();
   }
@@ -446,29 +473,6 @@ class _CameraScreenState extends State<CameraScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          if (_capturedImages.isNotEmpty)
-            TextButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ImageReviewScreen(
-                      images: _capturedImages,
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.check_circle_outline, color: Color(0xFF35C2C1)),
-              label: const Text(
-                'Done',
-                style: TextStyle(
-                  color: Color(0xFF35C2C1),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-        ],
       ),
       body: Stack(
         children: [
@@ -525,16 +529,7 @@ class _CameraScreenState extends State<CameraScreen> {
                 // Image preview (bottom left)
                 if (_capturedImages.isNotEmpty)
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ImageReviewScreen(
-                            images: _capturedImages,
-                          ),
-                        ),
-                      );
-                    },
+                    onTap: _navigateToImageReview,
                     child: Container(
                       height: 60,
                       width: 60,
