@@ -402,7 +402,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
             
             // Team Settings Section
             const Text(
-              'Team Settingscd',
+              'Team Setting',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -436,23 +436,7 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                     title: const Text('Edit Team Profile'),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () {
-                      // TODO: Navigate to edit team profile screen
-                    },
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF35C2C1).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.person_add, color: Color(0xFF35C2C1)),
-                    ),
-                    title: const Text('Invite Members'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      // TODO: Navigate to invite members screen
+                      Navigator.pushNamed(context, '/profile');
                     },
                   ),
                   const Divider(height: 1),

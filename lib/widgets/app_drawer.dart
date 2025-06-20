@@ -13,6 +13,7 @@ import '../screens/create_team_screen.dart';
 import '../screens/join_team_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/team_details_screen.dart';
+import '../screens/nearest_petrol_pumps_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   final String currentScreen;
@@ -378,7 +379,7 @@ class AppDrawer extends StatelessWidget {
                         Navigator.pop(context);
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const CameraScreen()),
+                          MaterialPageRoute(builder: (context) => const NearestPetrolPumpsScreen()),
                         );
                       },
                     ),

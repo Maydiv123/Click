@@ -15,7 +15,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   final _formKey = GlobalKey<FormState>();
   final CustomAuthService _authService = CustomAuthService();
   bool _isLoading = false;
-  String _selectedUserType = 'User';
+  String _selectedUserType = '';
   
   // Password visibility states
   bool _isPasswordVisible = false;
@@ -42,6 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   // Add a variable to track password match status
   String? _passwordMatchError;
   String? _errorMessage;
+  String? _userTypeError;
 
   @override
   void initState() {
@@ -101,12 +102,26 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   }
 
   Future<void> _register() async {
+    // Clear previous errors
+    setState(() {
+      _userTypeError = null;
+      _passwordMatchError = null;
+      _errorMessage = null;
+    });
+
+    // Validate user type selection
+    if (_selectedUserType.isEmpty) {
+      setState(() {
+        _userTypeError = 'Please select your user type';
+      });
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
     if (_passwordMatchError != null) return;
 
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
     try {
@@ -166,7 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Select User Type',
+          'I am',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -195,12 +210,23 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             Expanded(
               child: _buildUserTypeCard(
                 'Team Leader',
-                'Team Owner',
+                'Organization',
                 Icons.admin_panel_settings,
               ),
             ),
           ],
         ),
+        if (_userTypeError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Text(
+              _userTypeError!,
+              style: const TextStyle(
+                color: Colors.red,
+                fontSize: 12,
+              ),
+            ),
+          ),
       ],
     );
   }
