@@ -63,22 +63,49 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
 
   Future<void> _getCurrentLocation() async {
     try {
+      setState(() {
+        _isLoading = true;
+      });
+      
       final permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         final requestPermission = await Geolocator.requestPermission();
         if (requestPermission == LocationPermission.denied) {
+          setState(() {
+            _isLoading = false;
+          });
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          _isLoading = false;
+        });
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition();
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10), // Set a timeout
+      ).catchError((error) {
+        print('Error in getCurrentPosition: $error');
+        // Fall back to last known position if available
+        return Geolocator.getLastKnownPosition();
+      });
+      
+      // If position is null (both methods failed), exit early
+      if (position == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
       setState(() {
         _currentPosition = position;
         _showCurrentLocation = true;
+        _isLoading = false;
       });
 
       if (mounted) {
@@ -86,9 +113,15 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
           LatLng(position.latitude, position.longitude),
           12.0,
         );
+        
+        // Apply filters after getting location
+        _applyFilters();
       }
     } catch (e) {
       print('Error getting current location: $e');
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 

@@ -18,7 +18,6 @@ import '../services/user_service.dart';
 import '../services/custom_auth_service.dart';
 import '../services/map_service.dart';
 import '../models/map_location.dart';
-import 'login_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -99,9 +98,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _fetchTodayDistance();
     _loadUserData();
     
-    // Set up periodic location updates (every 5 minutes)
+    // Set up periodic location updates (every 10 minutes instead of 5 minutes)
     _locationTimer = Timer.periodic(
-      const Duration(minutes: 5), 
+      const Duration(minutes: 10), 
       (timer) => _getCurrentLocation()
     );
     
@@ -135,22 +134,52 @@ class _HomeScreenState extends State<HomeScreen> {
   // Get current location and fetch nearby petrol pumps
   Future<void> _getCurrentLocation() async {
     try {
+      // Set flag to show we're loading location
+      setState(() {
+        _isLocationLoading = true;
+      });
+      
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
       
       if (!mounted) return;
       
+      // Check if we have significant movement before updating
+      bool shouldUpdate = true;
+      if (_currentPosition != null) {
+        // Calculate distance from previous position in meters
+        double distance = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          position.latitude,
+          position.longitude
+        );
+        
+        // Only update if moved more than 100 meters
+        shouldUpdate = distance > 100;
+      }
+      
+      // Update current position regardless for UI
       setState(() {
         _currentPosition = position;
+        _isLocationLoading = false;
       });
       
-      // Fetch nearby petrol pumps
-      await _fetchNearbyPetrolPumps(position.latitude, position.longitude);
-      
-      // Update user location in Firestore
-      await _databaseService.updateSimpleUserLocation(position.latitude, position.longitude);
+      // Only fetch pumps and update database if significant movement
+      if (shouldUpdate) {
+        // Fetch nearby petrol pumps
+        await _fetchNearbyPetrolPumps(position.latitude, position.longitude);
+        
+        // Update user location in Firestore
+        await _databaseService.updateSimpleUserLocation(position.latitude, position.longitude);
+      }
     } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLocationLoading = false;
+        });
+      }
       print('Error getting current location: $e');
     }
   }
@@ -1906,9 +1935,10 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await _authService.signOut();
       if (mounted) {
-        Navigator.pushAndRemoveUntil(
+        // Navigate to welcome screen instead of login screen
+        Navigator.pushNamedAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          '/welcome',
           (route) => false,
         );
       }

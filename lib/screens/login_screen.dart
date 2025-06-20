@@ -120,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pop(context);
+            Navigator.pushReplacementNamed(context, '/welcome');
           },
         ),
         title: const Text(''),
