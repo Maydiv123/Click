@@ -11,6 +11,7 @@ import '../widgets/bottom_navigation_bar_widget.dart';
 import 'petrol_pump_details_screen.dart';
 import 'search_petrol_pumps_screen.dart';
 import 'camera_screen.dart';
+import 'image_review_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 // import '../widgets/custom_bottom_navigation_bar.dart';
 
