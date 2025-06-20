@@ -140,7 +140,7 @@ class AppDrawer extends StatelessWidget {
                                           },
                                           child: const Text(
                                             'Complete',
-                                            style: TextStyle(color: Colors.white, fontSize: 12, decoration: TextDecoration.underline),
+                                            style: TextStyle(color: Colors.white, fontSize: 12),
                                           ),
                                         ),
                                       ],
