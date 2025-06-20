@@ -1114,14 +1114,14 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const AddPetrolPumpScreen(),
+              builder: (context) => const NearestPetrolPumpsScreen(),
             ),
           );
         },
         backgroundColor: const Color(0xFF35C2C1),
         heroTag: 'homeScreenFAB',
         child: const Icon(
-          Icons.add,
+          Icons.camera_alt,
           color: Colors.white,
         ),
       ),

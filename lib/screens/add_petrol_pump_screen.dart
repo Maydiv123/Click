@@ -39,6 +39,13 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
   
+  // Image pickers
+  final ImagePicker _picker = ImagePicker();
+  XFile? _bannerImage;
+  XFile? _boardImage;
+  XFile? _billSlipImage;
+  XFile? _governmentDocImage;
+  
   // Progress tracking
   double _progressValue = 0.0;
   
@@ -59,7 +66,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   }
 
   void _updateProgress() {
-    int totalFields = 15; // Total number of required fields
+    int totalFields = 19; // Total number of required fields including images
     int filledFields = 0;
     
     if (_zoneController.text.isNotEmpty) filledFields++;
@@ -77,6 +84,10 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     if (_dealerNameController.text.isNotEmpty) filledFields++;
     if (_contactDetailsController.text.isNotEmpty) filledFields++;
     if (_latitudeController.text.isNotEmpty && _longitudeController.text.isNotEmpty) filledFields++;
+    if (_bannerImage != null) filledFields++;
+    if (_boardImage != null) filledFields++;
+    if (_billSlipImage != null) filledFields++;
+    if (_governmentDocImage != null) filledFields++;
     
     setState(() {
       _progressValue = filledFields / totalFields;
@@ -224,8 +235,11 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text('Import JSON Data', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: const Text('Import JSON Data', style: TextStyle(color: Color(0xFF35C2C1), fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -233,14 +247,15 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
             children: [
               const Text(
                 'Enter JSON data in the following format:',
-          style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: Colors.black87),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.grey[800],
-                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!),
                 ),
                 child: const Text(
                   '''[
@@ -264,7 +279,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   }
 ]''',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: Colors.black87,
                     fontFamily: 'monospace',
                     fontSize: 12,
                   ),
@@ -273,25 +288,25 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: _jsonController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Colors.black87),
                 maxLines: 10,
                 decoration: InputDecoration(
                   hintText: 'Paste your JSON data here...',
-                  hintStyle: const TextStyle(color: Colors.white38),
+                  hintStyle: TextStyle(color: Colors.grey[400]),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.white30),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.white30),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.white),
+                    borderSide: const BorderSide(color: Color(0xFF35C2C1), width: 2),
                   ),
                   filled: true,
-                  fillColor: Colors.grey[800],
+                  fillColor: Colors.white,
                 ),
               ),
             ],
@@ -300,7 +315,10 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey[700],
+            ),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -308,8 +326,11 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
               _importFromJson();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
+              backgroundColor: const Color(0xFF35C2C1),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Import'),
           ),
@@ -320,6 +341,17 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
 
   void _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
+      // Check if images are uploaded
+      if (_bannerImage == null || _boardImage == null || _billSlipImage == null || _governmentDocImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please upload all required documents'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
       try {
         final location = MapLocation(
           zone: _zoneController.text,
@@ -340,6 +372,13 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           longitude: double.parse(_longitudeController.text),
         );
 
+        // TODO: Upload images to Firebase Storage and get URLs
+        // This would be implemented with Firebase Storage
+        // final bannerImageUrl = await _uploadImage(_bannerImage!);
+        // final boardImageUrl = await _uploadImage(_boardImage!);
+        // final billSlipImageUrl = await _uploadImage(_billSlipImage!);
+        // final governmentDocImageUrl = await _uploadImage(_governmentDocImage!);
+        
         await _mapService.addMapLocation(location);
 
         if (mounted) {
@@ -364,6 +403,123 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     }
   }
 
+  Future<void> _pickImage(ImageSource source, String type) async {
+    try {
+      final XFile? pickedImage = await _picker.pickImage(
+        source: source,
+        imageQuality: 80,
+      );
+      
+      if (pickedImage != null) {
+        setState(() {
+          switch (type) {
+            case 'banner':
+              _bannerImage = pickedImage;
+              break;
+            case 'board':
+              _boardImage = pickedImage;
+              break;
+            case 'bill':
+              _billSlipImage = pickedImage;
+              break;
+            case 'government':
+              _governmentDocImage = pickedImage;
+              break;
+          }
+        });
+        _updateProgress();
+      }
+    } catch (e) {
+      print('Error picking image: $e');
+    }
+  }
+  
+  void _showImagePickerOptions(String type, String title) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Select $title',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildPickerOption(
+                      icon: Icons.camera_alt,
+                      title: 'Camera',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _pickImage(ImageSource.camera, type);
+                      },
+                    ),
+                    _buildPickerOption(
+                      icon: Icons.photo_library,
+                      title: 'Gallery',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _pickImage(ImageSource.gallery, type);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildPickerOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFF35C2C1).withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: const Color(0xFF35C2C1),
+              size: 30,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -377,15 +533,16 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.black,
+        backgroundColor: const Color(0xFF35C2C1),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.upload_file),
-            onPressed: _isImporting ? null : _showJsonInputDialog,
-            tooltip: 'Import from JSON',
-          ),
+          // Commented out JSON import button
+          // IconButton(
+          //   icon: const Icon(Icons.upload_file),
+          //   onPressed: _isImporting ? null : _showJsonInputDialog,
+          //   tooltip: 'Import from JSON',
+          // ),
           IconButton(
             icon: const Icon(Icons.help_outline),
             onPressed: () {
@@ -394,158 +551,351 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           ),
         ],
       ),
-      body: Stack(
+      body: Column(
         children: [
+          // Progress bar at the top
           Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black,
-              Color(0xFF121212),
-            ],
-          ),
-        ),
-            child: Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-                    // Import Progress
-                    if (_isImporting)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[900],
-                          borderRadius: BorderRadius.circular(8),
+            height: 30,
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: LinearProgressIndicator(
+                    value: _progressValue,
+                    backgroundColor: Colors.grey[300],
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF35C2C1)),
+                    minHeight: 8,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '${(_progressValue * 100).toInt()}%',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF35C2C1),
+                  ),
+                ),
+              ],
             ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          
+          // Main content
+          Expanded(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF35C2C1),
+                    Colors.white,
+                  ],
+                ),
+              ),
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                              _importStatus,
-          style: const TextStyle(color: Colors.white),
-                            ),
-                            const SizedBox(height: 8),
-                            LinearProgressIndicator(
-                              value: _totalItems > 0 ? _importProgress / _totalItems : 0,
-                              backgroundColor: Colors.grey[800],
-                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-                          ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        
-                    // Form Fields
-                    _buildTextField(_zoneController, 'Zone', Icons.terrain),
-                    _buildTextField(_salesAreaController, 'Sales Area', Icons.business),
-                    _buildTextField(_coClDoController, 'CO/CL/DO', Icons.category),
-                    _buildTextField(_districtController, 'District', Icons.location_city),
-                    _buildTextField(_sapCodeController, 'SAP Code', Icons.numbers),
-                    _buildTextField(_customerNameController, 'Customer Name', Icons.business),
-                    _buildTextField(_locationController, 'Location', Icons.location_on),
-                    _buildTextField(_addressLine1Controller, 'Address Line 1', Icons.home),
-                    _buildTextField(_addressLine2Controller, 'Address Line 2', Icons.home),
-                    _buildTextField(_addressLine3Controller, 'Address Line 3', Icons.home),
-                    _buildTextField(_addressLine4Controller, 'Address Line 4', Icons.home),
-                    _buildTextField(_pincodeController, 'Pincode', Icons.pin),
-                    _buildTextField(_dealerNameController, 'Dealer Name', Icons.person),
-                    _buildTextField(_contactDetailsController, 'Contact Details', Icons.phone),
-                    
-                    // Location Fields
-        Row(
-          children: [
-            Expanded(
-                          child: _buildTextField(
-                            _latitudeController,
-                            'Latitude',
-                            Icons.location_searching,
-                            keyboardType: TextInputType.number,
+                      // Location Card at the top
+                      Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Location Information',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      _latitudeController,
+                                      'Latitude',
+                                      Icons.location_searching,
+                                      keyboardType: TextInputType.number,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      _longitudeController,
+                                      'Longitude',
+                                      Icons.location_searching,
+                                      keyboardType: TextInputType.number,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: _isGettingLocation ? null : _getCurrentLocation,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF35C2C1),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  icon: _isGettingLocation 
+                                      ? Container(
+                                          width: 24,
+                                          height: 24,
+                                          padding: const EdgeInsets.all(2.0),
+                                          child: const CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 3,
+                                          ),
+                                        )
+                                      : const Icon(Icons.my_location),
+                                  label: Text(_isGettingLocation ? 'Getting Location...' : 'Use Current Location'),
+                                ),
+                              ),
+                              if (_locationError.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Text(
+                                    _locationError,
+                                    style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                          child: _buildTextField(
-                            _longitudeController,
-                            'Longitude',
-                            Icons.location_searching,
-                            keyboardType: TextInputType.number,
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Import Progress
+                      if (_isImporting)
+                        Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _importStatus,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                LinearProgressIndicator(
+                                  value: _totalItems > 0 ? _importProgress / _totalItems : 0,
+                                  backgroundColor: Colors.grey[300],
+                                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF35C2C1)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Basic Information Card
+                      Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Basic Information',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildTextField(_customerNameController, 'Customer Name', Icons.business),
+                              _buildTextField(_dealerNameController, 'Dealer Name', Icons.person),
+                              _buildTextField(_contactDetailsController, 'Contact Details', Icons.phone),
+                              _buildTextField(_sapCodeController, 'SAP Code', Icons.numbers),
+                            ],
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Address Card
+                      Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Address Details',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildTextField(_locationController, 'Location', Icons.location_on),
+                              _buildTextField(_addressLine1Controller, 'Address Line 1', Icons.home),
+                              _buildTextField(_addressLine2Controller, 'Address Line 2', Icons.home),
+                              _buildTextField(_addressLine3Controller, 'Address Line 3', Icons.home),
+                              _buildTextField(_addressLine4Controller, 'Address Line 4', Icons.home),
+                              _buildTextField(_pincodeController, 'Pincode', Icons.pin),
+                            ],
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Administrative Card
+                      Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Administrative Details',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildTextField(_zoneController, 'Zone', Icons.terrain),
+                              _buildTextField(_salesAreaController, 'Sales Area', Icons.business),
+                              _buildTextField(_coClDoController, 'CO/CL/DO', Icons.category),
+                              _buildTextField(_districtController, 'District', Icons.location_city),
+                            ],
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Documents Upload Card
+                      Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Required Documents',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              
+                              // Banner Image
+                              _buildImageUploadItem(
+                                title: 'Petrol Pump Banner',
+                                icon: Icons.image,
+                                image: _bannerImage,
+                                onTap: () => _showImagePickerOptions('banner', 'Banner Image'),
+                              ),
+                              
+                              const Divider(),
+                              
+                              // Board Image
+                              _buildImageUploadItem(
+                                title: 'Petrol Pump Board',
+                                icon: Icons.image_outlined,
+                                image: _boardImage,
+                                onTap: () => _showImagePickerOptions('board', 'Board Image'),
+                              ),
+                              
+                              const Divider(),
+                              
+                              // Bill Slip Image
+                              _buildImageUploadItem(
+                                title: 'Bill Slip',
+                                icon: Icons.receipt,
+                                image: _billSlipImage,
+                                onTap: () => _showImagePickerOptions('bill', 'Bill Slip'),
+                              ),
+                              
+                              const Divider(),
+                              
+                              // Government Document Image
+                              _buildImageUploadItem(
+                                title: 'Government Document',
+                                icon: Icons.description,
+                                image: _governmentDocImage,
+                                onTap: () => _showImagePickerOptions('government', 'Government Document'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Submit Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _submitForm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF35C2C1),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Add Petrol Pump',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  
-                  // Get Current Location Button
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: ElevatedButton.icon(
-                      onPressed: _isGettingLocation ? null : _getCurrentLocation,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      icon: _isGettingLocation 
-                          ? Container(
-                              width: 24,
-                              height: 24,
-                              padding: const EdgeInsets.all(2.0),
-                              child: const CircularProgressIndicator(
-                                color: Colors.black,
-                                strokeWidth: 3,
-                              ),
-                            )
-                          : const Icon(Icons.my_location),
-                      label: Text(_isGettingLocation ? 'Getting Location...' : 'Use Current Location'),
-                    ),
-                  ),
-                  
-                  if (_locationError.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        _locationError,
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Submit Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _submitForm,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                        child: const Text(
-                          'Add Petrol Pump',
-                style: TextStyle(
-                            fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-          ),
-        ),
-      ],
                 ),
               ),
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: LinearProgressIndicator(
-        value: _progressValue,
-        backgroundColor: Colors.grey[800],
-        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-        minHeight: 8,
       ),
     );
   }
@@ -560,28 +910,28 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       padding: const EdgeInsets.only(bottom: 16.0),
       child: TextFormField(
         controller: controller,
-          style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: Colors.black87),
         keyboardType: keyboardType,
-          decoration: InputDecoration(
+        decoration: InputDecoration(
           labelText: label,
-            labelStyle: const TextStyle(color: Colors.white70),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.white30),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.white30),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.white),
-            ),
-          prefixIcon: Icon(icon, color: Colors.white),
-            filled: true,
-            fillColor: Colors.grey[900],
+          labelStyle: const TextStyle(color: Colors.black54),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.grey),
           ),
-          onChanged: (_) => _updateProgress(),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.grey),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFF35C2C1), width: 2),
+          ),
+          prefixIcon: Icon(icon, color: const Color(0xFF35C2C1)),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+        onChanged: (_) => _updateProgress(),
         validator: (value) {
           if (value == null || value.isEmpty) {
             return 'Please enter $label';
@@ -592,34 +942,72 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     );
   }
 
+  Widget _buildImageUploadItem({
+    required String title,
+    required IconData icon,
+    required XFile? image,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16.0),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF35C2C1), size: 24),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            if (image != null)
+              const Icon(Icons.check, color: Colors.green),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showHelpDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text('Help', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: const Text('Help', style: TextStyle(color: Color(0xFF35C2C1), fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: const [
-              Text('How to add a petrol pump:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text('How to add a petrol pump:', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
               SizedBox(height: 12),
-              Text('1. Fill in all required fields', style: TextStyle(color: Colors.white70)),
-              Text('2. Use the "Use Current Location" button to get coordinates', style: TextStyle(color: Colors.white70)),
-              Text('3. Import bulk data using the JSON import feature', style: TextStyle(color: Colors.white70)),
+              Text('1. Fill in all required fields', style: TextStyle(color: Colors.black54)),
+              Text('2. Use the "Use Current Location" button to get coordinates', style: TextStyle(color: Colors.black54)),
+              Text('3. Upload required documents and images', style: TextStyle(color: Colors.black54)),
               SizedBox(height: 16),
-              Text('JSON Import Format:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text('Required Documents:', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
               SizedBox(height: 8),
-              Text('The JSON file should contain an array of objects with the following fields:', style: TextStyle(color: Colors.white70)),
-              Text('• zone\n• salesArea\n• coClDo\n• district\n• sapCode\n• customerName\n• location\n• addressLine1-4\n• pincode\n• dealerName\n• contactDetails\n• latitude\n• longitude', style: TextStyle(color: Colors.white70)),
+              Text('• Petrol pump banner image', style: TextStyle(color: Colors.black54)),
+              Text('• Petrol pump board image', style: TextStyle(color: Colors.black54)),
+              Text('• Bill slip', style: TextStyle(color: Colors.black54)),
+              Text('• Legal government document', style: TextStyle(color: Colors.black54)),
             ],
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.white)),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF35C2C1),
+            ),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -645,6 +1033,13 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     _contactDetailsController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
+    
+    // Clean up image files if needed
+    _bannerImage = null;
+    _boardImage = null;
+    _billSlipImage = null;
+    _governmentDocImage = null;
+    
     super.dispose();
   }
 } 
