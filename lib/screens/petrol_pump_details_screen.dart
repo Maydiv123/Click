@@ -370,16 +370,7 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
             location.addressLine2,
             style: const TextStyle(color: Colors.black),
           ),
-        if (location.addressLine3.isNotEmpty)
-          Text(
-            location.addressLine3,
-            style: const TextStyle(color: Colors.black),
-          ),
-        if (location.addressLine4.isNotEmpty)
-          Text(
-            location.addressLine4,
-            style: const TextStyle(color: Colors.black),
-          ),
+
         Text(
           'Pincode: ${location.pincode}',
           style: const TextStyle(color: Colors.black),

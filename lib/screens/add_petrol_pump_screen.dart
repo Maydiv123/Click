@@ -6,8 +6,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/map_service.dart';
+import '../services/petrol_pump_request_service.dart';
+import '../services/custom_auth_service.dart';
 import '../models/map_location.dart';
+import '../models/petrol_pump_request.dart';
 import '../widgets/app_drawer.dart';
+import '../services/storage_service.dart';
 
 class AddPetrolPumpScreen extends StatefulWidget {
   const AddPetrolPumpScreen({Key? key}) : super(key: key);
@@ -19,6 +23,9 @@ class AddPetrolPumpScreen extends StatefulWidget {
 class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _mapService = MapService();
+  final _requestService = PetrolPumpRequestService();
+  final _storageService = StorageService();
+  final _authService = CustomAuthService();
   final _jsonController = TextEditingController();
   
   // Form controllers
@@ -31,8 +38,6 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   final _locationController = TextEditingController();
   final _addressLine1Controller = TextEditingController();
   final _addressLine2Controller = TextEditingController();
-  final _addressLine3Controller = TextEditingController();
-  final _addressLine4Controller = TextEditingController();
   final _pincodeController = TextEditingController();
   final _dealerNameController = TextEditingController();
   final _contactDetailsController = TextEditingController();
@@ -66,7 +71,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   }
 
   void _updateProgress() {
-    int totalFields = 19; // Total number of required fields including images
+    int totalFields = 17; // Total number of required fields including images
     int filledFields = 0;
     
     if (_zoneController.text.isNotEmpty) filledFields++;
@@ -78,8 +83,6 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     if (_locationController.text.isNotEmpty) filledFields++;
     if (_addressLine1Controller.text.isNotEmpty) filledFields++;
     if (_addressLine2Controller.text.isNotEmpty) filledFields++;
-    if (_addressLine3Controller.text.isNotEmpty) filledFields++;
-    if (_addressLine4Controller.text.isNotEmpty) filledFields++;
     if (_pincodeController.text.isNotEmpty) filledFields++;
     if (_dealerNameController.text.isNotEmpty) filledFields++;
     if (_contactDetailsController.text.isNotEmpty) filledFields++;
@@ -179,8 +182,6 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
             location: data['Location']?.toString() ?? '',
             addressLine1: data['Address Line1']?.toString() ?? '',
             addressLine2: data['Address Line2']?.toString() ?? '',
-            addressLine3: data['Address Line3']?.toString() ?? '',
-            addressLine4: data['Address Line4']?.toString() ?? '',
             pincode: data['Pincode']?.toString() ?? '',
             dealerName: data['Dealer Name']?.toString() ?? '',
             contactDetails: data['Contact details']?.toString() ?? '',
@@ -341,19 +342,83 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
 
   void _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
-      // Check if images are uploaded
-      if (_bannerImage == null || _boardImage == null || _billSlipImage == null || _governmentDocImage == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please upload all required documents'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
+      // Photos are now optional, so we don't need to check for them
+      
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Dialog(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 20),
+                  const Text('Submitting your request...'),
+                ],
+              ),
+            ),
+          );
+        },
+      );
       
       try {
-        final location = MapLocation(
+        // Upload images to Firebase Storage
+        String bannerImageUrl = '';
+        String boardImageUrl = '';
+        String billSlipImageUrl = '';
+        String governmentDocImageUrl = '';
+        
+        // Check if we're on a platform that supports File operations
+        bool canUploadFiles = true;
+        try {
+          // This will throw an exception on platforms that don't support it (e.g. web)
+          if (!identical(0, 0.0)) File(''); // Just to check platform support
+        } catch (e) {
+          canUploadFiles = false;
+          print('Platform does not support File operations: $e');
+        }
+        
+        if (canUploadFiles) {
+          try {
+            if (_bannerImage != null) {
+              bannerImageUrl = await _storageService.uploadFile(
+                'petrol_pump_requests/banner_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                File(_bannerImage!.path)
+              );
+            }
+            
+            if (_boardImage != null) {
+              boardImageUrl = await _storageService.uploadFile(
+                'petrol_pump_requests/board_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                File(_boardImage!.path)
+              );
+            }
+            
+            if (_billSlipImage != null) {
+              billSlipImageUrl = await _storageService.uploadFile(
+                'petrol_pump_requests/bill_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                File(_billSlipImage!.path)
+              );
+            }
+            
+            if (_governmentDocImage != null) {
+              governmentDocImageUrl = await _storageService.uploadFile(
+                'petrol_pump_requests/government_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                File(_governmentDocImage!.path)
+              );
+            }
+          } catch (e) {
+            print('Error uploading images: $e');
+            // Continue without images if there's an error
+          }
+        }
+        
+        // Create petrol pump request object
+        final request = PetrolPumpRequest(
           zone: _zoneController.text,
           salesArea: _salesAreaController.text,
           coClDo: _coClDoController.text,
@@ -363,38 +428,49 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           location: _locationController.text,
           addressLine1: _addressLine1Controller.text,
           addressLine2: _addressLine2Controller.text,
-          addressLine3: _addressLine3Controller.text,
-          addressLine4: _addressLine4Controller.text,
           pincode: _pincodeController.text,
           dealerName: _dealerNameController.text,
           contactDetails: _contactDetailsController.text,
           latitude: double.parse(_latitudeController.text),
           longitude: double.parse(_longitudeController.text),
+          status: 'pending',
+          createdAt: DateTime.now(),
+          bannerImageUrl: bannerImageUrl,
+          boardImageUrl: boardImageUrl,
+          billSlipImageUrl: billSlipImageUrl,
+          governmentDocImageUrl: governmentDocImageUrl,
         );
-
-        // TODO: Upload images to Firebase Storage and get URLs
-        // This would be implemented with Firebase Storage
-        // final bannerImageUrl = await _uploadImage(_bannerImage!);
-        // final boardImageUrl = await _uploadImage(_boardImage!);
-        // final billSlipImageUrl = await _uploadImage(_billSlipImage!);
-        // final governmentDocImageUrl = await _uploadImage(_governmentDocImage!);
         
-        await _mapService.addMapLocation(location);
+        // Get the current user ID from custom auth service
+        final userId = await _authService.getCurrentUserId();
+        
+        // Add request to Firestore with user ID
+        final requestId = await _requestService.addPetrolPumpRequest(request, userId: userId);
+        
+        // Close the loading dialog
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Petrol pump added successfully'),
+              content: Text('Petrol pump request submitted successfully. Waiting for admin approval.'),
               backgroundColor: Colors.green,
             ),
           );
           Navigator.pop(context);
         }
       } catch (e) {
+        // Close the loading dialog
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error adding petrol pump: $e'),
+              content: Text('Error submitting petrol pump request: $e'),
               backgroundColor: Colors.red,
             ),
           );
@@ -763,8 +839,6 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                               _buildTextField(_locationController, 'Location', Icons.location_on),
                               _buildTextField(_addressLine1Controller, 'Address Line 1', Icons.home),
                               _buildTextField(_addressLine2Controller, 'Address Line 2', Icons.home),
-                              _buildTextField(_addressLine3Controller, 'Address Line 3', Icons.home),
-                              _buildTextField(_addressLine4Controller, 'Address Line 4', Icons.home),
                               _buildTextField(_pincodeController, 'Pincode', Icons.pin),
                             ],
                           ),
@@ -1026,8 +1100,6 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     _locationController.dispose();
     _addressLine1Controller.dispose();
     _addressLine2Controller.dispose();
-    _addressLine3Controller.dispose();
-    _addressLine4Controller.dispose();
     _pincodeController.dispose();
     _dealerNameController.dispose();
     _contactDetailsController.dispose();
