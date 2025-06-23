@@ -299,53 +299,26 @@ class _CameraScreenState extends State<CameraScreen> {
     });
 
     try {
+      // Take picture with optimized settings
       final XFile photo = await _controller!.takePicture();
-      final watermarkedFile = await _addWatermark(File(photo.path));
       
-      // Automatically save to gallery
-      try {
-        final result = await ImageGallerySaver.saveFile(
-          watermarkedFile.path,
-          name: "click_${DateTime.now().millisecondsSinceEpoch}"
-        );
-        
-        if (result['isSuccess']) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Photo captured and saved to gallery'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Photo captured but failed to save to gallery: ${result['errorMessage'] ?? 'Unknown error'}'),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Photo captured but failed to save to gallery: ${e.toString()}'),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      }
-      
+      // Add to captured images immediately for better UX
       setState(() {
-        _capturedImages.add(watermarkedFile);
+        _capturedImages.add(File(photo.path));
       });
+
+      // Process watermark in background
+      _processWatermarkInBackground(photo.path);
       
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Photo captured'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('Error taking picture: $e');
       if (mounted) {
@@ -360,6 +333,64 @@ class _CameraScreenState extends State<CameraScreen> {
       setState(() {
         _isCapturing = false;
       });
+    }
+  }
+
+  Future<void> _processWatermarkInBackground(String photoPath) async {
+    try {
+      final watermarkedFile = await _addWatermark(File(photoPath));
+      
+      // Automatically save to gallery
+      try {
+        final result = await ImageGallerySaver.saveFile(
+          watermarkedFile.path,
+          name: "click_${DateTime.now().millisecondsSinceEpoch}"
+        );
+        
+        if (result['isSuccess']) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Photo saved to gallery'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Photo captured but failed to save: ${result['errorMessage'] ?? 'Unknown error'}'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Photo captured but failed to save: ${e.toString()}'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+      
+      // Update the image in the list with watermarked version
+      if (mounted) {
+        setState(() {
+          final index = _capturedImages.indexWhere((file) => file.path == photoPath);
+          if (index != -1) {
+            _capturedImages[index] = watermarkedFile;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error processing watermark: $e');
     }
   }
 
@@ -418,19 +449,19 @@ class _CameraScreenState extends State<CameraScreen> {
   Widget build(BuildContext context) {
     if (!_isCameraInitialized) {
       return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.black,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF35C2C1)),
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               ),
               const SizedBox(height: 20),
               Text(
                 'Initializing camera...',
                 style: TextStyle(
-                  color: Colors.grey[600],
+                  color: Colors.white.withOpacity(0.8),
                   fontSize: 16,
                 ),
               ),
@@ -441,163 +472,260 @@ class _CameraScreenState extends State<CameraScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(
-          'Take Photos (${_capturedImages.length})',
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
           // Camera Preview
           CameraPreview(_controller!),
 
-          // Zoom Controls (above capture button)
-          Positioned(
-            bottom: 120,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: _zoomLevels.map((zoom) {
-                final isSelected = _currentZoom == zoom;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: GestureDetector(
-                    onTap: () => _setZoom(zoom),
+          // Top Controls
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Back button
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF222222) : Colors.white.withOpacity(0.8),
+                        color: Colors.black.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+
+                  // Photo count badge
+                  if (_capturedImages.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isSelected ? const Color(0xFF35C2C1) : Colors.grey.shade300,
-                          width: isSelected ? 2 : 1,
-                        ),
                       ),
                       child: Text(
-                        zoom == 1.0 ? '1X' : zoom.toString(),
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black,
+                        '${_capturedImages.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
 
-          // Bottom controls row
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 32,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Image preview (bottom left)
-                if (_capturedImages.isNotEmpty)
+                  // Settings/More button
                   GestureDetector(
-                    onTap: _navigateToImageReview,
+                    onTap: () {
+                      // TODO: Add settings or more options
+                    },
                     child: Container(
-                      height: 60,
-                      width: 60,
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white, width: 2),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                        color: Colors.black.withOpacity(0.3),
+                        shape: BoxShape.circle,
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.file(
-                          _capturedImages.last,
-                          fit: BoxFit.cover,
-                        ),
+                      child: const Icon(
+                        Icons.more_vert,
+                        color: Colors.white,
+                        size: 24,
                       ),
                     ),
-                  )
-                else
-                  const SizedBox(width: 60),
-
-                // Capture button (bottom center)
-                GestureDetector(
-                  onTap: _isCapturing ? null : _takePicture,
-                  child: Container(
-                    height: 72,
-                    width: 72,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF35C2C1), width: 4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: _isCapturing
-                          ? const CircularProgressIndicator(color: Color(0xFF35C2C1))
-                          : const Icon(Icons.camera_alt, color: Color(0xFF35C2C1), size: 36),
-                    ),
                   ),
-                ),
-
-                // Torch button (bottom right)
-                IconButton(
-                  icon: Icon(
-                    _isTorchOn ? Icons.flash_on : Icons.flash_off,
-                    color: _isTorchOn ? const Color(0xFF35C2C1) : Colors.white,
-                    size: 36,
-                  ),
-                  onPressed: _toggleTorch,
-                  splashRadius: 28,
-                  tooltip: 'Toggle Flash',
-                ),
-              ],
-            ),
-          ),
-
-          // Image Count Badge (top right)
-          if (_capturedImages.isNotEmpty)
-            Positioned(
-              top: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF35C2C1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${_capturedImages.length} photos',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                ],
               ),
             ),
+          ),
+
+          // Bottom Controls
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.3),
+                    Colors.black.withOpacity(0.7),
+                  ],
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Zoom Controls
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _zoomLevels.map((zoom) {
+                        final isSelected = _currentZoom == zoom;
+                        return GestureDetector(
+                          onTap: () => _setZoom(zoom),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              zoom == 1.0 ? '1x' : '${zoom.toInt()}x',
+                              style: TextStyle(
+                                color: isSelected ? Colors.black : Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // Main Controls Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      // Gallery/Preview button
+                      GestureDetector(
+                        onTap: _capturedImages.isNotEmpty ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ImageReviewScreen(
+                                images: _capturedImages,
+                              ),
+                            ),
+                          );
+                        } : null,
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: _capturedImages.isNotEmpty 
+                              ? Colors.white.withOpacity(0.9)
+                              : Colors.white.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.5),
+                              width: 2,
+                            ),
+                          ),
+                          child: _capturedImages.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.file(
+                                  _capturedImages.last,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.photo_library,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                        ),
+                      ),
+
+                      // Shutter Button
+                      GestureDetector(
+                        onTap: _isCapturing ? null : _takePicture,
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 4,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: _isCapturing
+                              ? Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withOpacity(0.3),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 3,
+                                  ),
+                                )
+                              : Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                          ),
+                        ),
+                      ),
+
+                      // Flash/Torch button
+                      GestureDetector(
+                        onTap: _toggleTorch,
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.3),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _isTorchOn ? Icons.flash_on : Icons.flash_off,
+                            color: _isTorchOn ? const Color(0xFFFFD700) : Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Bottom indicator
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
