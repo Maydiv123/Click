@@ -12,6 +12,20 @@ import 'image_review_screen.dart';
 import '../models/map_location.dart';
 import '../services/custom_auth_service.dart';
 import '../services/database_service.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'dart:async';
+
+class CapturedImage {
+  final String originalPath; // Used as a key to find and update the item
+  File watermarkedFile; // Starts as the raw file, gets replaced by the watermarked one
+  bool isProcessing;
+
+  CapturedImage({
+    required this.originalPath,
+    required this.watermarkedFile,
+    this.isProcessing = true,
+  });
+}
 
 class CameraScreen extends StatefulWidget {
   final MapLocation? location;
@@ -29,7 +43,7 @@ class CameraScreen extends StatefulWidget {
 
 class _CameraScreenState extends State<CameraScreen> {
   CameraController? _controller;
-  List<File> _capturedImages = [];
+  List<CapturedImage> _capturedImages = [];
   bool _isCameraInitialized = false;
   bool _isCapturing = false;
   final GlobalKey _previewKey = GlobalKey();
@@ -37,10 +51,17 @@ class _CameraScreenState extends State<CameraScreen> {
   final List<double> _zoomLevels = [1.0, 2.0];
   bool _isTorchOn = false;
   
+  // Video recording state
+  bool _isVideoMode = false;
+  bool _isRecording = false;
+  Duration _recordingDuration = Duration.zero;
+  Timer? _recordingTimer;
+  
   // User data for watermark
   Map<String, dynamic> _userData = {};
   final CustomAuthService _authService = CustomAuthService();
   final DatabaseService _databaseService = DatabaseService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -59,6 +80,17 @@ class _CameraScreenState extends State<CameraScreen> {
         );
       }
       return;
+    }
+    
+    // Request microphone permission for video recording
+    final microphoneStatus = await Permission.microphone.request();
+    if (microphoneStatus.isDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission is required for video recording')),
+        );
+      }
+      // Continue anyway as user might grant permission later
     }
     
     // Request storage permission for saving photos
@@ -90,7 +122,7 @@ class _CameraScreenState extends State<CameraScreen> {
     _controller = CameraController(
       cameras.first,
       ResolutionPreset.high,
-      enableAudio: false,
+      enableAudio: true,
     );
 
     try {
@@ -120,6 +152,15 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     } catch (e) {
       print('Error loading user data: $e');
+    }
+  }
+
+  Future<void> _playShutterSound() async {
+    try {
+      await _audioPlayer.play(AssetSource('sounds/shutter_sound.mp3'));
+    } catch (e) {
+      // Silently fail if sound can't be played
+      debugPrint('Error playing shutter sound: $e');
     }
   }
 
@@ -299,26 +340,23 @@ class _CameraScreenState extends State<CameraScreen> {
     });
 
     try {
-      // Take picture with optimized settings
+      await _playShutterSound();
       final XFile photo = await _controller!.takePicture();
-      
-      // Add to captured images immediately for better UX
+      final tempFile = File(photo.path);
+
+      final newImage = CapturedImage(
+        originalPath: photo.path,
+        watermarkedFile: tempFile, // Show raw file temporarily
+        isProcessing: true,
+      );
+
       setState(() {
-        _capturedImages.add(File(photo.path));
+        _capturedImages.add(newImage);
       });
 
-      // Process watermark in background
-      _processWatermarkInBackground(photo.path);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Photo captured'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
+      // Process watermark and save in background
+      _processWatermarkInBackground(newImage);
+
     } catch (e) {
       debugPrint('Error taking picture: $e');
       if (mounted) {
@@ -336,10 +374,11 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
-  Future<void> _processWatermarkInBackground(String photoPath) async {
+  Future<void> _processWatermarkInBackground(CapturedImage imageToProcess) async {
     try {
-      final watermarkedFile = await _addWatermark(File(photoPath));
-      
+      // The file to be watermarked is the initial (raw) file.
+      final watermarkedFile = await _addWatermark(imageToProcess.watermarkedFile);
+
       // Automatically save to gallery
       try {
         final result = await ImageGallerySaver.saveFile(
@@ -347,32 +386,26 @@ class _CameraScreenState extends State<CameraScreen> {
           name: "click_${DateTime.now().millisecondsSinceEpoch}"
         );
         
-        if (result['isSuccess']) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Photo saved to gallery'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 1),
-              ),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Photo captured but failed to save: ${result['errorMessage'] ?? 'Unknown error'}'),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
+        if (mounted) {
+          // Clear any existing snackbars first
+          ScaffoldMessenger.of(context).clearSnackBars();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['isSuccess'] ? 'Photo saved to gallery' : 'Failed to save photo'),
+              backgroundColor: result['isSuccess'] ? Colors.green : Colors.red,
+              duration: const Duration(seconds: 1),
+            ),
+          );
         }
       } catch (e) {
         if (mounted) {
+          // Clear any existing snackbars first
+          ScaffoldMessenger.of(context).clearSnackBars();
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Photo captured but failed to save: ${e.toString()}'),
+              content: Text('Failed to save photo: ${e.toString()}'),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 2),
             ),
@@ -380,12 +413,13 @@ class _CameraScreenState extends State<CameraScreen> {
         }
       }
       
-      // Update the image in the list with watermarked version
+      // Update the image in the list with the watermarked version
       if (mounted) {
         setState(() {
-          final index = _capturedImages.indexWhere((file) => file.path == photoPath);
+          final index = _capturedImages.indexWhere((img) => img.originalPath == imageToProcess.originalPath);
           if (index != -1) {
-            _capturedImages[index] = watermarkedFile;
+            _capturedImages[index].watermarkedFile = watermarkedFile;
+            _capturedImages[index].isProcessing = false;
           }
         });
       }
@@ -421,6 +455,100 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
+  Future<void> _toggleVideoMode() async {
+    setState(() {
+      _isVideoMode = !_isVideoMode;
+    });
+  }
+
+  Future<void> _startVideoRecording() async {
+    if (_controller == null || !_controller!.value.isInitialized || _isRecording) {
+      return;
+    }
+
+    try {
+      await _controller!.startVideoRecording();
+      setState(() {
+        _isRecording = true;
+        _recordingDuration = Duration.zero;
+      });
+
+      // Start timer to track recording duration
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (mounted) {
+          setState(() {
+            _recordingDuration += const Duration(seconds: 1);
+          });
+        }
+      });
+
+      // Play shutter sound for video start
+      await _playShutterSound();
+
+    } catch (e) {
+      debugPrint('Error starting video recording: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error starting video recording: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _stopVideoRecording() async {
+    if (_controller == null || !_isRecording) {
+      return;
+    }
+
+    try {
+      final XFile videoFile = await _controller!.stopVideoRecording();
+      
+      // Stop the recording timer
+      _recordingTimer?.cancel();
+      _recordingTimer = null;
+
+      setState(() {
+        _isRecording = false;
+        _recordingDuration = Duration.zero;
+      });
+
+      // Play shutter sound for video stop
+      await _playShutterSound();
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Video saved: ${_formatDuration(_recordingDuration)}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+    } catch (e) {
+      debugPrint('Error stopping video recording: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error stopping video recording: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    String minutes = twoDigits(duration.inMinutes.remainder(60));
+    String seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
+  }
+
   void _navigateToImageReview() async {
     // Turn off torch before navigating
     await _turnOffTorch();
@@ -430,7 +558,7 @@ class _CameraScreenState extends State<CameraScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => ImageReviewScreen(
-            images: _capturedImages,
+            images: _capturedImages.map((e) => e.watermarkedFile).toList(),
           ),
         ),
       );
@@ -439,9 +567,18 @@ class _CameraScreenState extends State<CameraScreen> {
 
   @override
   void dispose() {
+    // Stop recording if active
+    if (_isRecording) {
+      _controller?.stopVideoRecording();
+    }
+    
+    // Cancel recording timer
+    _recordingTimer?.cancel();
+    
     // Turn off torch before disposing
     _turnOffTorch();
     _controller?.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -471,12 +608,23 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
 
+    final size = MediaQuery.of(context).size;
+    // calculate scale to fill screen
+    var scale = size.aspectRatio * _controller!.value.aspectRatio;
+
+    // to prevent scaling down, make sure scale is > 1
+    if (scale < 1) scale = 1 / scale;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Camera Preview
-          CameraPreview(_controller!),
+          Transform.scale(
+            scale: scale,
+            child: Center(
+              child: CameraPreview(_controller!),
+            ),
+          ),
 
           // Top Controls
           SafeArea(
@@ -502,41 +650,102 @@ class _CameraScreenState extends State<CameraScreen> {
                     ),
                   ),
 
-                  // Photo count badge
-                  if (_capturedImages.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${_capturedImages.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                  // Center: Mode indicator and recording timer
+                  Column(
+                    children: [
+                      // Mode indicator
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _isVideoMode ? 'VIDEO' : 'PHOTO',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                    ),
+                      
+                      // Recording timer
+                      if (_isRecording)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _formatDuration(_recordingDuration),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
 
-                  // Settings/More button
-                  GestureDetector(
-                    onTap: () {
-                      // TODO: Add settings or more options
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
-                        shape: BoxShape.circle,
+                  // Right side: Photo count and video mode toggle
+                  Row(
+                    children: [
+                      // Photo count badge
+                      if (_capturedImages.isNotEmpty && !_isVideoMode)
+                        Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${_capturedImages.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+
+                      // Video mode toggle
+                      GestureDetector(
+                        onTap: _toggleVideoMode,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: _isVideoMode 
+                              ? const Color(0xFF35C2C1).withOpacity(0.8)
+                              : Colors.black.withOpacity(0.3),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _isVideoMode ? Icons.videocam : Icons.videocam_outlined,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.more_vert,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -605,23 +814,47 @@ class _CameraScreenState extends State<CameraScreen> {
                     children: [
                       // Gallery/Preview button
                       GestureDetector(
-                        onTap: _capturedImages.isNotEmpty ? () {
-                          Navigator.push(
+                        onTap: _capturedImages.isNotEmpty ? () async {
+                          if (_capturedImages.last.isProcessing) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Still processing image...'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                            return;
+                          }
+                          
+                          final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => ImageReviewScreen(
-                                images: _capturedImages,
+                                images: _capturedImages.map((e) => e.watermarkedFile).toList(),
                               ),
                             ),
                           );
+                          
+                          // Handle the returned list of images (with deleted ones removed)
+                          if (result != null && result is List<File>) {
+                            setState(() {
+                              // Create a map of file paths to CapturedImage objects for easy lookup
+                              final imageMap = <String, CapturedImage>{};
+                              for (final capturedImage in _capturedImages) {
+                                imageMap[capturedImage.watermarkedFile.path] = capturedImage;
+                              }
+                              
+                              // Filter the captured images to only include those that are still in the result list
+                              _capturedImages = _capturedImages.where((capturedImage) {
+                                return result.any((file) => file.path == capturedImage.watermarkedFile.path);
+                              }).toList();
+                            });
+                          }
                         } : null,
                         child: Container(
                           width: 60,
                           height: 60,
                           decoration: BoxDecoration(
-                            color: _capturedImages.isNotEmpty 
-                              ? Colors.white.withOpacity(0.9)
-                              : Colors.white.withOpacity(0.3),
+                            color: Colors.white.withOpacity(0.3),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: Colors.white.withOpacity(0.5),
@@ -629,12 +862,27 @@ class _CameraScreenState extends State<CameraScreen> {
                             ),
                           ),
                           child: _capturedImages.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.file(
-                                  _capturedImages.last,
-                                  fit: BoxFit.cover,
-                                ),
+                            ? Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Image.file(
+                                      _capturedImages.last.watermarkedFile,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  if (_capturedImages.last.isProcessing)
+                                    Container(
+                                      color: Colors.black.withOpacity(0.6),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               )
                             : const Icon(
                                 Icons.photo_library,
@@ -646,15 +894,27 @@ class _CameraScreenState extends State<CameraScreen> {
 
                       // Shutter Button
                       GestureDetector(
-                        onTap: _isCapturing ? null : _takePicture,
+                        onTap: _isCapturing || _isRecording ? null : () {
+                          if (_isVideoMode) {
+                            if (_isRecording) {
+                              _stopVideoRecording();
+                            } else {
+                              _startVideoRecording();
+                            }
+                          } else {
+                            _takePicture();
+                          }
+                        },
                         child: Container(
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: _isRecording ? Colors.red : Colors.white,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
+                              color: _isRecording 
+                                ? Colors.red.withOpacity(0.3)
+                                : Colors.white.withOpacity(0.3),
                               width: 4,
                             ),
                             boxShadow: [
@@ -679,14 +939,28 @@ class _CameraScreenState extends State<CameraScreen> {
                                     strokeWidth: 3,
                                   ),
                                 )
-                              : Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
+                              : _isRecording
+                                ? Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.stop,
+                                      color: Colors.white,
+                                      size: 30,
+                                    ),
+                                  )
+                                : Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
                                   ),
-                                ),
                           ),
                         ),
                       ),

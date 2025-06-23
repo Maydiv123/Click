@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class ImageGalleryViewScreen extends StatefulWidget {
@@ -20,18 +19,12 @@ class ImageGalleryViewScreen extends StatefulWidget {
 class _ImageGalleryViewScreenState extends State<ImageGalleryViewScreen> {
   late PageController _pageController;
   late int _currentIndex;
-  List<bool> _savedStatus = [];
-  List<String> _errorMessages = [];
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: _currentIndex);
-    
-    // Initialize saved status and error messages
-    _savedStatus = List.generate(widget.images.length, (_) => false);
-    _errorMessages = List.generate(widget.images.length, (_) => '');
     
     _checkStoragePermission();
   }
@@ -59,66 +52,9 @@ class _ImageGalleryViewScreenState extends State<ImageGalleryViewScreen> {
     }
   }
 
-  Future<void> _saveImageToGallery(int index) async {
-    try {
-      final File imageFile = widget.images[index];
-      final result = await ImageGallerySaver.saveFile(
-        imageFile.path,
-        name: "click_${DateTime.now().millisecondsSinceEpoch}"
-      );
-      
-      if (result['isSuccess']) {
-        setState(() {
-          _savedStatus[index] = true;
-          _errorMessages[index] = '';
-        });
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Image saved to gallery successfully'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        setState(() {
-          _errorMessages[index] = result['errorMessage'] ?? 'Unknown error';
-        });
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to save image: ${_errorMessages[index]}'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessages[index] = e.toString();
-      });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
-
   void _removeImage(int index) {
     setState(() {
       widget.images.removeAt(index);
-      _savedStatus.removeAt(index);
-      _errorMessages.removeAt(index);
     });
     
     // If we removed the last image, go back
@@ -156,14 +92,6 @@ class _ImageGalleryViewScreenState extends State<ImageGalleryViewScreen> {
             icon: const Icon(Icons.delete, color: Colors.red),
             onPressed: () => _removeImage(_currentIndex),
           ),
-          // Save button
-          IconButton(
-            icon: Icon(
-              _savedStatus[_currentIndex] ? Icons.check : Icons.save_alt, 
-              color: Colors.white
-            ),
-            onPressed: () => _saveImageToGallery(_currentIndex),
-          ),
         ],
       ),
       body: Stack(
@@ -197,51 +125,6 @@ class _ImageGalleryViewScreenState extends State<ImageGalleryViewScreen> {
               );
             },
           ),
-          
-          // Error message overlay
-          if (_errorMessages[_currentIndex].isNotEmpty)
-            Positioned(
-              bottom: 20,
-              left: 20,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Error: ${_errorMessages[_currentIndex]}',
-                  style: const TextStyle(color: Colors.white),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          
-          // Save status indicator
-          if (_savedStatus[_currentIndex])
-            Positioned(
-              top: 100,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check, color: Colors.white, size: 16),
-                    SizedBox(width: 4),
-                    Text(
-                      'Saved',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );

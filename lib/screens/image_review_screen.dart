@@ -20,8 +20,6 @@ class ImageReviewScreen extends StatefulWidget {
 
 class _ImageReviewScreenState extends State<ImageReviewScreen> {
   List<File> _images = [];
-  List<bool> _savedStatus = [];
-  List<String> _errorMessages = [];
   
   // Share selection state
   bool _isSelectionMode = false;
@@ -32,9 +30,6 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
     super.initState();
     // Make images list mutable
     _images = List.from(widget.images);
-    // Initialize all images as not saved
-    _savedStatus = List.generate(_images.length, (_) => false);
-    _errorMessages = List.generate(_images.length, (_) => '');
     _checkStoragePermission();
   }
   
@@ -55,153 +50,44 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
     }
   }
   
-  Future<void> _saveImageToGallery(int index) async {
-    try {
-      final File imageFile = _images[index];
-      final result = await ImageGallerySaver.saveFile(
-        imageFile.path,
-        name: "click_${DateTime.now().millisecondsSinceEpoch}"
-      );
-      
-      if (result['isSuccess']) {
-        setState(() {
-          _savedStatus[index] = true;
-          _errorMessages[index] = '';
-        });
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Image saved to gallery successfully'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        setState(() {
-          _errorMessages[index] = result['errorMessage'] ?? 'Unknown error';
-        });
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to save image: ${_errorMessages[index]}'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessages[index] = e.toString();
-      });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
-  
-  Future<void> _saveAllImagesToGallery() async {
-    bool anySuccess = false;
-    bool anyFailure = false;
-    
-    // Show loading dialog
-    showDialog(
+  Future<void> _deleteSelectedImages() async {
+    if (_selectedImages.isEmpty) return;
+
+    // Show confirmation dialog before deleting
+    final confirmed = await showDialog<bool>(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Saving images to gallery...'),
-          ],
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Images?'),
+        content: Text(
+          'Are you sure you want to delete the ${_selectedImages.length} selected images? This action cannot be undone.',
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
-    
-    for (int i = 0; i < _images.length; i++) {
-      if (!_savedStatus[i]) {
-        try {
-          final File imageFile = _images[i];
-          final result = await ImageGallerySaver.saveFile(
-            imageFile.path,
-            name: "click_${DateTime.now().millisecondsSinceEpoch}_$i"
-          );
-          
-          if (result['isSuccess']) {
-            setState(() {
-              _savedStatus[i] = true;
-              _errorMessages[i] = '';
-            });
-            anySuccess = true;
-          } else {
-            setState(() {
-              _errorMessages[i] = result['errorMessage'] ?? 'Unknown error';
-            });
-            anyFailure = true;
-          }
-        } catch (e) {
-          setState(() {
-            _errorMessages[i] = e.toString();
-          });
-          anyFailure = true;
-        }
-      }
-    }
-    
-    // Close loading dialog
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
-    
-    // Show appropriate message
-    if (mounted) {
-      if (anySuccess && !anyFailure) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('All images saved to gallery successfully'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      } else if (anySuccess && anyFailure) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Some images were saved to gallery'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save images to gallery'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
 
-  // Remove image at specific index
-  void _removeImage(int index) {
-    setState(() {
-      _images.removeAt(index);
-      _savedStatus.removeAt(index);
-      _errorMessages.removeAt(index);
-    });
+    if (confirmed == true) {
+      setState(() {
+        // Sort indices in descending order to prevent issues when removing items from the list
+        final indicesToRemove = _selectedImages.toList()..sort((a, b) => b.compareTo(a));
+        
+        for (final index in indicesToRemove) {
+          _images.removeAt(index);
+        }
+        
+        // Exit selection mode after deletion
+        _clearSelection();
+      });
+    }
   }
   
   // Share selection methods
@@ -271,7 +157,8 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
   
   // Navigate back to camera screen
   void _goBackToCamera() {
-    Navigator.pop(context);
+    // Return the updated list of images (with deleted ones removed)
+    Navigator.pop(context, _images);
   }
 
   @override
@@ -279,6 +166,13 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        leading: _isSelectionMode
+          ? IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: _clearSelection,
+              tooltip: 'Cancel Selection',
+            )
+          : null, // Default back button
         title: Text(
           _isSelectionMode 
             ? '${_selectedImages.length} selected'
@@ -293,6 +187,19 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
+          // Select all button
+          if (_isSelectionMode)
+            IconButton(
+              icon: Icon(
+                _selectedImages.length == _images.length 
+                  ? Icons.check_box 
+                  : Icons.check_box_outline_blank,
+              ),
+              tooltip: 'Select All',
+              onPressed: _selectedImages.length == _images.length
+                ? _clearSelection
+                : _selectAllImages,
+            ),
           // Share button (only show when not in selection mode)
           if (!_isSelectionMode && _images.isNotEmpty)
             IconButton(
@@ -300,47 +207,6 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
               tooltip: 'Share photos',
               onPressed: _toggleSelectionMode,
             ),
-          // Add camera button to go back to camera
-          if (!_isSelectionMode)
-            IconButton(
-              icon: const Icon(Icons.add_a_photo),
-              tooltip: 'Take more photos',
-              onPressed: _goBackToCamera,
-            ),
-          // Add save all button
-          if (!_isSelectionMode)
-            IconButton(
-              icon: const Icon(Icons.save_alt),
-              tooltip: 'Save all to gallery',
-              onPressed: _saveAllImagesToGallery,
-            ),
-          // Selection mode actions
-          if (_isSelectionMode) ...[
-            // Select all button
-            IconButton(
-              icon: Icon(
-                _selectedImages.length == _images.length 
-                  ? Icons.check_box 
-                  : Icons.check_box_outline_blank,
-              ),
-              tooltip: 'Select all',
-              onPressed: _selectedImages.length == _images.length 
-                ? _clearSelection 
-                : _selectAllImages,
-            ),
-            // Share selected button
-            IconButton(
-              icon: const Icon(Icons.share),
-              tooltip: 'Share selected',
-              onPressed: _selectedImages.isNotEmpty ? _shareSelectedImages : null,
-            ),
-            // Cancel selection button
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Cancel selection',
-              onPressed: _clearSelection,
-            ),
-          ],
         ],
       ),
       body: Column(
@@ -375,8 +241,8 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
               ),
               itemCount: _images.length + 1, // Add 1 for the plus button
               itemBuilder: (context, index) {
-                // Show plus button at the end
-                if (index == _images.length) {
+                // Show plus button at the beginning
+                if (index == 0) {
                   return GestureDetector(
                     onTap: _isSelectionMode ? null : _goBackToCamera,
                     child: Container(
@@ -428,13 +294,15 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                     ),
                   );
                 }
+
+                final imageIndex = index - 1;
                 
                 // Show image
                 return GestureDetector(
                   onTap: () {
                     if (_isSelectionMode) {
                       // In selection mode, toggle selection
-                      _toggleImageSelection(index);
+                      _toggleImageSelection(imageIndex);
                     } else {
                       // Normal mode, open gallery view
                       Navigator.push(
@@ -442,7 +310,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                         MaterialPageRoute(
                           builder: (context) => ImageGalleryViewScreen(
                             images: _images,
-                            initialIndex: index,
+                            initialIndex: imageIndex,
                           ),
                         ),
                       );
@@ -452,7 +320,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                     if (!_isSelectionMode) {
                       // Start selection mode and select this image
                       _toggleSelectionMode();
-                      _toggleImageSelection(index);
+                      _toggleImageSelection(imageIndex);
                     }
                   },
                   child: Container(
@@ -466,7 +334,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                         ),
                       ],
                       // Add selection border
-                      border: _isSelectionMode && _selectedImages.contains(index)
+                      border: _isSelectionMode && _selectedImages.contains(imageIndex)
                         ? Border.all(
                             color: const Color(0xFF35C2C1),
                             width: 3,
@@ -479,18 +347,21 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                         fit: StackFit.expand,
                         children: [
                           Image.file(
-                            _images[index],
+                            _images[imageIndex],
                             fit: BoxFit.cover,
                           ),
                           // Selection overlay
                           if (_isSelectionMode)
                             Container(
-                              color: _selectedImages.contains(index)
-                                ? const Color(0xFF35C2C1).withOpacity(0.3)
-                                : Colors.black.withOpacity(0.1),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: _selectedImages.contains(imageIndex)
+                                  ? const Color(0xFF35C2C1).withOpacity(0.4)
+                                  : Colors.black.withOpacity(0.2),
+                              ),
                             ),
                           // Selection checkmark
-                          if (_isSelectionMode && _selectedImages.contains(index))
+                          if (_isSelectionMode && _selectedImages.contains(imageIndex))
                             Positioned(
                               top: 8,
                               right: 8,
@@ -499,6 +370,9 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                                 decoration: const BoxDecoration(
                                   color: Color(0xFF35C2C1),
                                   shape: BoxShape.circle,
+                                  border: Border.fromBorderSide(
+                                    BorderSide(color: Colors.white, width: 1.5),
+                                  ),
                                 ),
                                 child: const Icon(
                                   Icons.check,
@@ -507,63 +381,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                                 ),
                               ),
                             ),
-                          // Remove button (cross icon) - only show when not in selection mode
-                          if (!_isSelectionMode)
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: GestureDetector(
-                                onTap: () => _removeImage(index),
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.8),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          // Save status indicator - only show when not in selection mode
-                          if (!_isSelectionMode && _savedStatus[index])
-                            Positioned(
-                              bottom: 8,
-                              right: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.check,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                          // Error indicator - only show when not in selection mode
-                          if (!_isSelectionMode && _errorMessages[index].isNotEmpty)
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.error,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
+                          
                           // Image number badge - only show when not in selection mode
                           if (!_isSelectionMode)
                             Positioned(
@@ -579,7 +397,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  '${index + 1}',
+                                  '${imageIndex + 1}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -597,70 +415,63 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
           ),
         ],
       ),
-      // Bottom action bar to save all images
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, -1),
+      // Bottom action bar is now conditional
+      bottomNavigationBar: _isSelectionMode
+        ? Container(
+            height: 80,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: _images.isEmpty
-            ? ElevatedButton.icon(
-                onPressed: _goBackToCamera,
-                icon: const Icon(Icons.add_a_photo),
-                label: const Text('Take More Photos'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF35C2C1),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                // Share Button
+                TextButton.icon(
+                  onPressed: _selectedImages.isNotEmpty ? _shareSelectedImages : null,
+                  icon: const Icon(Icons.share),
+                  label: const Text('Share'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF35C2C1),
+                  ),
+                ),
+                // Delete Button
+                TextButton.icon(
+                  onPressed: _selectedImages.isNotEmpty ? _deleteSelectedImages : null,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Delete'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          )
+        : _images.isEmpty
+            ? Container(
+                padding: const EdgeInsets.all(16),
+                child: ElevatedButton.icon(
+                  onPressed: _goBackToCamera,
+                  icon: const Icon(Icons.add_a_photo),
+                  label: const Text('Take More Photos'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF35C2C1),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               )
-            : Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _goBackToCamera,
-                      icon: const Icon(Icons.add_a_photo),
-                      label: const Text('More Photos'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[200],
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: _saveAllImagesToGallery,
-                      icon: const Icon(Icons.save_alt),
-                      label: const Text('Save All'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF35C2C1),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-      ),
+            : null, // Hide bottom bar when viewing grid and not in selection mode
     );
   }
 } 
