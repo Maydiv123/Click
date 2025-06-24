@@ -21,6 +21,7 @@ import '../models/map_location.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../widgets/modern_app_features.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -1424,29 +1425,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildSettingItem(Icons.logout, 'Logout', () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Logout'),
-                      content: const Text('Are you sure you want to logout?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            _signOut();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                          ),
-                          child: const Text('Logout'),
-                        ),
-                      ],
-                    ),
-                  );
+                _buildSettingItem(Icons.logout, 'Logout', () async {
+                  // Show logout confirmation dialog
+                  final shouldLogout = await LogoutConfirmationDialog.show(context);
+                  
+                  if (shouldLogout) {
+                    _signOut();
+                  }
                 }, iconColor: Colors.red),
               ],
             ),

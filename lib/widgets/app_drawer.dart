@@ -14,6 +14,7 @@ import '../screens/join_team_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/team_details_screen.dart';
 import '../screens/nearest_petrol_pumps_screen.dart';
+import 'modern_app_features.dart';
 
 class AppDrawer extends StatelessWidget {
   final String currentScreen;
@@ -464,21 +465,26 @@ class AppDrawer extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    try {
-                      final authService = CustomAuthService();
-                      await authService.signOut();
-                      if (context.mounted) {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
-                          (route) => false,
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error signing out: ${e.toString()}')),
-                        );
+                    // Show logout confirmation dialog
+                    final shouldLogout = await LogoutConfirmationDialog.show(context);
+                    
+                    if (shouldLogout) {
+                      try {
+                        final authService = CustomAuthService();
+                        await authService.signOut();
+                        if (context.mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                            (route) => false,
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error signing out: ${e.toString()}')),
+                          );
+                        }
                       }
                     }
                   },

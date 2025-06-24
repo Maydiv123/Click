@@ -9,6 +9,7 @@ import 'login_screen.dart';
 import 'openstreet_map_screen.dart';
 import 'search_petrol_pumps_screen.dart';
 import 'nearest_petrol_pumps_screen.dart';
+import '../widgets/modern_app_features.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -674,7 +675,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: const Icon(Icons.logout, color: Colors.red, size: 20),
                       ),
                       title: const Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500)),
-                      onTap: _signOut,
+                      onTap: () async {
+                        // Show logout confirmation dialog
+                        final shouldLogout = await LogoutConfirmationDialog.show(context);
+                        
+                        if (shouldLogout) {
+                          _signOut();
+                        }
+                      },
                     ),
                   ],
                 ),

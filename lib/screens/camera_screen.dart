@@ -71,40 +71,60 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<void> _initializeCamera() async {
-    // Request camera permission
-    final cameraStatus = await Permission.camera.request();
+    // Check camera permission first
+    final cameraStatus = await Permission.camera.status;
     if (cameraStatus.isDenied) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Camera permission is required to take photos')),
-        );
+      final cameraRequest = await Permission.camera.request();
+      if (cameraRequest.isDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Camera permission is required to take photos')),
+          );
+        }
+        return;
       }
-      return;
     }
     
-    // Request microphone permission for video recording
-    final microphoneStatus = await Permission.microphone.request();
+    // Check microphone permission for video recording
+    final microphoneStatus = await Permission.microphone.status;
     if (microphoneStatus.isDenied) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Microphone permission is required for video recording')),
-        );
+      final microphoneRequest = await Permission.microphone.request();
+      if (microphoneRequest.isDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Microphone permission is required for video recording')),
+          );
+        }
+        // Continue anyway as user might grant permission later
       }
-      // Continue anyway as user might grant permission later
     }
     
-    // Request storage permission for saving photos
-    // For Android 10+ we need to request multiple permissions
-    final storageStatus = await Permission.photos.request();
-    final mediaStatus = await Permission.storage.request();
+    // Check storage permissions for saving photos
+    // For Android 10+ we need to check multiple permissions
+    final photosStatus = await Permission.photos.status;
+    final storageStatus = await Permission.storage.status;
     
-    if (storageStatus.isDenied || mediaStatus.isDenied) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Storage permission is required to save photos')),
-        );
+    if (photosStatus.isDenied || storageStatus.isDenied) {
+      // Only request if not already granted
+      if (photosStatus.isDenied) {
+        await Permission.photos.request();
       }
-      // Continue anyway as user might grant permission later
+      if (storageStatus.isDenied) {
+        await Permission.storage.request();
+      }
+      
+      // Check again after requesting
+      final finalPhotosStatus = await Permission.photos.status;
+      final finalStorageStatus = await Permission.storage.status;
+      
+      if (finalPhotosStatus.isDenied && finalStorageStatus.isDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Storage permission is required to save photos')),
+          );
+        }
+        // Continue anyway as user might grant permission later
+      }
     }
 
     // Get available cameras
@@ -122,7 +142,7 @@ class _CameraScreenState extends State<CameraScreen> {
     _controller = CameraController(
       cameras.first,
       ResolutionPreset.high,
-      enableAudio: true,
+      enableAudio: true, // Enable audio for video recording
     );
 
     try {
@@ -479,6 +499,12 @@ class _CameraScreenState extends State<CameraScreen> {
           setState(() {
             _recordingDuration += const Duration(seconds: 1);
           });
+          
+          // Auto-stop recording after 30 seconds
+          if (_recordingDuration.inSeconds >= 30) {
+            timer.cancel();
+            _stopVideoRecording();
+          }
         }
       });
 
@@ -504,12 +530,15 @@ class _CameraScreenState extends State<CameraScreen> {
     }
 
     try {
-      final XFile videoFile = await _controller!.stopVideoRecording();
+      // Store the final recording duration before resetting
+      final finalDuration = _recordingDuration;
       
-      // Stop the recording timer
+      // Cancel the recording timer first
       _recordingTimer?.cancel();
       _recordingTimer = null;
 
+      final XFile videoFile = await _controller!.stopVideoRecording();
+      
       setState(() {
         _isRecording = false;
         _recordingDuration = Duration.zero;
@@ -518,11 +547,11 @@ class _CameraScreenState extends State<CameraScreen> {
       // Play shutter sound for video stop
       await _playShutterSound();
 
-      // Show success message
+      // Show success message with the stored duration
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Video saved: ${_formatDuration(_recordingDuration)}'),
+            content: Text('Video saved: ${_formatDuration(finalDuration)}'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 2),
           ),
@@ -539,6 +568,12 @@ class _CameraScreenState extends State<CameraScreen> {
           ),
         );
       }
+      
+      // Reset state even if there's an error
+      setState(() {
+        _isRecording = false;
+        _recordingDuration = Duration.zero;
+      });
     }
   }
 
@@ -633,7 +668,7 @@ class _CameraScreenState extends State<CameraScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Back button
+                  // Left side: Back button
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
@@ -650,59 +685,64 @@ class _CameraScreenState extends State<CameraScreen> {
                     ),
                   ),
 
-                  // Center: Mode indicator and recording timer
-                  Column(
-                    children: [
-                      // Mode indicator
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _isVideoMode ? 'VIDEO' : 'PHOTO',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      
-                      // Recording timer
-                      if (_isRecording)
+                  // Center: Mode indicator and recording timer (fixed width container)
+                  SizedBox(
+                    width: 120, // Fixed width to maintain center position
+                    child: Column(
+                      children: [
+                        // Mode indicator
                         Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.black.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _formatDuration(_recordingDuration),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            _isVideoMode ? 'VIDEO' : 'PHOTO',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
-                    ],
+                        
+                        // Recording timer
+                        if (_isRecording)
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _recordingDuration.inSeconds >= 25 
+                                ? Colors.orange.withOpacity(0.8)
+                                : Colors.red.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${_formatDuration(_recordingDuration)} / 00:30',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
 
                   // Right side: Photo count and video mode toggle
@@ -837,16 +877,54 @@ class _CameraScreenState extends State<CameraScreen> {
                           // Handle the returned list of images (with deleted ones removed)
                           if (result != null && result is List<File>) {
                             setState(() {
-                              // Create a map of file paths to CapturedImage objects for easy lookup
-                              final imageMap = <String, CapturedImage>{};
-                              for (final capturedImage in _capturedImages) {
-                                imageMap[capturedImage.watermarkedFile.path] = capturedImage;
+                              // Debug logging
+                              debugPrint('Original captured images count: ${_capturedImages.length}');
+                              debugPrint('Remaining images count: ${result.length}');
+                              
+                              // If the returned list is shorter than our current list, 
+                              // it means some images were deleted
+                              if (result.length < _capturedImages.length) {
+                                // Create a map of current watermarked file paths to their indices
+                                final currentPaths = <String, int>{};
+                                for (int i = 0; i < _capturedImages.length; i++) {
+                                  currentPaths[_capturedImages[i].watermarkedFile.path] = i;
+                                }
+                                
+                                // Create a set of remaining file paths
+                                final remainingPaths = result.map((file) => file.path).toSet();
+                                
+                                // Find which images were removed
+                                final removedIndices = <int>[];
+                                for (int i = 0; i < _capturedImages.length; i++) {
+                                  if (!remainingPaths.contains(_capturedImages[i].watermarkedFile.path)) {
+                                    removedIndices.add(i);
+                                    debugPrint('Image at index $i will be removed: ${_capturedImages[i].watermarkedFile.path}');
+                                  }
+                                }
+                                
+                                // Remove images in reverse order to maintain correct indices
+                                removedIndices.sort((a, b) => b.compareTo(a));
+                                for (final index in removedIndices) {
+                                  _capturedImages.removeAt(index);
+                                }
+                                
+                                debugPrint('Removed ${removedIndices.length} images');
                               }
                               
-                              // Filter the captured images to only include those that are still in the result list
-                              _capturedImages = _capturedImages.where((capturedImage) {
-                                return result.any((file) => file.path == capturedImage.watermarkedFile.path);
-                              }).toList();
+                              // Fallback: If the counts don't match after processing, 
+                              // rebuild the list from the returned result
+                              if (_capturedImages.length != result.length) {
+                                debugPrint('Count mismatch detected. Rebuilding list from result.');
+                                // This is a fallback - in normal cases this shouldn't happen
+                                // but it ensures the state stays consistent
+                                _capturedImages = result.map((file) => CapturedImage(
+                                  originalPath: file.path,
+                                  watermarkedFile: file,
+                                  isProcessing: false,
+                                )).toList();
+                              }
+                              
+                              debugPrint('Final captured images count: ${_capturedImages.length}');
                             });
                           }
                         } : null,
@@ -894,12 +972,12 @@ class _CameraScreenState extends State<CameraScreen> {
 
                       // Shutter Button
                       GestureDetector(
-                        onTap: _isCapturing || _isRecording ? null : () {
+                        onTap: _isCapturing ? null : () async {
                           if (_isVideoMode) {
                             if (_isRecording) {
-                              _stopVideoRecording();
+                              await _stopVideoRecording();
                             } else {
-                              _startVideoRecording();
+                              await _startVideoRecording();
                             }
                           } else {
                             _takePicture();
