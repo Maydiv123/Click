@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import '../services/map_service.dart';
 import '../services/petrol_pump_request_service.dart';
 import '../services/custom_auth_service.dart';
+import '../services/petrol_pump_lookup_service.dart';
 import '../models/map_location.dart';
 import '../models/petrol_pump_request.dart';
 import '../widgets/app_drawer.dart';
@@ -27,6 +28,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   final _storageService = StorageService();
   final _authService = CustomAuthService();
   final _jsonController = TextEditingController();
+  final _petrolPumpLookupService = PetrolPumpLookupService();
   
   // Form controllers
   final _zoneController = TextEditingController();
@@ -43,6 +45,12 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   final _contactDetailsController = TextEditingController();
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
+  final _regionalOfficeController = TextEditingController();
+  
+  // Company selection
+  final List<String> _companies = ['HPCL', 'BPCL', 'IOCL'];
+  String _selectedCompany = 'HPCL';
+  bool _isLoading = false;
   
   // Image pickers
   final ImagePicker _picker = ImagePicker();
@@ -68,16 +76,59 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   void initState() {
     super.initState();
     _updateProgress();
+    
+    // Add listener to pincode field to auto-fetch details when pincode is entered
+    _pincodeController.addListener(_onPincodeChanged);
+  }
+  
+  @override
+  void dispose() {
+    _pincodeController.removeListener(_onPincodeChanged);
+    
+    _jsonController.dispose();
+    _zoneController.dispose();
+    _salesAreaController.dispose();
+    _coClDoController.dispose();
+    _districtController.dispose();
+    _sapCodeController.dispose();
+    _customerNameController.dispose();
+    _locationController.dispose();
+    _addressLine1Controller.dispose();
+    _addressLine2Controller.dispose();
+    _pincodeController.dispose();
+    _dealerNameController.dispose();
+    _contactDetailsController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
+    _regionalOfficeController.dispose();
+    
+    // Clean up image files if needed
+    _bannerImage = null;
+    _boardImage = null;
+    _billSlipImage = null;
+    _governmentDocImage = null;
+    
+    super.dispose();
+  }
+  
+  // Listener for pincode changes
+  void _onPincodeChanged() {
+    final pincode = _pincodeController.text.trim();
+    if (pincode.length == 6) {
+      // Only trigger lookup when a complete 6-digit pincode is entered
+      _fetchPetrolPumpByPincodeAndLocation();
+    }
   }
 
   void _updateProgress() {
-    int totalFields = 17; // Total number of required fields including images
+    int totalFields = 18; // Total number of required fields including images and regional office
     int filledFields = 0;
     
     if (_zoneController.text.isNotEmpty) filledFields++;
     if (_salesAreaController.text.isNotEmpty) filledFields++;
     if (_coClDoController.text.isNotEmpty) filledFields++;
     if (_districtController.text.isNotEmpty) filledFields++;
+    if (_regionalOfficeController.text.isNotEmpty) filledFields++; // Added regional office
     if (_sapCodeController.text.isNotEmpty) filledFields++;
     if (_customerNameController.text.isNotEmpty) filledFields++;
     if (_locationController.text.isNotEmpty) filledFields++;
@@ -134,12 +185,92 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
         _isGettingLocation = false;
       });
       
+      // After getting coordinates, try to fetch petrol pump details
+      if (_pincodeController.text.isNotEmpty && _pincodeController.text.length == 6) {
+        _fetchPetrolPumpByPincodeAndLocation();
+      }
+      
       _updateProgress();
     } catch (e) {
       setState(() {
         _locationError = 'Error getting location: $e';
         _isGettingLocation = false;
       });
+    }
+  }
+
+  // Fetch petrol pump details based on selected company, pincode, and coordinates
+  Future<void> _fetchPetrolPumpByPincodeAndLocation() async {
+    // Check if we have both pincode and coordinates
+    if (_pincodeController.text.isEmpty || _latitudeController.text.isEmpty || _longitudeController.text.isEmpty) {
+      // We need both pincode and coordinates to proceed
+      return;
+    }
+    
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      final pincode = _pincodeController.text.trim();
+      final latitude = double.parse(_latitudeController.text);
+      final longitude = double.parse(_longitudeController.text);
+      
+      // Find nearest petrol pump based on company, pincode, and coordinates
+      final nearestPump = await _petrolPumpLookupService.findNearestPetrolPumpByCompanyAndPincode(
+        _selectedCompany,
+        pincode,
+        latitude,
+        longitude
+      );
+      
+      if (nearestPump != null) {
+        // Auto-fill only the specific fields (District, Regional office, Sales Area, Zone, CO/CL/DO)
+        // Leave all other fields for the user to fill in
+        setState(() {
+          _districtController.text = nearestPump.district;
+          _salesAreaController.text = nearestPump.salesArea;
+          _zoneController.text = nearestPump.zone;
+          _regionalOfficeController.text = nearestPump.regionalOffice; // Use regionalOffice directly
+          _coClDoController.text = nearestPump.coClDo; // Auto-fill CO/CL/DO field
+          
+          // Note: The following fields are intentionally NOT auto-filled:
+          // - customerName
+          // - dealerName
+          // - contactDetails
+          // - sapCode
+          // - location
+          // - addressLine1
+          // - addressLine2
+          // - All images (banner, board, bill slip, government doc)
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Auto-filled administrative fields from nearest ${_selectedCompany} petrol pump'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No ${_selectedCompany} petrol pump found with pincode $pincode'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error fetching petrol pump details: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+      _updateProgress();
     }
   }
 
@@ -196,7 +327,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
             _importStatus = 'Imported ${i + 1} of $_totalItems items';
           });
         } catch (e) {
-          print('Error importing item $i: $e');
+          // Error handling
           continue;
         }
       }
@@ -342,7 +473,16 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
 
   void _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
-      // Photos are now optional, so we don't need to check for them
+      // Check if the form is at least 70% complete
+      if (_progressValue < 0.7) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please complete at least 70% of the form before submitting'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
       
       // Show loading dialog
       showDialog(
@@ -379,7 +519,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           if (!identical(0, 0.0)) File(''); // Just to check platform support
         } catch (e) {
           canUploadFiles = false;
-          print('Platform does not support File operations: $e');
+          // Handle platform exception
         }
         
         if (canUploadFiles) {
@@ -412,11 +552,16 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
               );
             }
           } catch (e) {
-            print('Error uploading images: $e');
-            // Continue without images if there's an error
+            // Handle upload error
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error uploading images: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
           }
         }
-        
+
         // Create petrol pump request object
         final request = PetrolPumpRequest(
           zone: _zoneController.text,
@@ -439,6 +584,8 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           boardImageUrl: boardImageUrl,
           billSlipImageUrl: billSlipImageUrl,
           governmentDocImageUrl: governmentDocImageUrl,
+          regionalOffice: _regionalOfficeController.text,
+          company: _selectedCompany,
         );
         
         // Get the current user ID from custom auth service
@@ -478,8 +625,8 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       }
     }
   }
-
-  Future<void> _pickImage(ImageSource source, String type) async {
+  
+  Future<void> _pickImage(ImageSource source, int imageType) async {
     try {
       final XFile? pickedImage = await _picker.pickImage(
         source: source,
@@ -488,17 +635,17 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       
       if (pickedImage != null) {
         setState(() {
-          switch (type) {
-            case 'banner':
+          switch (imageType) {
+            case 0:
               _bannerImage = pickedImage;
               break;
-            case 'board':
+            case 1:
               _boardImage = pickedImage;
               break;
-            case 'bill':
+            case 2:
               _billSlipImage = pickedImage;
               break;
-            case 'government':
+            case 3:
               _governmentDocImage = pickedImage;
               break;
           }
@@ -506,11 +653,17 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
         _updateProgress();
       }
     } catch (e) {
-      print('Error picking image: $e');
+      // Handle image picking error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking image: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
   
-  void _showImagePickerOptions(String type, String title) {
+  void _showImageSourceDialog(String imageType) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -524,7 +677,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Select $title',
+                  'Select Image',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -539,7 +692,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                       title: 'Camera',
                       onTap: () {
                         Navigator.pop(context);
-                        _pickImage(ImageSource.camera, type);
+                        _pickImage(ImageSource.camera, imageType == 'banner' ? 0 : imageType == 'board' ? 1 : imageType == 'bill' ? 2 : 3);
                       },
                     ),
                     _buildPickerOption(
@@ -547,7 +700,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                       title: 'Gallery',
                       onTap: () {
                         Navigator.pop(context);
-                        _pickImage(ImageSource.gallery, type);
+                        _pickImage(ImageSource.gallery, imageType == 'banner' ? 0 : imageType == 'board' ? 1 : imageType == 'bill' ? 2 : 3);
                       },
                     ),
                   ],
@@ -557,42 +710,6 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           ),
         );
       },
-    );
-  }
-  
-  Widget _buildPickerOption({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: const Color(0xFF35C2C1).withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF35C2C1),
-              size: 30,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -627,421 +744,677 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Progress bar at the top
-          Container(
-            height: 30,
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: LinearProgressIndicator(
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Progress indicator
+                  LinearProgressIndicator(
                     value: _progressValue,
                     backgroundColor: Colors.grey[300],
                     valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF35C2C1)),
-                    minHeight: 8,
                   ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  '${(_progressValue * 100).toInt()}%',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF35C2C1),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Completion: ${(_progressValue * 100).toInt()}%',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Main content
-          Expanded(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF35C2C1),
-                    Colors.white,
-                  ],
-                ),
-              ),
-              child: Form(
-                key: _formKey,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Location Card at the top
-                      Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Location Information',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTextField(
-                                      _latitudeController,
-                                      'Latitude',
-                                      Icons.location_searching,
-                                      keyboardType: TextInputType.number,
-                                    ),
+                  const SizedBox(height: 16),
+                  
+                  // Company Selection Card
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Select Company',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: _companies.map((company) {
+                              final isSelected = _selectedCompany == company;
+                              return GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedCompany = company;
+                                  });
+                                  // Try to fetch details if pincode and coordinates are available
+                                  if (_pincodeController.text.isNotEmpty && 
+                                      _latitudeController.text.isNotEmpty && 
+                                      _longitudeController.text.isNotEmpty) {
+                                    _fetchPetrolPumpByPincodeAndLocation();
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
                                   ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      _longitudeController,
-                                      'Longitude',
-                                      Icons.location_searching,
-                                      keyboardType: TextInputType.number,
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFF35C2C1) : Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isSelected ? const Color(0xFF35C2C1) : Colors.grey,
+                                      width: 2,
                                     ),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: const Color(0xFF35C2C1).withOpacity(0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ]
+                                        : null,
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: _isGettingLocation ? null : _getCurrentLocation,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF35C2C1),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  icon: _isGettingLocation 
-                                      ? Container(
-                                          width: 24,
-                                          height: 24,
-                                          padding: const EdgeInsets.all(2.0),
-                                          child: const CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 3,
-                                          ),
-                                        )
-                                      : const Icon(Icons.my_location),
-                                  label: Text(_isGettingLocation ? 'Getting Location...' : 'Use Current Location'),
-                                ),
-                              ),
-                              if (_locationError.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
                                   child: Text(
-                                    _locationError,
-                                    style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                                    company,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected ? Colors.white : Colors.black87,
+                                    ),
                                   ),
                                 ),
-                            ],
+                              );
+                            }).toList(),
                           ),
-                        ),
+                        ],
                       ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Import Progress
-                      if (_isImporting)
-                        Card(
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _importStatus,
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 8),
-                                LinearProgressIndicator(
-                                  value: _totalItems > 0 ? _importProgress / _totalItems : 0,
-                                  backgroundColor: Colors.grey[300],
-                                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF35C2C1)),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Basic Information Card
-                      Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Basic Information',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              _buildTextField(_customerNameController, 'Customer Name', Icons.business),
-                              _buildTextField(_dealerNameController, 'Dealer Name', Icons.person),
-                              _buildTextField(_contactDetailsController, 'Contact Details', Icons.phone),
-                              _buildTextField(_sapCodeController, 'SAP Code', Icons.numbers),
-                            ],
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Address Card
-                      Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Address Details',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              _buildTextField(_locationController, 'Location', Icons.location_on),
-                              _buildTextField(_addressLine1Controller, 'Address Line 1', Icons.home),
-                              _buildTextField(_addressLine2Controller, 'Address Line 2', Icons.home),
-                              _buildTextField(_pincodeController, 'Pincode', Icons.pin),
-                            ],
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Administrative Card
-                      Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Administrative Details',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              _buildTextField(_zoneController, 'Zone', Icons.terrain),
-                              _buildTextField(_salesAreaController, 'Sales Area', Icons.business),
-                              _buildTextField(_coClDoController, 'CO/CL/DO', Icons.category),
-                              _buildTextField(_districtController, 'District', Icons.location_city),
-                            ],
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Documents Upload Card
-                      Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Required Documents',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              
-                              // Banner Image
-                              _buildImageUploadItem(
-                                title: 'Petrol Pump Banner',
-                                icon: Icons.image,
-                                image: _bannerImage,
-                                onTap: () => _showImagePickerOptions('banner', 'Banner Image'),
-                              ),
-                              
-                              const Divider(),
-                              
-                              // Board Image
-                              _buildImageUploadItem(
-                                title: 'Petrol Pump Board',
-                                icon: Icons.image_outlined,
-                                image: _boardImage,
-                                onTap: () => _showImagePickerOptions('board', 'Board Image'),
-                              ),
-                              
-                              const Divider(),
-                              
-                              // Bill Slip Image
-                              _buildImageUploadItem(
-                                title: 'Bill Slip',
-                                icon: Icons.receipt,
-                                image: _billSlipImage,
-                                onTap: () => _showImagePickerOptions('bill', 'Bill Slip'),
-                              ),
-                              
-                              const Divider(),
-                              
-                              // Government Document Image
-                              _buildImageUploadItem(
-                                title: 'Government Document',
-                                icon: Icons.description,
-                                image: _governmentDocImage,
-                                onTap: () => _showImagePickerOptions('government', 'Government Document'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Submit Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _submitForm,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF35C2C1),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Add Petrol Pump',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Location and Pincode Section
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Location Details',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 12),
+                          
+                          // Pincode field
+                          TextFormField(
+                            controller: _pincodeController,
+                            decoration: InputDecoration(
+                              labelText: 'Pincode *',
+                              hintText: 'Enter 6-digit pincode',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              suffixIcon: _pincodeController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear),
+                                      onPressed: () {
+                                        setState(() {
+                                          _pincodeController.clear();
+                                        });
+                                      },
+                                    )
+                                  : null,
+                            ),
+                            keyboardType: TextInputType.number,
+                            maxLength: 6,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter pincode';
+                              }
+                              if (value.length != 6) {
+                                return 'Pincode must be 6 digits';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Coordinates section
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _latitudeController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Latitude *',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Required';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _longitudeController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Longitude *',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Required';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Get current location button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _isGettingLocation ? null : _getCurrentLocation,
+                              icon: const Icon(Icons.my_location),
+                              label: _isGettingLocation
+                                  ? const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text('Getting Location...'),
+                                      ],
+                                    )
+                                  : const Text('Get Current Location'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF35C2C1),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (_locationError.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                _locationError,
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  
+                  // Auto-filled fields section
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Auto-filled Fields',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (_isLoading)
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          // District field
+                          TextFormField(
+                            controller: _districtController,
+                            decoration: InputDecoration(
+                              labelText: 'District *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                            ),
+                            readOnly: true,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter district';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Regional Office field
+                          TextFormField(
+                            controller: _regionalOfficeController,
+                            decoration: InputDecoration(
+                              labelText: 'Regional Office *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                            ),
+                            readOnly: true,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter regional office';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Sales Area field
+                          TextFormField(
+                            controller: _salesAreaController,
+                            decoration: InputDecoration(
+                              labelText: 'Sales Area *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                            ),
+                            readOnly: true,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter sales area';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Zone field
+                          TextFormField(
+                            controller: _zoneController,
+                            decoration: InputDecoration(
+                              labelText: 'Zone *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                            ),
+                            readOnly: true,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter zone';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // CO/CL/DO field
+                          TextFormField(
+                            controller: _coClDoController,
+                            decoration: InputDecoration(
+                              labelText: 'CO/CL/DO *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter CO/CL/DO';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // User Input Fields section - Adding the missing fields
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Petrol Pump Details',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          // SAP Code field
+                          TextFormField(
+                            controller: _sapCodeController,
+                            decoration: InputDecoration(
+                              labelText: 'SAP Code *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter SAP Code';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) => _updateProgress(),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Customer Name field
+                          TextFormField(
+                            controller: _customerNameController,
+                            decoration: InputDecoration(
+                              labelText: 'Customer Name *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter Customer Name';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) => _updateProgress(),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Location field
+                          TextFormField(
+                            controller: _locationController,
+                            decoration: InputDecoration(
+                              labelText: 'Location *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter Location';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) => _updateProgress(),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Address Line 1 field
+                          TextFormField(
+                            controller: _addressLine1Controller,
+                            decoration: InputDecoration(
+                              labelText: 'Address Line 1 *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter Address Line 1';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) => _updateProgress(),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Address Line 2 field
+                          TextFormField(
+                            controller: _addressLine2Controller,
+                            decoration: InputDecoration(
+                              labelText: 'Address Line 2 *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter Address Line 2';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) => _updateProgress(),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Dealer Name field
+                          TextFormField(
+                            controller: _dealerNameController,
+                            decoration: InputDecoration(
+                              labelText: 'Dealer Name *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter Dealer Name';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) => _updateProgress(),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Contact Details field
+                          TextFormField(
+                            controller: _contactDetailsController,
+                            decoration: InputDecoration(
+                              labelText: 'Contact Details *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            keyboardType: TextInputType.phone,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter Contact Details';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) => _updateProgress(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Images section
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Required Images',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          // Banner Image
+                          ListTile(
+                            title: const Text('Banner Image *'),
+                            subtitle: _bannerImage != null
+                                ? Text('Selected: ${_bannerImage!.name}')
+                                : const Text('No image selected'),
+                            trailing: ElevatedButton(
+                              onPressed: () => _showImageSourceDialog('banner'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF35C2C1),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Select'),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          
+                          // Board Image
+                          ListTile(
+                            title: const Text('Board Image *'),
+                            subtitle: _boardImage != null
+                                ? Text('Selected: ${_boardImage!.name}')
+                                : const Text('No image selected'),
+                            trailing: ElevatedButton(
+                              onPressed: () => _showImageSourceDialog('board'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF35C2C1),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Select'),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          
+                          // Bill Slip Image
+                          ListTile(
+                            title: const Text('Bill Slip Image *'),
+                            subtitle: _billSlipImage != null
+                                ? Text('Selected: ${_billSlipImage!.name}')
+                                : const Text('No image selected'),
+                            trailing: ElevatedButton(
+                              onPressed: () => _showImageSourceDialog('bill'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF35C2C1),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Select'),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          
+                          // Government Document Image
+                          ListTile(
+                            title: const Text('Government Document *'),
+                            subtitle: _governmentDocImage != null
+                                ? Text('Selected: ${_governmentDocImage!.name}')
+                                : const Text('No image selected'),
+                            trailing: ElevatedButton(
+                              onPressed: () => _showImageSourceDialog('doc'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF35C2C1),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Select'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Submit button
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _submitForm,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF35C2C1),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Submit Request',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+          if (_isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label,
-    IconData icon, {
-    TextInputType? keyboardType,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: TextFormField(
-        controller: controller,
-        style: const TextStyle(color: Colors.black87),
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Colors.black54),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.grey),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.grey),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFF35C2C1), width: 2),
-          ),
-          prefixIcon: Icon(icon, color: const Color(0xFF35C2C1)),
-          filled: true,
-          fillColor: Colors.white,
-        ),
-        onChanged: (_) => _updateProgress(),
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'Please enter $label';
-          }
-          return null;
-        },
-      ),
-    );
-  }
-
-  Widget _buildImageUploadItem({
-    required String title,
-    required IconData icon,
-    required XFile? image,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 16.0),
-        child: Row(
-          children: [
-            Icon(icon, color: const Color(0xFF35C2C1), size: 24),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const Spacer(),
-            if (image != null)
-              const Icon(Icons.check, color: Colors.green),
-          ],
-        ),
       ),
     );
   }
@@ -1088,30 +1461,60 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _jsonController.dispose();
-    _zoneController.dispose();
-    _salesAreaController.dispose();
-    _coClDoController.dispose();
-    _districtController.dispose();
-    _sapCodeController.dispose();
-    _customerNameController.dispose();
-    _locationController.dispose();
-    _addressLine1Controller.dispose();
-    _addressLine2Controller.dispose();
-    _pincodeController.dispose();
-    _dealerNameController.dispose();
-    _contactDetailsController.dispose();
-    _latitudeController.dispose();
-    _longitudeController.dispose();
-    
-    // Clean up image files if needed
-    _bannerImage = null;
-    _boardImage = null;
-    _billSlipImage = null;
-    _governmentDocImage = null;
-    
-    super.dispose();
+  Widget _buildPickerOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFF35C2C1).withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: const Color(0xFF35C2C1),
+              size: 30,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        filled: true,
+        fillColor: Colors.grey[100],
+      ),
+      readOnly: true,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter $label';
+        }
+        return null;
+      },
+    );
   }
 } 

@@ -22,6 +22,8 @@ class PetrolPumpRequest {
   final String? boardImageUrl;
   final String? billSlipImageUrl;
   final String? governmentDocImageUrl;
+  final String regionalOffice;
+  final String company;
 
   PetrolPumpRequest({
     required this.zone,
@@ -45,6 +47,8 @@ class PetrolPumpRequest {
     this.boardImageUrl,
     this.billSlipImageUrl,
     this.governmentDocImageUrl,
+    required this.regionalOffice,
+    required this.company,
   });
 
   // Convert to Map for Firestore
@@ -71,6 +75,8 @@ class PetrolPumpRequest {
       'boardImageUrl': boardImageUrl,
       'billSlipImageUrl': billSlipImageUrl,
       'governmentDocImageUrl': governmentDocImageUrl,
+      'regionalOffice': regionalOffice,
+      'company': company,
     };
   }
 
@@ -98,6 +104,8 @@ class PetrolPumpRequest {
       boardImageUrl: map['boardImageUrl'],
       billSlipImageUrl: map['billSlipImageUrl'],
       governmentDocImageUrl: map['governmentDocImageUrl'],
+      regionalOffice: map['regionalOffice'] ?? '',
+      company: map['company'] ?? '',
     );
   }
 
