@@ -4,6 +4,7 @@ import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cross_file/cross_file.dart';
+import 'package:video_player/video_player.dart';
 import 'image_gallery_view_screen.dart';
 
 class ImageReviewScreen extends StatefulWidget {
@@ -25,12 +26,16 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
   bool _isSelectionMode = false;
   Set<int> _selectedImages = {};
   
+  // Video player controllers
+  Map<int, VideoPlayerController> _videoControllers = {};
+  
   @override
   void initState() {
     super.initState();
     // Make images list mutable
     _images = List.from(widget.images);
     _checkStoragePermission();
+    _initializeVideoControllers();
   }
   
   Future<void> _checkStoragePermission() async {
@@ -159,6 +164,31 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
   void _goBackToCamera() {
     // Return the updated list of images (with deleted ones removed)
     Navigator.pop(context, _images);
+  }
+
+  void _initializeVideoControllers() {
+    for (int i = 0; i < _images.length; i++) {
+      if (_isVideoFile(_images[i])) {
+        _videoControllers[i] = VideoPlayerController.file(_images[i])
+          ..initialize().then((_) {
+            if (mounted) setState(() {});
+          });
+      }
+    }
+  }
+
+  bool _isVideoFile(File file) {
+    final extension = file.path.split('.').last.toLowerCase();
+    return ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(extension);
+  }
+
+  @override
+  void dispose() {
+    // Dispose all video controllers
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -346,10 +376,13 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.file(
-                            _images[imageIndex],
-                            fit: BoxFit.cover,
-                          ),
+                          // Display image or video
+                          _isVideoFile(_images[imageIndex])
+                            ? _buildVideoThumbnail(imageIndex)
+                            : Image.file(
+                                _images[imageIndex],
+                                fit: BoxFit.cover,
+                              ),
                           // Selection overlay
                           if (_isSelectionMode)
                             Container(
@@ -378,6 +411,42 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                                   Icons.check,
                                   color: Colors.white,
                                   size: 16,
+                                ),
+                              ),
+                            ),
+                          
+                          // Video play button overlay
+                          if (_isVideoFile(_images[imageIndex]) && !_isSelectionMode)
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.7),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.play_arrow,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      'VIDEO',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -472,6 +541,123 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                 ),
               )
             : null, // Hide bottom bar when viewing grid and not in selection mode
+    );
+  }
+
+  Widget _buildVideoThumbnail(int index) {
+    final videoController = _videoControllers[index];
+    if (videoController == null || !videoController.value.isInitialized) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+      );
+    }
+    
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        VideoPlayer(videoController),
+        // Video play overlay
+        Container(
+          color: Colors.black.withOpacity(0.3),
+          child: const Center(
+            child: Icon(
+              Icons.play_circle_outline,
+              color: Colors.white,
+              size: 48,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class VideoPlayerScreen extends StatefulWidget {
+  final VideoPlayerController videoController;
+
+  const VideoPlayerScreen({
+    Key? key,
+    required this.videoController,
+  }) : super(key: key);
+
+  @override
+  State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
+}
+
+class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.videoController.addListener(_videoListener);
+  }
+
+  void _videoListener() {
+    if (mounted) {
+      setState(() {
+        _isPlaying = widget.videoController.value.isPlaying;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.videoController.removeListener(_videoListener);
+    super.dispose();
+  }
+
+  void _togglePlayPause() {
+    setState(() {
+      if (_isPlaying) {
+        widget.videoController.pause();
+      } else {
+        widget.videoController.play();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: AspectRatio(
+          aspectRatio: widget.videoController.value.aspectRatio,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              VideoPlayer(widget.videoController),
+              // Play/Pause button overlay
+              GestureDetector(
+                onTap: _togglePlayPause,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 } 

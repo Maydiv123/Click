@@ -19,11 +19,13 @@ class CapturedImage {
   final String originalPath; // Used as a key to find and update the item
   File watermarkedFile; // Starts as the raw file, gets replaced by the watermarked one
   bool isProcessing;
+  final String type; // 'photo' or 'video'
 
   CapturedImage({
     required this.originalPath,
     required this.watermarkedFile,
     this.isProcessing = true,
+    this.type = 'photo',
   });
 }
 
@@ -368,6 +370,7 @@ class _CameraScreenState extends State<CameraScreen> {
         originalPath: photo.path,
         watermarkedFile: tempFile, // Show raw file temporarily
         isProcessing: true,
+        type: 'photo',
       );
 
       setState(() {
@@ -544,19 +547,54 @@ class _CameraScreenState extends State<CameraScreen> {
         _recordingDuration = Duration.zero;
       });
 
+      // Save video to gallery
+      try {
+        final result = await ImageGallerySaver.saveFile(
+          videoFile.path,
+          name: "click_video_${DateTime.now().millisecondsSinceEpoch}.mp4"
+        );
+        
+        if (mounted) {
+          // Clear any existing snackbars first
+          ScaffoldMessenger.of(context).clearSnackBars();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['isSuccess'] ? 'Video saved to gallery: ${_formatDuration(finalDuration)}' : 'Failed to save video'),
+              backgroundColor: result['isSuccess'] ? Colors.green : Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          // Clear any existing snackbars first
+          ScaffoldMessenger.of(context).clearSnackBars();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to save video: ${e.toString()}'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+
+      // Add video to captured images list for review
+      final videoCapturedImage = CapturedImage(
+        originalPath: videoFile.path,
+        watermarkedFile: File(videoFile.path), // For videos, we use the original file
+        isProcessing: false,
+        type: 'video',
+      );
+
+      setState(() {
+        _capturedImages.add(videoCapturedImage);
+      });
+
       // Play shutter sound for video stop
       await _playShutterSound();
-
-      // Show success message with the stored duration
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Video saved: ${_formatDuration(finalDuration)}'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
 
     } catch (e) {
       debugPrint('Error stopping video recording: $e');
@@ -921,6 +959,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                   originalPath: file.path,
                                   watermarkedFile: file,
                                   isProcessing: false,
+                                  type: 'video',
                                 )).toList();
                               }
                               
