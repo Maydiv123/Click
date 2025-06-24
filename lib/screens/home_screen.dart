@@ -89,6 +89,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MapLocation> _nearbyPetrolPumps = [];
   final MapService _mapService = MapService();
   final double _radiusInKm = 5.0; // 5 km radius
+  
+  // Carousel auto-scroll timer
+  Timer? _carouselTimer;
 
   @override
   void initState() {
@@ -107,6 +110,9 @@ class _HomeScreenState extends State<HomeScreen> {
     
     // Set up ad slider timer
     _startAdTimer();
+    
+    // Set up carousel auto-scroll timer
+    _startCarouselTimer();
   }
 
   @override
@@ -115,6 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _pageController.dispose();
     _adPageController?.dispose();
     _adTimer?.cancel();
+    _carouselTimer?.cancel();
     super.dispose();
   }
 
@@ -398,6 +405,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         _buildNavButton('Team', 1),
                         const SizedBox(width: 8),
                         _buildNavButton('Stats', 2),
+                        const SizedBox(width: 8),
+                        _buildNavButton('Updates', 3),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -412,6 +421,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPageChanged: (index) {
                           setState(() {
                             _currentPage = index;
+                          });
+                          // Pause auto-scroll when user manually swipes
+                          _pauseCarouselTimer();
+                          // Resume auto-scroll after 3 seconds of inactivity
+                          Timer(const Duration(seconds: 3), () {
+                            _resumeCarouselTimer();
                           });
                         },
                         children: [
@@ -763,48 +778,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                           _buildUserStat('Uploads', (stats['uploads'] ?? 0).toString()),
                                         ],
                                       ),
-                                      const SizedBox(height: 8),
-                                      // Row(
-                                      //   mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                      //   children: [
-                                      //     Column(
-                                      //       children: [
-                                      //         Text(
-                                      //           '${_todayDistance.toStringAsFixed(1)} km',
-                                      //           style: const TextStyle(
-                                      //             color: Colors.white,
-                                      //             fontSize: 14,
-                                      //             fontWeight: FontWeight.bold,
-                                      //           ),
-                                      //         ),
-                                      //         Row(
-                                      //           children: [
-                                      //             Text(
-                                      //               'Today',
-                                      //               style: TextStyle(
-                                      //                 color: Colors.white.withOpacity(0.7),
-                                      //                 fontSize: 10,
-                                      //               ),
-                                      //             ),
-                                      //             const SizedBox(width: 2),
-                                      //             Icon(
-                                      //               Icons.directions_car,
-                                      //               color: Colors.white.withOpacity(0.7),
-                                      //               size: 8,
-                                      //             ),
-                                      //           ],
-                                      //         ),
-                                      //         Text(
-                                      //           'Total: ${(stats['totalDistance'] ?? 0).toStringAsFixed(1)} km',
-                                      //           style: TextStyle(
-                                      //             color: Colors.white.withOpacity(0.5),
-                                      //             fontSize: 8,
-                                      //           ),
-                                      //         ),
-                                      //       ],
-                                      //     ),
-                                      //   ],
-                                      // ),
                                     ],
                                   ),
                                 ),
@@ -1846,6 +1819,9 @@ class _HomeScreenState extends State<HomeScreen> {
         case 2:
           buttonColor = Colors.deepPurple.withOpacity(0.7);
           break;
+        case 3:
+          buttonColor = Colors.orange.withOpacity(0.7);
+          break;
         default:
           buttonColor = Colors.grey.withOpacity(0.7);
       }
@@ -1863,6 +1839,12 @@ class _HomeScreenState extends State<HomeScreen> {
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
+        // Pause auto-scroll when user manually navigates
+        _pauseCarouselTimer();
+        // Resume auto-scroll after 3 seconds of inactivity
+        Timer(const Duration(seconds: 3), () {
+          _resumeCarouselTimer();
+        });
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), // Increased padding
@@ -2028,6 +2010,50 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     );
+  }
+
+  void _startCarouselTimer() {
+    _carouselTimer = Timer.periodic(
+      const Duration(seconds: 4), // Auto-scroll every 4 seconds
+      (timer) {
+        if (_pageController.hasClients) {
+          // Get the current page from the controller to ensure synchronization
+          final currentPageFromController = _pageController.page?.round() ?? _currentPage;
+          
+          // Calculate next page for infinite scroll
+          int nextPage;
+          if (currentPageFromController < 3) { // 4 cards (0, 1, 2, 3)
+            nextPage = currentPageFromController + 1;
+          } else {
+            nextPage = 0; // Reset to first page for infinite scroll
+          }
+          
+          // Update the state
+          setState(() {
+            _currentPage = nextPage;
+          });
+          
+          // Animate to the next page
+          _pageController.animateToPage(
+            nextPage,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    );
+  }
+
+  void _pauseCarouselTimer() {
+    _carouselTimer?.cancel();
+    _carouselTimer = null;
+  }
+
+  void _resumeCarouselTimer() {
+    // Only start if not already running
+    if (_carouselTimer == null) {
+      _startCarouselTimer();
+    }
   }
 
   // Add this method to launch Google Maps navigation

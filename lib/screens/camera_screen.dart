@@ -78,12 +78,12 @@ class _CameraScreenState extends State<CameraScreen> {
     if (cameraStatus.isDenied) {
       final cameraRequest = await Permission.camera.request();
       if (cameraRequest.isDenied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Camera permission is required to take photos')),
-          );
-        }
-        return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Camera permission is required to take photos')),
+        );
+      }
+      return;
       }
     }
     
@@ -120,12 +120,12 @@ class _CameraScreenState extends State<CameraScreen> {
       final finalStorageStatus = await Permission.storage.status;
       
       if (finalPhotosStatus.isDenied && finalStorageStatus.isDenied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Storage permission is required to save photos')),
-          );
-        }
-        // Continue anyway as user might grant permission later
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Storage permission is required to save photos')),
+        );
+      }
+      // Continue anyway as user might grant permission later
       }
     }
 
@@ -226,7 +226,7 @@ class _CameraScreenState extends State<CameraScreen> {
     // User information
     final userName = '${_userData['firstName'] ?? ''} ${_userData['lastName'] ?? ''}'.trim();
     final teamName = _userData['teamName'] ?? '';
-    
+
     // Enhanced card dimensions for new layout
     final double cardWidth = imageWidth * 0.94;
     final double cardPadding = 16;
@@ -289,9 +289,9 @@ class _CameraScreenState extends State<CameraScreen> {
     final secondLineText = secondLineParts.join(' ');
     final secondLinePainter = TextPainter(
       text: TextSpan(text: secondLineText, style: subtitleStyle),
-      textDirection: ui.TextDirection.ltr,
-      maxLines: 1,
-    )..layout(maxWidth: cardWidth - 2 * cardPadding);
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout(maxWidth: cardWidth - 2 * cardPadding);
     secondLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
     y += secondLinePainter.height + 8;
     
@@ -352,6 +352,42 @@ class _CameraScreenState extends State<CameraScreen> {
     return watermarkedFile;
   }
 
+  Future<File> _addVideoWatermark(File videoFile) async {
+    // For now, we'll return the original video file
+    // Video watermarking requires more complex processing with video editing libraries
+    // This is a placeholder for future implementation
+    return videoFile;
+  }
+
+  Future<void> _processVideoWatermark(CapturedImage videoCapturedImage) async {
+    try {
+      // Add watermark to video (currently returns original file)
+      final watermarkedFile = await _addVideoWatermark(videoCapturedImage.watermarkedFile);
+
+      // Update the captured image with watermarked file
+      if (mounted) {
+        setState(() {
+          final index = _capturedImages.indexWhere((img) => img.originalPath == videoCapturedImage.originalPath);
+          if (index != -1) {
+            _capturedImages[index].watermarkedFile = watermarkedFile;
+            _capturedImages[index].isProcessing = false;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error processing video watermark: $e');
+      // Mark as processed even if watermarking fails
+      if (mounted) {
+        setState(() {
+          final index = _capturedImages.indexWhere((img) => img.originalPath == videoCapturedImage.originalPath);
+          if (index != -1) {
+            _capturedImages[index].isProcessing = false;
+          }
+        });
+      }
+    }
+  }
+
   Future<void> _takePicture() async {
     if (_controller == null || !_controller!.value.isInitialized || _isCapturing) {
       return;
@@ -372,7 +408,7 @@ class _CameraScreenState extends State<CameraScreen> {
         isProcessing: true,
         type: 'photo',
       );
-
+      
       setState(() {
         _capturedImages.add(newImage);
       });
@@ -512,7 +548,7 @@ class _CameraScreenState extends State<CameraScreen> {
       });
 
       // Play shutter sound for video start
-      await _playShutterSound();
+      // await _playShutterSound();
 
     } catch (e) {
       debugPrint('Error starting video recording: $e');
@@ -581,11 +617,11 @@ class _CameraScreenState extends State<CameraScreen> {
         }
       }
 
-      // Add video to captured images list for review
+      // Add video to captured images list for review with watermark processing
       final videoCapturedImage = CapturedImage(
         originalPath: videoFile.path,
-        watermarkedFile: File(videoFile.path), // For videos, we use the original file
-        isProcessing: false,
+        watermarkedFile: File(videoFile.path), // Show original file temporarily
+        isProcessing: true,
         type: 'video',
       );
 
@@ -593,8 +629,8 @@ class _CameraScreenState extends State<CameraScreen> {
         _capturedImages.add(videoCapturedImage);
       });
 
-      // Play shutter sound for video stop
-      await _playShutterSound();
+      // Process video watermark asynchronously
+      _processVideoWatermark(videoCapturedImage);
 
     } catch (e) {
       debugPrint('Error stopping video recording: $e');
@@ -627,7 +663,7 @@ class _CameraScreenState extends State<CameraScreen> {
     await _turnOffTorch();
     
     if (mounted) {
-      Navigator.push(
+      final result = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => ImageReviewScreen(
@@ -635,7 +671,25 @@ class _CameraScreenState extends State<CameraScreen> {
           ),
         ),
       );
+      
+      // Handle the returned list of images from image review screen
+      if (result != null && result is List<File>) {
+        // Update the captured images list based on what's returned
+        _updateCapturedImagesFromReview(result);
+      }
     }
+  }
+
+  void _updateCapturedImagesFromReview(List<File> returnedImages) {
+    // Create a set of returned image paths for efficient lookup
+    final returnedPaths = returnedImages.map((file) => file.path).toSet();
+    
+    // Remove captured images that are no longer in the returned list
+    setState(() {
+      _capturedImages.removeWhere((capturedImage) => 
+        !returnedPaths.contains(capturedImage.watermarkedFile.path)
+      );
+    });
   }
 
   @override
@@ -737,9 +791,9 @@ class _CameraScreenState extends State<CameraScreen> {
                           ),
                           child: Text(
                             _isVideoMode ? 'VIDEO' : 'PHOTO',
-                            style: const TextStyle(
+          style: const TextStyle(
                               color: Colors.white,
-                              fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),
                           ),
@@ -772,39 +826,20 @@ class _CameraScreenState extends State<CameraScreen> {
                                   '${_formatDuration(_recordingDuration)} / 00:30',
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                                     fontSize: 14,
-                                  ),
+                ),
                                 ),
                               ],
-                            ),
-                          ),
-                      ],
-                    ),
+              ),
+            ),
+        ],
+      ),
                   ),
 
                   // Right side: Photo count and video mode toggle
                   Row(
-                    children: [
-                      // Photo count badge
-                      if (_capturedImages.isNotEmpty && !_isVideoMode)
-                        Container(
-                          margin: const EdgeInsets.only(right: 12),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '${_capturedImages.length}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-
+        children: [
                       // Video mode toggle
                       GestureDetector(
                         onTap: _toggleVideoMode,
@@ -857,41 +892,41 @@ class _CameraScreenState extends State<CameraScreen> {
                       color: Colors.black.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(25),
                     ),
-                    child: Row(
+            child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: _zoomLevels.map((zoom) {
-                        final isSelected = _currentZoom == zoom;
+              children: _zoomLevels.map((zoom) {
+                final isSelected = _currentZoom == zoom;
                         return GestureDetector(
-                          onTap: () => _setZoom(zoom),
-                          child: Container(
+                    onTap: () => _setZoom(zoom),
+                    child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             margin: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
+                      decoration: BoxDecoration(
                               color: isSelected ? Colors.white : Colors.transparent,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
                               zoom == 1.0 ? '1x' : '${zoom.toInt()}x',
-                              style: TextStyle(
+                        style: TextStyle(
                                 color: isSelected ? Colors.black : Colors.white,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                      ),
                     ),
                   ),
+                );
+              }).toList(),
+            ),
+          ),
 
                   const SizedBox(height: 30),
 
                   // Main Controls Row
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
                       // Gallery/Preview button
-                      GestureDetector(
+                  GestureDetector(
                         onTap: _capturedImages.isNotEmpty ? () async {
                           if (_capturedImages.last.isProcessing) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -904,13 +939,13 @@ class _CameraScreenState extends State<CameraScreen> {
                           }
                           
                           final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ImageReviewScreen(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ImageReviewScreen(
                                 images: _capturedImages.map((e) => e.watermarkedFile).toList(),
-                              ),
-                            ),
-                          );
+                          ),
+                        ),
+                      );
                           
                           // Handle the returned list of images (with deleted ones removed)
                           if (result != null && result is List<File>) {
@@ -967,12 +1002,12 @@ class _CameraScreenState extends State<CameraScreen> {
                             });
                           }
                         } : null,
-                        child: Container(
-                          width: 60,
+                    child: Container(
+                      width: 60,
                           height: 60,
-                          decoration: BoxDecoration(
+                      decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: Colors.white.withOpacity(0.5),
                               width: 2,
@@ -983,12 +1018,12 @@ class _CameraScreenState extends State<CameraScreen> {
                                 fit: StackFit.expand,
                                 children: [
                                   ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: Image.file(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(
                                       _capturedImages.last.watermarkedFile,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                                   if (_capturedImages.last.isProcessing)
                                     Container(
                                       color: Colors.black.withOpacity(0.6),
@@ -1010,7 +1045,7 @@ class _CameraScreenState extends State<CameraScreen> {
                       ),
 
                       // Shutter Button
-                      GestureDetector(
+                GestureDetector(
                         onTap: _isCapturing ? null : () async {
                           if (_isVideoMode) {
                             if (_isRecording) {
@@ -1022,28 +1057,28 @@ class _CameraScreenState extends State<CameraScreen> {
                             _takePicture();
                           }
                         },
-                        child: Container(
+                  child: Container(
                           width: 80,
                           height: 80,
-                          decoration: BoxDecoration(
+                    decoration: BoxDecoration(
                             color: _isRecording ? Colors.red : Colors.white,
-                            shape: BoxShape.circle,
+                      shape: BoxShape.circle,
                             border: Border.all(
                               color: _isRecording 
                                 ? Colors.red.withOpacity(0.3)
                                 : Colors.white.withOpacity(0.3),
                               width: 4,
                             ),
-                            boxShadow: [
-                              BoxShadow(
+                      boxShadow: [
+                        BoxShadow(
                                 color: Colors.black.withOpacity(0.3),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: _isCapturing
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: _isCapturing
                               ? Container(
                                   width: 60,
                                   height: 60,
@@ -1093,7 +1128,7 @@ class _CameraScreenState extends State<CameraScreen> {
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            _isTorchOn ? Icons.flash_on : Icons.flash_off,
+                    _isTorchOn ? Icons.flash_on : Icons.flash_off,
                             color: _isTorchOn ? const Color(0xFFFFD700) : Colors.white,
                             size: 24,
                           ),
@@ -1108,15 +1143,15 @@ class _CameraScreenState extends State<CameraScreen> {
                   Container(
                     width: 40,
                     height: 4,
-                    decoration: BoxDecoration(
+                decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(2),
-                    ),
+                ),
                   ),
                 ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

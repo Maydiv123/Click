@@ -113,7 +113,7 @@ class ExitConfirmationWrapper extends StatelessWidget {
               children: [
                 Icon(
                   Icons.exit_to_app,
-                  color: Colors.orange,
+                  color: Colors.teal.withOpacity(0.8),
                   size: 28,
                 ),
                 const SizedBox(width: 12),
@@ -147,7 +147,7 @@ class ExitConfirmationWrapper extends StatelessWidget {
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
+                  backgroundColor: Colors.teal.withOpacity(0.8),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
