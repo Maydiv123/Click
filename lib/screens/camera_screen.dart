@@ -14,6 +14,7 @@ import '../services/custom_auth_service.dart';
 import '../services/database_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
+import 'package:flutter/services.dart';
 
 class CapturedImage {
   final String originalPath; // Used as a key to find and update the item
@@ -199,6 +200,31 @@ class _CameraScreenState extends State<CameraScreen> {
     // Draw the original image
     canvas.drawImage(image, Offset.zero, Paint());
 
+    // Load and draw branding image at the top
+    try {
+      final brandingImageData = await rootBundle.load('assets/images/branding.png');
+      final brandingImage = await decodeImageFromList(brandingImageData.buffer.asUint8List());
+      
+      // Calculate branding image dimensions (proportional to image width)
+      final brandingWidth = imageWidth * 0.3; // 30% of image width
+      final brandingHeight = (brandingImage.height / brandingImage.width) * brandingWidth;
+      
+      // Position at top center with some margin
+      final brandingX = (imageWidth - brandingWidth) / 2;
+      final brandingY = imageHeight * 0.05; // 5% from top
+      
+      // Draw branding image
+      canvas.drawImageRect(
+        brandingImage,
+        Rect.fromLTWH(0, 0, brandingImage.width.toDouble(), brandingImage.height.toDouble()),
+        Rect.fromLTWH(brandingX, brandingY, brandingWidth, brandingHeight),
+        Paint(),
+      );
+    } catch (e) {
+      debugPrint('Error loading branding image: $e');
+      // Continue without branding image if there's an error
+    }
+
     // Prepare watermark content
     final now = DateTime.now();
     final dateTimeStr = DateFormat('dd/MM/yyyy hh:mm a').format(now);
@@ -207,7 +233,7 @@ class _CameraScreenState extends State<CameraScreen> {
     String processedAddress = '';
     if (widget.location?.addressLine1.isNotEmpty == true) {
       final firstWord = widget.location!.addressLine1.split(' ').first;
-      processedAddress = '${firstWord}cl';
+      processedAddress = '${firstWord}CL';
     }
     
     // Location information
@@ -326,7 +352,7 @@ class _CameraScreenState extends State<CameraScreen> {
     if (userParts.isNotEmpty) {
       final fifthLineText = userParts.join(', ');
       final fifthLinePainter = TextPainter(
-        text: TextSpan(text: fifthLineText, style: smallStyle),
+        text: TextSpan(text: fifthLineText, style: detailStyle),
         textDirection: ui.TextDirection.ltr,
         maxLines: 1,
       )..layout(maxWidth: cardWidth - 2 * cardPadding);

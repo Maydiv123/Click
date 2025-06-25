@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/map_location.dart';
-import 'camera_selection_screen.dart';
 
 class PetrolPumpDetailsScreen extends StatelessWidget {
   final MapLocation location;
@@ -25,252 +25,176 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
     }
   }
 
+  void _sharePetrolPumpDetails() {
+    final shareText = '''
+🚗 Petrol Pump Details
+
+📍 ${location.customerName}
+🆔 SAP Code: ${location.sapCode}
+
+📍 Location Details:
+• Zone: ${location.zone}
+• Sales Area: ${location.salesArea}
+• CO/CL/DO: ${location.coClDo}
+• District: ${location.district}
+• Location: ${location.location}
+
+📞 Contact Information:
+• Dealer: ${location.dealerName}
+• Phone: ${location.contactDetails}
+
+📍 Address:
+${location.addressLine1}
+${location.addressLine2.isNotEmpty ? location.addressLine2 : ''}
+Pincode: ${location.pincode}
+
+🗺️ Coordinates: ${location.latitude}, ${location.longitude}
+
+📍 Get Directions: https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}
+''';
+
+    Share.share(shareText, subject: 'Petrol Pump Details - ${location.customerName}');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: CustomScrollView(
-        slivers: [
-          // Custom App Bar
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            backgroundColor: Colors.white,
-            flexibleSpace: FlexibleSpaceBar(
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    location.customerName,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'SAP Code: ${location.sapCode}',
-                    style: const TextStyle(
-                      color: Colors.black54,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      const Color(0xFF35C2C1).withOpacity(0.7),
-                      Colors.white.withOpacity(0.7),
-                    ],
-                  ),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.local_gas_station,
-                    size: 80,
-                    color: Color(0xFF35C2C1),
-                  ),
-                ),
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              location.customerName,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            iconTheme: const IconThemeData(color: Colors.black),
-          ),
-          
-          // Content
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Camera Section
-                  _buildCameraSection(context),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Location Card
-                  _buildSection(
-                    title: 'Location Details',
-                    icon: Icons.location_on,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildInfoRow('Zone', location.zone),
-                        _buildInfoRow('Sales Area', location.salesArea),
-                        _buildInfoRow('CO/CL/DO', location.coClDo),
-                        _buildInfoRow('District', location.district),
-                        _buildInfoRow('Location', location.location),
-                        _buildInfoRow('Coordinates', '${location.latitude}, ${location.longitude}'),
-                        const SizedBox(height: 16),
-                        _buildAddressSection(),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Contact Card
-                  _buildSection(
-                    title: 'Contact Information',
-                    icon: Icons.contact_phone,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildInfoRow('Dealer Name', location.dealerName),
-                        _buildInfoRow('Contact', location.contactDetails),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _launchPhone,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF35C2C1),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.phone),
-                                label: const Text('Call'),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _launchMaps,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF35C2C1),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.map),
-                                label: const Text('Directions'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Additional Details Card
-                  // _buildSection(
-                  //   title: 'Additional Details',
-                  //   icon: Icons.info_outline,
-                  //   child: Column(
-                  //     crossAxisAlignment: CrossAxisAlignment.start,
-                  //     children: [
-                  //       _buildInfoRow('SAP Code', location.sapCode),
-                  //       _buildInfoRow('Coordinates', '${location.latitude}, ${location.longitude}'),
-                  //     ],
-                  //   ),
-                  // ),
-                ],
+            Text(
+              'SAP Code: ${location.sapCode}',
+              style: const TextStyle(
+                color: Colors.black54,
+                fontSize: 12,
               ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          // Share Button
+          IconButton(
+            onPressed: _sharePetrolPumpDetails,
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF35C2C1).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.share,
+                color: Color(0xFF35C2C1),
+                size: 20,
+              ),
+            ),
+          ),
+          // Petrol Pump Icon
+          Container(
+            margin: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF35C2C1).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.local_gas_station,
+              color: Color(0xFF35C2C1),
+              size: 24,
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCameraSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF35C2C1).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.camera_alt,
-                  color: Color(0xFF35C2C1),
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(
+              // Location Card
+              _buildSection(
+                title: 'Location Details',
+                icon: Icons.location_on,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Take Photos',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Capture images of this petrol pump',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
-                      ),
+                    _buildInfoRow('Zone', location.zone),
+                    _buildInfoRow('Sales Area', location.salesArea),
+                    _buildInfoRow('CO/CL/DO', location.coClDo),
+                    _buildInfoRow('District', location.district),
+                    _buildInfoRow('Location', location.location),
+                    _buildInfoRow('Coordinates', '${location.latitude}, ${location.longitude}'),
+                    const SizedBox(height: 16),
+                    _buildAddressSection(),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Contact Card
+              _buildSection(
+                title: 'Contact Information',
+                icon: Icons.contact_phone,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoRow('Dealer Name', location.dealerName),
+                    _buildInfoRow('Contact', location.contactDetails),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _launchPhone,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF35C2C1),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            icon: const Icon(Icons.phone),
+                            label: const Text('Call'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _launchMaps,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF35C2C1),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            icon: const Icon(Icons.map),
+                            label: const Text('Directions'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CameraSelectionScreen(location: location),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF35C2C1),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 56),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(Icons.camera_alt, size: 24),
-            label: const Text(
-              'Open Camera',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -281,37 +205,47 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
     required Widget child,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 15,
             offset: const Offset(0, 5),
           ),
         ],
-        border: Border.all(color: Colors.grey[200]!),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: const Color(0xFF35C2C1)),
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF35C2C1).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: const Color(0xFF35C2C1),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
               Text(
                 title,
                 style: const TextStyle(
                   color: Colors.black,
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          Divider(color: Colors.grey[300]),
+          const SizedBox(height: 20),
           child,
         ],
       ),
@@ -320,17 +254,18 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 100,
+            width: 120,
             child: Text(
               label,
               style: TextStyle(
                 color: Colors.grey[600],
-                fontSize: 14,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -339,7 +274,8 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
               value,
               style: const TextStyle(
                 color: Colors.black,
-                fontSize: 14,
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -356,24 +292,49 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
           'Address',
           style: TextStyle(
             color: Colors.grey[600],
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          location.addressLine1,
-          style: const TextStyle(color: Colors.black),
-        ),
-        if (location.addressLine2.isNotEmpty)
-          Text(
-            location.addressLine2,
-            style: const TextStyle(color: Colors.black),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F9FA),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[200]!),
           ),
-
-        Text(
-          'Pincode: ${location.pincode}',
-          style: const TextStyle(color: Colors.black),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                location.addressLine1,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 15,
+                ),
+              ),
+              if (location.addressLine2.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  location.addressLine2,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 4),
+              Text(
+                'Pincode: ${location.pincode}',
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
