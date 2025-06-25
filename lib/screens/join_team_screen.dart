@@ -51,9 +51,10 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
           _isLoadingUserData = false;
         });
         
-        if (!_isAlreadyInTeam) {
+        // Commented out fetching available teams since we're not showing the dropdown
+        /*if (!_isAlreadyInTeam) {
           _fetchAvailableTeams();
-        }
+        }*/
       }
     } catch (e) {
       print('Error loading user data: $e');
@@ -112,7 +113,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
   }
 
   Future<void> _searchTeamByCode() async {
-    final code = _teamCodeController.text.trim().toUpperCase();
+    final code = _teamCodeController.text.trim();
     if (code.isEmpty) return;
     
     setState(() {
@@ -124,6 +125,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
       // Debug print
       print('Searching for team with code: $code');
       
+      // Try to find the team by exact code match first
       final teamDoc = await _firestore.collection('teams').doc(code).get();
       
       if (teamDoc.exists && teamDoc.data()?['isDummy'] != true) {
@@ -143,11 +145,40 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
           });
         }
       } else {
-        print('Team not found for code: $code');
-        if (mounted) {
-          setState(() {
-            _errorMessage = 'No team found with code $code';
-          });
+        // If not found, try case-insensitive search
+        final teamsSnapshot = await _firestore.collection('teams').get();
+        bool found = false;
+        
+        for (final doc in teamsSnapshot.docs) {
+          if (doc.id.toLowerCase() == code.toLowerCase() && doc.data()?['isDummy'] != true) {
+            final teamData = doc.data();
+            print('Team found with case-insensitive search: ${teamData['teamName']}');
+            
+            if (mounted) {
+              setState(() {
+                _selectedTeamCode = doc.id; // Use the actual case from the database
+                _teamCodeController.text = doc.id; // Update the text field
+                // Make sure this team is in the available teams list
+                if (!_availableTeams.any((team) => team['code'] == doc.id)) {
+                  _availableTeams.add({
+                    'code': doc.id,
+                    'name': teamData['teamName'] ?? 'Unnamed Team',
+                  });
+                }
+              });
+            }
+            found = true;
+            break;
+          }
+        }
+        
+        if (!found) {
+          print('Team not found for code: $code');
+          if (mounted) {
+            setState(() {
+              _errorMessage = 'No team found with code $code';
+            });
+          }
         }
       }
     } catch (e) {
@@ -169,7 +200,8 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
   Future<void> _joinTeam() async {
     if (!_formKey.currentState!.validate()) return;
     
-    final teamCode = _teamCodeController.text.trim().toUpperCase();
+    // Use the selected team code if available, otherwise use the text input
+    final teamCode = _selectedTeamCode ?? _teamCodeController.text.trim();
     
     // First search for the team if it's not already selected
     if (_selectedTeamCode == null) {
@@ -190,13 +222,13 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
       if (userId == null) throw 'User not logged in.';
       
       final userDoc = await _firestore.collection('user_data').doc(userId).get();
-      final userData = userDoc.data();
+      final userDataMap = userDoc.data() as Map<String, dynamic>?;
       
       // Check if the user is already in a team
       if (userDoc.exists && 
-          userData != null && 
-          userData['teamCode'] != null && 
-          userData['teamCode'].toString().isNotEmpty) {
+          userDataMap != null && 
+          userDataMap['teamCode'] != null && 
+          userDataMap['teamCode'].toString().isNotEmpty) {
         throw 'You are already in a team. Leave your current team to join another.';
       }
       
@@ -208,19 +240,25 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
         throw 'Invalid team code.';
       }
       
-      // Update user document
+      // Get current user type
+      final currentUserType = userDataMap != null ? userDataMap['userType'] : 'member';
+      
+      // Update user document - preserve leader status if they're already a leader
       await _firestore.collection('user_data').doc(userId).update({
         'teamCode': teamCode,
         'teamName': teamData['teamName'],
         'isTeamOwner': false,
         'teamMemberStatus': 'active',
+        // Only change userType to 'member' if they're not already a leader
+        'userType': currentUserType == 'leader' ? 'leader' : 'member',
         'updatedAt': FieldValue.serverTimestamp(),
       });
       
-      // Update team document
+      // Update team document - add user to members array and increment counts
       await _firestore.collection('teams').doc(teamCode).update({
         'memberCount': FieldValue.increment(1),
         'activeMembers': FieldValue.increment(1),
+        'members': FieldValue.arrayUnion([userId]), // Add user to members array
       });
       
       if (mounted) {
@@ -256,12 +294,17 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
         throw 'You are the team owner. Please transfer ownership before leaving.';
       }
       
-      // Update user document
+      // Get current user type from userData
+      final currentUserType = _userData['userType'];
+      
+      // Update user document - preserve leader status
       await _firestore.collection('user_data').doc(userId).update({
         'teamCode': null,
         'teamName': null,
         'isTeamOwner': false,
         'teamMemberStatus': null,
+        // Only change userType to 'user' if they're not a leader
+        'userType': currentUserType == 'leader' ? 'leader' : 'user',
         'updatedAt': FieldValue.serverTimestamp(),
       });
       
@@ -269,6 +312,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
       await _firestore.collection('teams').doc(teamCode).update({
         'memberCount': FieldValue.increment(-1),
         'activeMembers': FieldValue.increment(-1),
+        'members': FieldValue.arrayRemove([userId]), // Remove user from members array
       });
       
       // Reload user data
@@ -572,7 +616,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Ask your team leader for the team code or select from the list.',
+            'Ask your team leader for the team code to join.',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[600],
@@ -608,7 +652,8 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                       padding: EdgeInsets.all(8.0),
                       child: CircularProgressIndicator(color: Color(0xFF35C2C1)),
                     ),
-                  )
+                  ),
+                /* Team selection dropdown commented out as requested
                 else
                   _availableTeams.isEmpty
                       ? Center(
@@ -649,6 +694,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                             return null; // No validation here, handled by text field
                           },
                         ),
+                */
                 const SizedBox(height: 16),
                 Row(
                   children: [

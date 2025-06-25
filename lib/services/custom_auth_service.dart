@@ -65,25 +65,40 @@ class CustomAuthService {
       };
 
       // Add type-specific data
-      if (userType == 'Team Member' && teamCode != null) {
+      if (userType == 'member' && teamCode != null) {
         userData['teamCode'] = teamCode;
         userData['teamMemberStatus'] = 'pending'; // Default status
-      } else if (userType == 'Team Leader' && teamName != null) {
-        userData['teamName'] = teamName;
-        
+      } else if (userType == 'leader' && teamName != null) {
         // Create a new team
         final teamId = _firestore.collection('teams').doc().id;
+        final teamCode = teamId; // Use teamId as teamCode for simplicity
+        
         await _firestore.collection('teams').doc(teamId).set({
           'teamId': teamId,
+          'teamCode': teamCode,
           'teamName': teamName,
           'ownerId': userId,
           'ownerName': '$firstName $lastName',
           'ownerMobile': mobile,
           'createdAt': FieldValue.serverTimestamp(),
-          'members': [],
+          'members': [userId],
+          'memberCount': 1,
+          'activeMembers': 1,
+          'pendingRequests': 0,
+          'teamStats': {
+            'totalVisits': 0,
+            'totalUploads': 0,
+            'totalDistance': 0,
+            'totalFuelConsumption': 0,
+          },
         });
         
+        // Associate the user with the team
         userData['teamId'] = teamId;
+        userData['teamCode'] = teamCode;
+        userData['teamName'] = teamName;
+        userData['isTeamOwner'] = true;
+        userData['teamMemberStatus'] = 'active';
       }
 
       // Save user data

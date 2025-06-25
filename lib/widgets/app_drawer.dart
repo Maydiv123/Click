@@ -251,25 +251,28 @@ class AppDrawer extends StatelessWidget {
                           ),
                         ),
                       ),
-                      ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF35C2C1).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
+                      // Only show Create Team option for leaders
+                      if (userData['userType'] == 'leader') 
+                        ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF35C2C1).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.group_add, color: Color(0xFF35C2C1), size: 20),
                           ),
-                          child: const Icon(Icons.group_add, color: Color(0xFF35C2C1), size: 20),
+                          title: const Text('Create Team', style: TextStyle(fontWeight: FontWeight.w500)),
+                          subtitle: const Text('Generate a new team code', style: TextStyle(fontSize: 12)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const CreateTeamScreen()),
+                            );
+                          },
                         ),
-                        title: const Text('Create Team', style: TextStyle(fontWeight: FontWeight.w500)),
-                        subtitle: const Text('Generate a new team code', style: TextStyle(fontSize: 12)),
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const CreateTeamScreen()),
-                          );
-                        },
-                      ),
+                      // Join Team option for all users
                       ListTile(
                         leading: Container(
                           padding: const EdgeInsets.all(8),

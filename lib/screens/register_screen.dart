@@ -138,8 +138,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         mobile: _mobileController.text.trim(),
         password: _passwordController.text,
         userType: _selectedUserType,
-        teamCode: _selectedUserType == 'Team Member' ? _teamCodeController.text.trim() : null,
-        teamName: _selectedUserType == 'Team Leader' ? _teamNameController.text.trim() : null,
+        teamCode: _selectedUserType == 'member' ? _teamCodeController.text.trim() : null,
+        teamName: _selectedUserType == 'leader' ? _teamNameController.text.trim() : null,
         preferredCompanies: preferredCompanies,
       );
 
@@ -193,7 +193,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
           children: [
             Expanded(
               child: _buildUserTypeCard(
-                'User',
+                'user', // Internal user type value
                 'Individual',
                 Icons.person,
               ),
@@ -201,7 +201,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             const SizedBox(width: 10),
             Expanded(
               child: _buildUserTypeCard(
-                'Team Member',
+                'member', // Internal user type value
                 'Team Member',
                 Icons.group,
               ),
@@ -209,7 +209,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             const SizedBox(width: 10),
             Expanded(
               child: _buildUserTypeCard(
-                'Team Leader',
+                'leader', // Internal user type value
                 'Organization',
                 Icons.admin_panel_settings,
               ),
@@ -270,8 +270,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     );
   }
 
-  bool get _showTeamCode => _selectedUserType == 'Team Member';
-  bool get _showTeamName => _selectedUserType == 'Team Leader';
+  bool get _showTeamCode => _selectedUserType == 'member';
+  bool get _showTeamName => _selectedUserType == 'leader';
 
   @override
   Widget build(BuildContext context) {
