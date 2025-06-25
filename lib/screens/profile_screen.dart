@@ -665,24 +665,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title: 'Account Actions',
                   icon: Icons.manage_accounts,
                   children: [
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                    Center(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.logout, color: Colors.white),
+                        label: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        child: const Icon(Icons.logout, color: Colors.red, size: 20),
+                        onPressed: () async {
+                          final shouldLogout = await LogoutConfirmationDialog.show(context);
+                          if (shouldLogout) {
+                            _signOut();
+                          }
+                        },
                       ),
-                      title: const Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500)),
-                      onTap: () async {
-                        // Show logout confirmation dialog
-                        final shouldLogout = await LogoutConfirmationDialog.show(context);
-                        
-                        if (shouldLogout) {
-                          _signOut();
-                        }
-                      },
                     ),
                   ],
                 ),
