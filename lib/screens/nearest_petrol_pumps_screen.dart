@@ -14,6 +14,7 @@ import 'camera_screen.dart';
 import 'image_review_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'camera_selection_screen.dart';
+import 'openstreet_map_screen.dart';
 // import '../widgets/custom_bottom_navigation_bar.dart';
 
 class NearestPetrolPumpsScreen extends StatefulWidget {
@@ -416,23 +417,26 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
         ],
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: 1, // Map index (since this is a map-based screen)
+        currentIndex: -1, // No tab highlighted so all tabs are tappable
         onTap: (index) {
           switch (index) {
             case 0: // Home
-              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/home');
               break;
             case 1: // Map
-              // Already on map screen, do nothing
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const OpenStreetMapScreen()),
+              );
               break;
             case 3: // Search
-              Navigator.push(
+              Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const SearchPetrolPumpsScreen()),
               );
               break;
             case 4: // Profile
-              Navigator.pushNamed(context, '/profile');
+              Navigator.pushReplacementNamed(context, '/profile');
               break;
           }
         },

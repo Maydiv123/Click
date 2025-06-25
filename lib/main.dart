@@ -252,7 +252,7 @@ class _InitializationScreenState extends State<InitializationScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/images/logo.png',
+              'assets/images/branding.png',
               width: 150,
               height: 150,
               errorBuilder: (context, error, stackTrace) => const Icon(
