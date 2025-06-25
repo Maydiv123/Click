@@ -75,6 +75,9 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   @override
   void initState() {
     super.initState();
+    // Initialize location controller with empty string since it's hidden
+    _locationController.text = "";
+    
     _updateProgress();
     
     // Add listener to pincode field to auto-fetch details when pincode is entered
@@ -121,30 +124,46 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   }
 
   void _updateProgress() {
-    int totalFields = 18; // Total number of required fields including images and regional office
+    // Update total fields count (removed optional fields from required count and location field)
+    int totalFields = 13; // Reduced from 14 to 13 (removed location field as it's hidden now)
     int filledFields = 0;
     
+    // Required fields
     if (_zoneController.text.isNotEmpty) filledFields++;
     if (_salesAreaController.text.isNotEmpty) filledFields++;
     if (_coClDoController.text.isNotEmpty) filledFields++;
     if (_districtController.text.isNotEmpty) filledFields++;
-    if (_regionalOfficeController.text.isNotEmpty) filledFields++; // Added regional office
-    if (_sapCodeController.text.isNotEmpty) filledFields++;
+    if (_regionalOfficeController.text.isNotEmpty) filledFields++;
     if (_customerNameController.text.isNotEmpty) filledFields++;
-    if (_locationController.text.isNotEmpty) filledFields++;
+    // Location field is hidden and not counted
     if (_addressLine1Controller.text.isNotEmpty) filledFields++;
-    if (_addressLine2Controller.text.isNotEmpty) filledFields++;
     if (_pincodeController.text.isNotEmpty) filledFields++;
     if (_dealerNameController.text.isNotEmpty) filledFields++;
     if (_contactDetailsController.text.isNotEmpty) filledFields++;
     if (_latitudeController.text.isNotEmpty && _longitudeController.text.isNotEmpty) filledFields++;
     if (_bannerImage != null) filledFields++;
     if (_boardImage != null) filledFields++;
-    if (_billSlipImage != null) filledFields++;
-    if (_governmentDocImage != null) filledFields++;
+    
+    // Optional fields - these contribute to progress but aren't required
+    // We'll give them half weight compared to required fields
+    int optionalFieldsCount = 0;
+    int optionalFieldsFilled = 0;
+    
+    if (_sapCodeController.text.isNotEmpty) optionalFieldsFilled++;
+    if (_addressLine2Controller.text.isNotEmpty) optionalFieldsFilled++;
+    if (_billSlipImage != null) optionalFieldsFilled++;
+    if (_governmentDocImage != null) optionalFieldsFilled++;
+    
+    optionalFieldsCount = 4; // Total optional fields
+    
+    // Calculate progress including optional fields with reduced weight
+    double requiredProgress = filledFields / totalFields;
+    double optionalProgress = (optionalFieldsFilled / optionalFieldsCount) * 0.1; // Optional fields contribute up to 10% extra
     
     setState(() {
-      _progressValue = filledFields / totalFields;
+      _progressValue = requiredProgress + optionalProgress;
+      // Cap at 1.0 in case optional fields push it over 100%
+      if (_progressValue > 1.0) _progressValue = 1.0;
     });
   }
   
@@ -473,11 +492,12 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
 
   void _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
-      // Check if the form is at least 70% complete
+      // Check if the form is at least 70% complete based on required fields only
+      // We've already adjusted the progress calculation to handle optional fields
       if (_progressValue < 0.7) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please complete at least 70% of the form before submitting'),
+            content: Text('Please complete at least 70% of the required fields before submitting'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -570,7 +590,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           district: _districtController.text,
           sapCode: _sapCodeController.text,
           customerName: _customerNameController.text,
-          location: _locationController.text,
+          location: "", // Location field is hidden, setting to empty string
           addressLine1: _addressLine1Controller.text,
           addressLine2: _addressLine2Controller.text,
           pincode: _pincodeController.text,
@@ -791,8 +811,19 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            mainAxisSize: MainAxisSize.max, // Ensure row takes full width
                             children: _companies.map((company) {
                               final isSelected = _selectedCompany == company;
+                              // Get the appropriate image path for each company
+                              String imagePath = '';
+                              if (company == 'HPCL') {
+                                imagePath = 'assets/images/HPCL Color.png';
+                              } else if (company == 'BPCL') {
+                                imagePath = 'assets/images/BPCL Color.png';
+                              } else if (company == 'IOCL') {
+                                imagePath = 'assets/images/IOCL Color.png';
+                              }
+                              
                               return GestureDetector(
                                 onTap: () {
                                   setState(() {
@@ -806,33 +837,32 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                   }
                                 },
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? const Color(0xFF35C2C1) : Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
+                                  width: 80,
+                                  height: 80,
+                                  padding: const EdgeInsets.all(6), // Even padding all around
+                                                                      decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFF35C2C1).withOpacity(0.1) : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: isSelected ? const Color(0xFF35C2C1) : Colors.grey,
-                                      width: 2,
+                                      color: isSelected ? const Color(0xFF35C2C1) : Colors.grey.shade300,
+                                      width: isSelected ? 3 : 1,
                                     ),
-                                    boxShadow: isSelected
-                                        ? [
-                                            BoxShadow(
-                                              color: const Color(0xFF35C2C1).withOpacity(0.3),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ]
-                                        : null,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: isSelected 
+                                          ? const Color(0xFF35C2C1).withOpacity(0.4)
+                                          : Colors.grey.withOpacity(0.1),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
                                   ),
-                                  child: Text(
-                                    company,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: isSelected ? Colors.white : Colors.black87,
+                                  child: Center(
+                                    child: Image.asset(
+                                      imagePath,
+                                      height: 55, // Increased height to fill the container
+                                      width: 55, // Increased width to fill the container
+                                      fit: BoxFit.contain,
                                     ),
                                   ),
                                 ),
@@ -1154,21 +1184,17 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           ),
                           const SizedBox(height: 12),
                           
-                          // SAP Code field
+                          // SAP Code field (optional)
                           TextFormField(
                             controller: _sapCodeController,
                             decoration: InputDecoration(
-                              labelText: 'SAP Code *',
+                              labelText: 'SAP Code (Optional)',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
+                              hintText: 'Enter SAP Code if available',
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter SAP Code';
-                              }
-                              return null;
-                            },
+                            // No validation since it's optional
                             onChanged: (_) => _updateProgress(),
                           ),
                           const SizedBox(height: 16),
@@ -1177,7 +1203,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           TextFormField(
                             controller: _customerNameController,
                             decoration: InputDecoration(
-                              labelText: 'Customer Name *',
+                              labelText: 'Petrol Pump Name *',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -1192,23 +1218,8 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           ),
                           const SizedBox(height: 16),
                           
-                          // Location field
-                          TextFormField(
-                            controller: _locationController,
-                            decoration: InputDecoration(
-                              labelText: 'Location *',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter Location';
-                              }
-                              return null;
-                            },
-                            onChanged: (_) => _updateProgress(),
-                          ),
+                          // Location field is hidden from the user
+                          // We'll set it to an empty string in the backend
                           const SizedBox(height: 16),
                           
                           // Address Line 1 field
@@ -1230,21 +1241,17 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           ),
                           const SizedBox(height: 16),
                           
-                          // Address Line 2 field
+                          // Address Line 2 field (optional)
                           TextFormField(
                             controller: _addressLine2Controller,
                             decoration: InputDecoration(
-                              labelText: 'Address Line 2 *',
+                              labelText: 'Address Line 2 (Optional)',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
+                              hintText: 'Additional address details if needed',
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter Address Line 2';
-                              }
-                              return null;
-                            },
+                            // No validation since it's optional
                             onChanged: (_) => _updateProgress(),
                           ),
                           const SizedBox(height: 16),
@@ -1268,19 +1275,26 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           ),
                           const SizedBox(height: 16),
                           
-                          // Contact Details field
+                          // Contact Details field (10-digit mobile number)
                           TextFormField(
                             controller: _contactDetailsController,
-                            decoration: InputDecoration(
-                              labelText: 'Contact Details *',
+                                                          decoration: InputDecoration(
+                              labelText: 'Mobile Number *',
+                              hintText: 'Enter 10-digit mobile number',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
+                              prefixText: '+91 ',
+                              // Remove the static counterText since maxLength will show a counter automatically
                             ),
                             keyboardType: TextInputType.phone,
+                            maxLength: 10,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter Contact Details';
+                                return 'Please enter mobile number';
+                              }
+                              if (value.length != 10 || !RegExp(r'^[0-9]{10}$').hasMatch(value)) {
+                                return 'Please enter valid 10-digit mobile number';
                               }
                               return null;
                             },
@@ -1346,9 +1360,9 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           ),
                           const SizedBox(height: 8),
                           
-                          // Bill Slip Image
+                          // Bill Slip Image (optional)
                           ListTile(
-                            title: const Text('Bill Slip Image *'),
+                            title: const Text('Bill Slip Image (Optional)'),
                             subtitle: _billSlipImage != null
                                 ? Text('Selected: ${_billSlipImage!.name}')
                                 : const Text('No image selected'),
@@ -1363,9 +1377,9 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           ),
                           const SizedBox(height: 8),
                           
-                          // Government Document Image
+                          // Government Document Image (optional)
                           ListTile(
-                            title: const Text('Government Document *'),
+                            title: const Text('Government Document (Optional)'),
                             subtitle: _governmentDocImage != null
                                 ? Text('Selected: ${_governmentDocImage!.name}')
                                 : const Text('No image selected'),
@@ -1443,8 +1457,8 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
               SizedBox(height: 8),
               Text('• Petrol pump banner image', style: TextStyle(color: Colors.black54)),
               Text('• Petrol pump board image', style: TextStyle(color: Colors.black54)),
-              Text('• Bill slip', style: TextStyle(color: Colors.black54)),
-              Text('• Legal government document', style: TextStyle(color: Colors.black54)),
+              Text('• Bill slip (Optional)', style: TextStyle(color: Colors.black54)),
+              Text('• Legal government document (Optional)', style: TextStyle(color: Colors.black54)),
             ],
           ),
         ),

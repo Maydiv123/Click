@@ -436,6 +436,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           // First Card - User Details
                           Container(
+                            margin: const EdgeInsets.only(right: 8), // Add margin to create gap
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -604,6 +605,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           
                           // Second Card - Team Details
                           Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4), // Add margin to create gap
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -714,6 +716,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           
                           // Third Card - Statistics
                           Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4), // Add margin to create gap
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -791,6 +794,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           
                           // Fourth Card - Ads
                           Container(
+                            margin: const EdgeInsets.only(left: 8), // Add margin to create gap
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -1931,7 +1935,7 @@ class _HomeScreenState extends State<HomeScreen> {
           buttonColor = Colors.deepPurple.withOpacity(0.7);
           break;
         case 3:
-          buttonColor = Colors.orange.withOpacity(0.7);
+          buttonColor = Colors.deepOrange.withOpacity(0.7);
           break;
         default:
           buttonColor = Colors.grey.withOpacity(0.7);
