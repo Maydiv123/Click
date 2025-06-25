@@ -8,6 +8,8 @@ import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'image_review_screen.dart';
 import '../models/map_location.dart';
 import '../services/custom_auth_service.dart';
@@ -353,15 +355,73 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<File> _addVideoWatermark(File videoFile) async {
-    // For now, we'll return the original video file
-    // Video watermarking requires more complex processing with video editing libraries
-    // This is a placeholder for future implementation
-    return videoFile;
+    try {
+      // Request storage permission for FFmpeg
+      await Permission.storage.request();
+      
+      // Create output path for watermarked video
+      final directory = await getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final outputPath = '${directory.path}/watermarked_video_$timestamp.mp4';
+      
+      // Prepare watermark text with the same information as image watermarks
+      final now = DateTime.now();
+      final dateTimeStr = DateFormat('dd/MM/yyyy hh:mm a').format(now);
+      
+      // Process address line 1 - extract first word and add "cl"
+      String processedAddress = '';
+      if (widget.location?.addressLine1.isNotEmpty == true) {
+        final firstWord = widget.location!.addressLine1.split(' ').first;
+        processedAddress = '${firstWord}cl';
+      }
+      
+      // Location information
+      final customerName = widget.location?.customerName ?? 'Unknown Location';
+      final sapCode = widget.location?.sapCode ?? '';
+      final zone = widget.location?.zone ?? '';
+      final salesArea = widget.location?.salesArea ?? '';
+      final district = widget.location?.district ?? '';
+      
+      // User information
+      final userName = '${_userData['firstName'] ?? ''} ${_userData['lastName'] ?? ''}'.trim();
+      final teamName = _userData['teamName'] ?? '';
+      
+      // Create watermark text
+      final watermarkText = '${widget.photoType} | $processedAddress $dateTimeStr | $customerName${sapCode.isNotEmpty ? ' - $sapCode' : ''} | $zone, $salesArea, $district | $userName${teamName.isNotEmpty ? ', $teamName' : ''}';
+      
+      // Escape special characters for FFmpeg
+      final escapedText = watermarkText.replaceAll("'", "\\'").replaceAll('"', '\\"');
+      
+      // FFmpeg command to add text watermark
+      final command = '''
+        -i "${videoFile.path}" 
+        -vf "drawtext=text='$escapedText':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.7:boxborderw=5:x=w-text_w-10:y=h-text_h-10" 
+        -codec:a copy 
+        "$outputPath"
+      ''';
+      
+      // Execute FFmpeg command
+      final result = await FFmpegKit.execute(command);
+      final returnCode = await result.getReturnCode();
+      
+      if (ReturnCode.isSuccess(returnCode)) {
+        // FFmpeg was successful, return the watermarked video
+        return File(outputPath);
+      } else {
+        // FFmpeg failed, return original video
+        debugPrint('FFmpeg watermarking failed, using original video');
+        return videoFile;
+      }
+    } catch (e) {
+      debugPrint('Error adding video watermark: $e');
+      // Return original video if watermarking fails
+      return videoFile;
+    }
   }
 
   Future<void> _processVideoWatermark(CapturedImage videoCapturedImage) async {
     try {
-      // Add watermark to video (currently returns original file)
+      // Add watermark to video
       final watermarkedFile = await _addVideoWatermark(videoCapturedImage.watermarkedFile);
 
       // Update the captured image with watermarked file
@@ -384,6 +444,47 @@ class _CameraScreenState extends State<CameraScreen> {
             _capturedImages[index].isProcessing = false;
           }
         });
+      }
+    }
+  }
+
+  Future<void> _saveWatermarkedVideoToGallery(CapturedImage videoCapturedImage, Duration duration) async {
+    try {
+      // Wait for watermark processing to complete
+      while (videoCapturedImage.isProcessing) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      
+      // Save the watermarked video to gallery
+      final result = await ImageGallerySaver.saveFile(
+        videoCapturedImage.watermarkedFile.path,
+        name: "click_video_watermarked_${DateTime.now().millisecondsSinceEpoch}.mp4"
+      );
+      
+      if (mounted) {
+        // Clear any existing snackbars first
+        ScaffoldMessenger.of(context).clearSnackBars();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['isSuccess'] ? 'Watermarked video saved to gallery: ${_formatDuration(duration)}' : 'Failed to save watermarked video'),
+            backgroundColor: result['isSuccess'] ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving watermarked video to gallery: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save watermarked video: ${e.toString()}'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     }
   }
@@ -631,6 +732,9 @@ class _CameraScreenState extends State<CameraScreen> {
 
       // Process video watermark asynchronously
       _processVideoWatermark(videoCapturedImage);
+      
+      // Save watermarked video to gallery after processing
+      _saveWatermarkedVideoToGallery(videoCapturedImage, finalDuration);
 
     } catch (e) {
       debugPrint('Error stopping video recording: $e');
