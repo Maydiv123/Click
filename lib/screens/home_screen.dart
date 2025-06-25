@@ -22,6 +22,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/modern_app_features.dart';
+import '../services/firestore_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -35,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final DatabaseService _databaseService = DatabaseService();
   final UserService _userService = UserService();
   final CustomAuthService _authService = CustomAuthService();
+  final FirestoreService _firestoreService = FirestoreService();
   
   // User data
   Map<String, dynamic> _userData = {};
@@ -77,12 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentAdPage = 0;
   Timer? _adTimer;
   PageController? _adPageController;
-  final List<String> adImages = [
-    'https://www.shutterstock.com/image-vector/engine-oil-advertising-banner-3d-260nw-2419747347.jpg',
-    'https://exchange4media.gumlet.io/news-photo/1530600458_Sj56qH_Indian-Oil_Car-creative_final.jpg',
-    'https://pbs.twimg.com/media/E3l4p85VEAA0ZhW.jpg:large',
-    'https://beast-of-traal.s3.ap-south-1.amazonaws.com/2022/05/hero-pleasureplus-hindi-ad.jpeg'
-  ];
+  List<String> adImages = [];
+  bool _loadingAdImages = true;
 
   // Add these fields for nearest petrol pumps
   bool _isLoadingNearbyPumps = true;
@@ -93,6 +91,10 @@ class _HomeScreenState extends State<HomeScreen> {
   // Carousel auto-scroll timer
   Timer? _carouselTimer;
 
+  // Add these fields for special offer
+  bool _loadingSpecialOffer = true;
+  Map<String, dynamic> _specialOfferData = {};
+
   @override
   void initState() {
     super.initState();
@@ -101,6 +103,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _getCurrentLocation();
     _fetchTodayDistance();
     _loadUserData();
+    _loadAdImages();
+    _loadSpecialOfferData();
     
     // Set up periodic location updates (every 10 minutes instead of 5 minutes)
     _locationTimer = Timer.periodic(
@@ -790,17 +794,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [Colors.orange.withOpacity(0.7), Colors.orange.withOpacity(0.9)],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
+                                colors: [Colors.deepOrange.withOpacity(0.7), Colors.deepOrange.withOpacity(0.9)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black.withOpacity(0.15),
                                   spreadRadius: 1,
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 3),
                                 ),
                               ],
                             ),
@@ -809,29 +813,33 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: Colors.white.withOpacity(0.2),
-                                      child: const Icon(Icons.campaign, size: 18, color: Colors.white),
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.3),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(Icons.local_offer, size: 18, color: Colors.white),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          const Text(
-                                            'Special Offer',
-                                            style: TextStyle(
+                                          Text(
+                                            _loadingSpecialOffer ? 'Loading...' : (_specialOfferData['title'] ?? 'Special Offer'),
+                                            style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 17,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
                                           Text(
-                                            'Limited time promotion',
+                                            _loadingSpecialOffer ? '' : (_specialOfferData['subtitle'] ?? 'Limited time promotion'),
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.7),
-                                              fontSize: 10,
+                                              color: Colors.white.withOpacity(0.9),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
                                             ),
                                           ),
                                         ],
@@ -839,19 +847,122 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 10),
                                 Expanded(
-                                  child: Container(
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                      image: const DecorationImage(
-                                        image: NetworkImage('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT6S46DNdLXGnF9MaHKWKx4JRhArFU-Jmxg6g&s'),
-                                        fit: BoxFit.cover,
+                                  child: _loadingSpecialOffer 
+                                    ? Center(
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : GestureDetector(
+                                        onTap: () => _showSpecialOfferDetails(_specialOfferData),
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.2),
+                                                spreadRadius: 1,
+                                                blurRadius: 3,
+                                                offset: const Offset(0, 1),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Stack(
+                                            fit: StackFit.expand,
+                                            children: [
+                                              ClipRRect(
+                                                borderRadius: BorderRadius.circular(10),
+                                                child: Image.network(
+                                                  _specialOfferData['imageUrl'] ?? 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT6S46DNdLXGnF9MaHKWKx4JRhArFU-Jmxg6g&s',
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) {
+                                                    print('Error loading special offer image: $error');
+                                                    return Container(
+                                                      color: Colors.grey[200],
+                                                      child: Center(
+                                                        child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey[400]),
+                                                      ),
+                                                    );
+                                                  },
+                                                  loadingBuilder: (context, child, loadingProgress) {
+                                                    if (loadingProgress == null) return child;
+                                                    return Center(
+                                                      child: CircularProgressIndicator(
+                                                        value: loadingProgress.expectedTotalBytes != null
+                                                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                                            : null,
+                                                        color: Colors.white,
+                                                        strokeWidth: 2,
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                              // Subtle gradient overlay to make any text on the image more visible
+                                              ClipRRect(
+                                                borderRadius: BorderRadius.circular(10),
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.bottomCenter,
+                                                      end: Alignment.topCenter,
+                                                      colors: [
+                                                        Colors.black.withOpacity(0.4),
+                                                        Colors.transparent,
+                                                      ],
+                                                      stops: const [0.0, 0.6],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              // Action button
+                                              Positioned(
+                                                bottom: 8,
+                                                right: 8,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black.withOpacity(0.2),
+                                                        blurRadius: 4,
+                                                        offset: const Offset(0, 2),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        'View Offer',
+                                                        style: TextStyle(
+                                                          color: Colors.deepOrange.shade700,
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Icon(
+                                                        Icons.arrow_forward,
+                                                        size: 12,
+                                                        color: Colors.deepOrange.shade700,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
                                 ),
                               ],
                             ),
@@ -1918,6 +2029,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Build advertisement slider
   Widget _buildAdSlider() {
+    if (_loadingAdImages) {
+      return Center(
+        child: CircularProgressIndicator(
+          color: const Color(0xFF35C2C1),
+        ),
+      );
+    }
+    
+    if (adImages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+            const SizedBox(height: 8),
+            Text(
+              'No advertisements available',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+    
     return Column(
       children: [
         Expanded(
@@ -1995,6 +2130,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _adTimer = Timer.periodic(
       const Duration(seconds: 3),
       (timer) {
+        if (adImages.isEmpty) return;
+        
         if (_currentAdPage < adImages.length - 1) {
           _currentAdPage++;
         } else {
@@ -2066,6 +2203,152 @@ class _HomeScreenState extends State<HomeScreen> {
       await launchUrl(url);
     } else {
       throw 'Could not launch $url';
+    }
+  }
+  
+  // Show special offer details in a dialog
+  void _showSpecialOfferDetails(Map<String, dynamic> offerData) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.deepOrange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.local_offer, color: Colors.deepOrange.shade700),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      offerData['title'] ?? 'Special Offer',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Image
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  offerData['imageUrl'] ?? 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT6S46DNdLXGnF9MaHKWKx4JRhArFU-Jmxg6g&s',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: 200,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey[400]),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Description
+              Text(
+                offerData['subtitle'] ?? 'Limited time promotion',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                offerData['description'] ?? 'No additional details available for this offer.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Action button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Handle any action for the offer
+                    if (offerData['actionUrl'] != null && offerData['actionUrl'].toString().isNotEmpty) {
+                      _launchUrl(offerData['actionUrl']);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepOrange.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(offerData['actionText'] ?? 'Learn More'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  // Launch URL helper
+  void _launchUrl(String urlString) async {
+    try {
+      final url = Uri.parse(urlString);
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open the link')),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error launching URL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid URL')),
+        );
+      }
     }
   }
 
@@ -2176,6 +2459,68 @@ class _HomeScreenState extends State<HomeScreen> {
       return Colors.green;
     } else {
       return Colors.grey;
+    }
+  }
+
+  // Add this method to load ad images from Firebase
+  Future<void> _loadAdImages() async {
+    setState(() {
+      _loadingAdImages = true;
+    });
+    
+    try {
+      final urls = await _firestoreService.getAdImageUrls();
+      
+      if (mounted) {
+        setState(() {
+          adImages = urls;
+          _loadingAdImages = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading ad images: $e');
+      if (mounted) {
+        setState(() {
+          // Set default images on error
+          adImages = [
+            'https://www.shutterstock.com/image-vector/engine-oil-advertising-banner-3d-260nw-2419747347.jpg',
+            'https://exchange4media.gumlet.io/news-photo/1530600458_Sj56qH_Indian-Oil_Car-creative_final.jpg',
+            'https://pbs.twimg.com/media/E3l4p85VEAA0ZhW.jpg:large',
+            'https://beast-of-traal.s3.ap-south-1.amazonaws.com/2022/05/hero-pleasureplus-hindi-ad.jpeg'
+          ];
+          _loadingAdImages = false;
+        });
+      }
+    }
+  }
+
+  // Add this method to load special offer data from Firebase
+  Future<void> _loadSpecialOfferData() async {
+    setState(() {
+      _loadingSpecialOffer = true;
+    });
+    
+    try {
+      final specialOfferData = await _firestoreService.getSpecialOfferAd();
+      
+      if (mounted) {
+        setState(() {
+          _specialOfferData = specialOfferData;
+          _loadingSpecialOffer = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading special offer data: $e');
+      if (mounted) {
+        setState(() {
+          _specialOfferData = {
+            'title': 'Special Offer',
+            'subtitle': 'Limited time promotion',
+            'imageUrl': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT6S46DNdLXGnF9MaHKWKx4JRhArFU-Jmxg6g&s',
+          };
+          _loadingSpecialOffer = false;
+        });
+      }
     }
   }
 }

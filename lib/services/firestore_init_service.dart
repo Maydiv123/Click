@@ -29,6 +29,15 @@ class FirestoreInitService {
       
       // Create a test team with code 666666 if it doesn't exist
       await _createTestTeam();
+
+      // Create locations collection if it doesn't exist
+      await _createCollectionIfNotExists('locations');
+
+      // Create petrol pump requests collection if it doesn't exist
+      await _createCollectionIfNotExists('petrolPumpRequests');
+
+      // Create ad images collection if it doesn't exist
+      await _createCollectionIfNotExists('adImages');
     } catch (e) {
       rethrow;
     }
