@@ -8,8 +8,6 @@ import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'image_review_screen.dart';
 import '../models/map_location.dart';
 import '../services/custom_auth_service.dart';
@@ -55,25 +53,17 @@ class _CameraScreenState extends State<CameraScreen> {
   final List<double> _zoomLevels = [1.0, 2.0];
   bool _isTorchOn = false;
   
-  // Video recording state
-  bool _isVideoMode = false;
-  bool _isRecording = false;
-  Duration _recordingDuration = Duration.zero;
-  Timer? _recordingTimer;
-  
   // User data for watermark
   Map<String, dynamic> _userData = {};
   final CustomAuthService _authService = CustomAuthService();
   final DatabaseService _databaseService = DatabaseService();
   final AudioPlayer _audioPlayer = AudioPlayer();
-  bool _ffmpegSupported = true; // Track if FFmpeg is supported
 
   @override
   void initState() {
     super.initState();
     _initializeCamera();
     _loadUserData();
-    _testFFmpeg(); // Test FFmpeg functionality
   }
 
   Future<void> _initializeCamera() async {
@@ -374,311 +364,6 @@ class _CameraScreenState extends State<CameraScreen> {
     return watermarkedFile;
   }
 
-  Future<File> _addVideoWatermark(File videoFile) async {
-    try {
-      // Request storage permission for FFmpeg
-      await Permission.storage.request();
-      
-      // Create output path for watermarked video
-      final directory = await getTemporaryDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final outputPath = '${directory.path}/watermarked_video_$timestamp.mp4';
-      
-      // Prepare watermark text with the same information as image watermarks
-      final now = DateTime.now();
-      final dateTimeStr = DateFormat('dd/MM/yyyy hh:mm a').format(now);
-      
-      // Process address line 1 - extract first word and add "cl"
-      String processedAddress = '';
-      if (widget.location?.addressLine1.isNotEmpty == true) {
-        final firstWord = widget.location!.addressLine1.split(' ').first;
-        processedAddress = '${firstWord}cl';
-      }
-      
-      // Location information
-      final customerName = widget.location?.customerName ?? 'Unknown Location';
-      final sapCode = widget.location?.sapCode ?? '';
-      final zone = widget.location?.zone ?? '';
-      final salesArea = widget.location?.salesArea ?? '';
-      final district = widget.location?.district ?? '';
-      
-      // User information
-      final userName = '${_userData['firstName'] ?? ''} ${_userData['lastName'] ?? ''}'.trim();
-      final teamName = _userData['teamName'] ?? '';
-      
-      // Create watermark text - include user information with capitalization
-      final userInfo = <String>[];
-      if (userName.isNotEmpty) userInfo.add(userName.toUpperCase());
-      if (teamName.isNotEmpty) userInfo.add(teamName.toUpperCase());
-      
-      final watermarkText = '${widget.photoType} | $processedAddress $dateTimeStr | $customerName${sapCode.isNotEmpty ? ' - $sapCode' : ''} | ${userInfo.join(', ')} | click';
-      
-      // Try multiple FFmpeg approaches for better compatibility
-      File? watermarkedFile = await _tryFFmpegWatermark(videoFile, watermarkText, outputPath);
-      
-      if (watermarkedFile != null) {
-        return watermarkedFile;
-      }
-      
-      // If first attempt failed, try simpler approach
-      debugPrint('First FFmpeg attempt failed, trying simpler approach...');
-      watermarkedFile = await _trySimpleFFmpegWatermark(videoFile, watermarkText, outputPath);
-      
-      if (watermarkedFile != null) {
-        return watermarkedFile;
-      }
-      
-      // If all FFmpeg attempts failed, return original video
-      debugPrint('All FFmpeg watermarking attempts failed, returning original video');
-      return videoFile;
-      
-    } catch (e) {
-      debugPrint('Error adding video watermark: $e');
-      // Return original video if watermarking fails
-      return videoFile;
-    }
-  }
-
-  Future<File?> _tryFFmpegWatermark(File videoFile, String watermarkText, String outputPath) async {
-    try {
-      // Escape special characters for FFmpeg - more comprehensive escaping
-      String escapedText = watermarkText
-          .replaceAll("'", "\\'")
-          .replaceAll('"', '\\"')
-          .replaceAll(':', '\\:')
-          .replaceAll('|', '\\|')
-          .replaceAll('[', '\\[')
-          .replaceAll(']', '\\]')
-          .replaceAll('(', '\\(')
-          .replaceAll(')', '\\)');
-      
-      // FFmpeg command to add text watermark with better formatting
-      final command = [
-        '-i', videoFile.path,
-        '-vf', 'drawtext=text=\'$escapedText\':fontcolor=white:fontsize=32:box=1:boxcolor=black@0.8:boxborderw=8:x=w-text_w-20:y=h-text_h-20:font=Arial',
-        '-codec:a', 'copy',
-        '-y', // Overwrite output file if it exists
-        outputPath
-      ].join(' ');
-      
-      debugPrint('FFmpeg command: $command');
-      
-      // Execute FFmpeg command
-      final result = await FFmpegKit.execute(command);
-      final returnCode = await result.getReturnCode();
-      final logs = await result.getLogs();
-      
-      // Log FFmpeg output for debugging
-      for (final log in logs) {
-        debugPrint('FFmpeg log: ${log.getMessage()}');
-      }
-      
-      if (ReturnCode.isSuccess(returnCode)) {
-        // Check if output file was actually created
-        final outputFile = File(outputPath);
-        if (await outputFile.exists()) {
-          debugPrint('Video watermarking successful: $outputPath');
-          return outputFile;
-        } else {
-          debugPrint('FFmpeg succeeded but output file not found: $outputPath');
-          return null;
-        }
-      } else {
-        // FFmpeg failed, log the error
-        final failureStackTrace = await result.getFailStackTrace();
-        debugPrint('FFmpeg watermarking failed with return code: $returnCode');
-        debugPrint('FFmpeg failure stack trace: $failureStackTrace');
-        return null;
-      }
-    } catch (e) {
-      debugPrint('Error in _tryFFmpegWatermark: $e');
-      return null;
-    }
-  }
-
-  Future<File?> _trySimpleFFmpegWatermark(File videoFile, String watermarkText, String outputPath) async {
-    try {
-      // Create a simpler output path
-      final directory = await getTemporaryDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final simpleOutputPath = '${directory.path}/simple_watermarked_video_$timestamp.mp4';
-      
-      // Use a much simpler FFmpeg command with minimal text
-      final simpleText = '${widget.photoType} ${DateFormat('dd/MM/yyyy').format(DateTime.now())}';
-      
-      // Try different FFmpeg approaches for better compatibility
-      List<String> commands = [
-        // Approach 1: Simple text with basic parameters
-        '-i ${videoFile.path} -vf "drawtext=text=\'$simpleText\':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.7:x=10:y=10" -codec:a copy -y $simpleOutputPath',
-        
-        // Approach 2: Even simpler without box
-        '-i ${videoFile.path} -vf "drawtext=text=\'$simpleText\':fontcolor=white:fontsize=24:x=10:y=10" -codec:a copy -y $simpleOutputPath',
-        
-        // Approach 3: Using different text format
-        '-i ${videoFile.path} -vf "drawtext=text=\'$simpleText\':fontcolor=white:fontsize=20:x=w-text_w-10:y=h-text_h-10" -codec:a copy -y $simpleOutputPath',
-      ];
-      
-      for (int i = 0; i < commands.length; i++) {
-        try {
-          debugPrint('Trying simple FFmpeg approach ${i + 1}: ${commands[i]}');
-          
-          final result = await FFmpegKit.execute(commands[i]);
-          final returnCode = await result.getReturnCode();
-          final logs = await result.getLogs();
-          
-          // Log FFmpeg output for debugging
-          for (final log in logs) {
-            debugPrint('Simple FFmpeg log ${i + 1}: ${log.getMessage()}');
-          }
-          
-          if (ReturnCode.isSuccess(returnCode)) {
-            // Check if output file was actually created
-            final outputFile = File(simpleOutputPath);
-            if (await outputFile.exists()) {
-              debugPrint('Simple video watermarking successful with approach ${i + 1}: $simpleOutputPath');
-              return outputFile;
-            } else {
-              debugPrint('Simple FFmpeg approach ${i + 1} succeeded but output file not found');
-            }
-          } else {
-            final failureStackTrace = await result.getFailStackTrace();
-            debugPrint('Simple FFmpeg approach ${i + 1} failed: $failureStackTrace');
-          }
-        } catch (e) {
-          debugPrint('Error in simple FFmpeg approach ${i + 1}: $e');
-        }
-      }
-      
-      debugPrint('All simple FFmpeg watermarking approaches failed');
-      return null;
-    } catch (e) {
-      debugPrint('Error in _trySimpleFFmpegWatermark: $e');
-      return null;
-    }
-  }
-
-  Future<void> _processVideoWatermark(CapturedImage videoCapturedImage) async {
-    try {
-      // Add watermark to video
-      final watermarkedFile = await _addVideoWatermark(videoCapturedImage.watermarkedFile);
-
-      // Update the captured image with watermarked file
-      if (mounted) {
-        setState(() {
-          final index = _capturedImages.indexWhere((img) => img.originalPath == videoCapturedImage.originalPath);
-          if (index != -1) {
-            _capturedImages[index].watermarkedFile = watermarkedFile;
-            _capturedImages[index].isProcessing = false;
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('Error processing video watermark: $e');
-      // Mark as processed even if watermarking fails
-      if (mounted) {
-        setState(() {
-          final index = _capturedImages.indexWhere((img) => img.originalPath == videoCapturedImage.originalPath);
-          if (index != -1) {
-            _capturedImages[index].isProcessing = false;
-          }
-        });
-      }
-    }
-  }
-
-  Future<void> _saveWatermarkedVideoToGallery(CapturedImage videoCapturedImage, Duration duration) async {
-    try {
-      // Wait for watermark processing to complete
-      while (videoCapturedImage.isProcessing) {
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-      
-      // Check if watermarking was successful by comparing file paths
-      final isWatermarked = videoCapturedImage.watermarkedFile.path != videoCapturedImage.originalPath;
-      
-      if (isWatermarked) {
-        // Save the watermarked video to gallery
-        final result = await ImageGallerySaver.saveFile(
-          videoCapturedImage.watermarkedFile.path,
-          name: "click_video_watermarked_${DateTime.now().millisecondsSinceEpoch}.mp4"
-        );
-        
-        if (mounted) {
-          // Clear any existing snackbars first
-          ScaffoldMessenger.of(context).clearSnackBars();
-          
-          if (result['isSuccess']) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Watermarked video saved to gallery: ${_formatDuration(duration)}'),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Failed to save watermarked video'),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        }
-      } else {
-        // Watermarking failed - don't save the video and inform user
-        if (mounted) {
-          // Clear any existing snackbars first
-          ScaffoldMessenger.of(context).clearSnackBars();
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Video watermarking failed. Video not saved.'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
-              action: SnackBarAction(
-                label: 'Info',
-                textColor: Colors.white,
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Video watermarking is required. The video was not saved because watermarking failed.'),
-                      backgroundColor: Colors.blue,
-                      duration: Duration(seconds: 4),
-                    ),
-                  );
-                },
-              ),
-            ),
-          );
-        }
-        
-        // Remove the video from captured images since it wasn't saved
-        setState(() {
-          _capturedImages.removeWhere((img) => img.originalPath == videoCapturedImage.originalPath);
-        });
-      }
-    } catch (e) {
-      debugPrint('Error saving watermarked video to gallery: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving video: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-      
-      // Remove the video from captured images since saving failed
-      setState(() {
-        _capturedImages.removeWhere((img) => img.originalPath == videoCapturedImage.originalPath);
-      });
-    }
-  }
-
   Future<void> _takePicture() async {
     if (_controller == null || !_controller!.value.isInitialized || _isCapturing) {
       return;
@@ -805,126 +490,6 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
-  Future<void> _toggleVideoMode() async {
-    setState(() {
-      _isVideoMode = !_isVideoMode;
-    });
-  }
-
-  Future<void> _startVideoRecording() async {
-    if (_controller == null || !_controller!.value.isInitialized || _isRecording) {
-      return;
-    }
-
-    // Prevent recording if FFmpeg is not supported since videos won't be saved
-    if (!_ffmpegSupported) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Video watermarking is not supported on this device. Videos will not be saved without watermarks.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
-          ),
-        );
-      }
-      return; // Don't start recording
-    }
-
-    try {
-      await _controller!.startVideoRecording();
-      setState(() {
-        _isRecording = true;
-        _recordingDuration = Duration.zero;
-      });
-
-      // Start timer to track recording duration
-      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (mounted) {
-          setState(() {
-            _recordingDuration += const Duration(seconds: 1);
-          });
-          
-          // Auto-stop recording after 30 seconds
-          if (_recordingDuration.inSeconds >= 30) {
-            timer.cancel();
-            _stopVideoRecording();
-          }
-        }
-      });
-
-      // Play shutter sound for video start
-      // await _playShutterSound();
-
-    } catch (e) {
-      debugPrint('Error starting video recording: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error starting video recording: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _stopVideoRecording() async {
-    if (_controller == null || !_isRecording) {
-      return;
-    }
-
-    try {
-      // Store the final recording duration before resetting
-      final finalDuration = _recordingDuration;
-      
-      // Cancel the recording timer first
-      _recordingTimer?.cancel();
-      _recordingTimer = null;
-
-      final XFile videoFile = await _controller!.stopVideoRecording();
-      
-      setState(() {
-        _isRecording = false;
-        _recordingDuration = Duration.zero;
-      });
-
-      // Add video to captured images list for review with watermark processing
-      final videoCapturedImage = CapturedImage(
-        originalPath: videoFile.path,
-        watermarkedFile: File(videoFile.path), // Show original file temporarily
-        isProcessing: true,
-        type: 'video',
-      );
-
-      setState(() {
-        _capturedImages.add(videoCapturedImage);
-      });
-
-      // Process video watermark asynchronously
-      _processVideoWatermark(videoCapturedImage);
-      
-      // Save watermarked video to gallery after processing
-      _saveWatermarkedVideoToGallery(videoCapturedImage, finalDuration);
-
-    } catch (e) {
-      debugPrint('Error stopping video recording: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error stopping video recording: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      
-      // Reset state even if there's an error
-      setState(() {
-        _isRecording = false;
-        _recordingDuration = Duration.zero;
-      });
-    }
-  }
-
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     String minutes = twoDigits(duration.inMinutes.remainder(60));
@@ -966,47 +531,8 @@ class _CameraScreenState extends State<CameraScreen> {
     });
   }
 
-  Future<void> _testFFmpeg() async {
-    try {
-      debugPrint('Testing FFmpeg functionality...');
-      final result = await FFmpegKit.execute('-version');
-      final returnCode = await result.getReturnCode();
-      final logs = await result.getLogs();
-      
-      debugPrint('FFmpeg test return code: $returnCode');
-      if (logs.isNotEmpty) {
-        debugPrint('FFmpeg version: ${logs.first.getMessage()}');
-      }
-      
-      if (ReturnCode.isSuccess(returnCode)) {
-        debugPrint('FFmpeg is working properly');
-        setState(() {
-          _ffmpegSupported = true;
-        });
-      } else {
-        debugPrint('FFmpeg test failed');
-        setState(() {
-          _ffmpegSupported = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error testing FFmpeg: $e');
-      setState(() {
-        _ffmpegSupported = false;
-      });
-    }
-  }
-
   @override
   void dispose() {
-    // Stop recording if active
-    if (_isRecording) {
-      _controller?.stopVideoRecording();
-    }
-    
-    // Cancel recording timer
-    _recordingTimer?.cancel();
-    
     // Turn off torch before disposing
     _turnOffTorch();
     _controller?.dispose();
@@ -1082,110 +608,15 @@ class _CameraScreenState extends State<CameraScreen> {
                     ),
                   ),
 
-                  // Center: Mode indicator and recording timer (fixed width container)
-                  SizedBox(
-                    width: 120, // Fixed width to maintain center position
-                    child: Column(
-                      children: [
-                        // Mode indicator
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            _isVideoMode ? 'VIDEO' : 'PHOTO',
-          style: const TextStyle(
-                              color: Colors.white,
-            fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        
-                        // Recording timer
-                        if (_isRecording)
-                          Container(
-                            margin: const EdgeInsets.only(top: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _recordingDuration.inSeconds >= 25 
-                                ? Colors.orange.withOpacity(0.8)
-                                : Colors.red.withOpacity(0.8),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '${_formatDuration(_recordingDuration)} / 00:30',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                ),
-                                ),
-                              ],
-              ),
-            ),
-        ],
-      ),
-                  ),
-
-                  // Right side: Photo count and video mode toggle
+                  // Right side: Photo count
                   Row(
-        children: [
-                      // Video mode toggle
-                      GestureDetector(
-                        onTap: _toggleVideoMode,
-                        child: Tooltip(
-                          message: _isVideoMode && !_ffmpegSupported 
-                            ? 'Video watermarking not supported - videos will not be saved'
-                            : _isVideoMode 
-                              ? 'Video mode' 
-                              : 'Switch to video mode',
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: _isVideoMode 
-                                ? const Color(0xFF35C2C1).withOpacity(0.8)
-                                : Colors.black.withOpacity(0.3),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Stack(
-                              children: [
-                                Icon(
-                                  _isVideoMode ? Icons.videocam : Icons.videocam_outlined,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                                // Show warning indicator if FFmpeg is not supported and in video mode
-                                if (_isVideoMode && !_ffmpegSupported)
-                                  Positioned(
-                                    top: 0,
-                                    right: 0,
-                                    child: Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.orange,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
+                    children: [
+                      Text(
+                        '${_capturedImages.length} photos',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -1222,41 +653,41 @@ class _CameraScreenState extends State<CameraScreen> {
                       color: Colors.black.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(25),
                     ),
-            child: Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
-              children: _zoomLevels.map((zoom) {
-                final isSelected = _currentZoom == zoom;
+                      children: _zoomLevels.map((zoom) {
+                        final isSelected = _currentZoom == zoom;
                         return GestureDetector(
-                    onTap: () => _setZoom(zoom),
-                    child: Container(
+                          onTap: () => _setZoom(zoom),
+                          child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
+                            decoration: BoxDecoration(
                               color: isSelected ? Colors.white : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
                               zoom == 1.0 ? '1x' : '${zoom.toInt()}x',
-                        style: TextStyle(
+                              style: TextStyle(
                                 color: isSelected ? Colors.black : Colors.white,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
-                      ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-          ),
 
                   const SizedBox(height: 30),
 
                   // Main Controls Row
                   Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
                       // Gallery/Preview button
-                  GestureDetector(
+                      GestureDetector(
                         onTap: _capturedImages.isNotEmpty ? () async {
                           if (_capturedImages.last.isProcessing) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -1269,13 +700,13 @@ class _CameraScreenState extends State<CameraScreen> {
                           }
                           
                           final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ImageReviewScreen(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ImageReviewScreen(
                                 images: _capturedImages.map((e) => e.watermarkedFile).toList(),
-                          ),
-                        ),
-                      );
+                              ),
+                            ),
+                          );
                           
                           // Handle the returned list of images (with deleted ones removed)
                           if (result != null && result is List<File>) {
@@ -1332,12 +763,12 @@ class _CameraScreenState extends State<CameraScreen> {
                             });
                           }
                         } : null,
-                    child: Container(
-                      width: 60,
+                        child: Container(
+                          width: 60,
                           height: 60,
-                      decoration: BoxDecoration(
+                          decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: Colors.white.withOpacity(0.5),
                               width: 2,
@@ -1348,12 +779,12 @@ class _CameraScreenState extends State<CameraScreen> {
                                 fit: StackFit.expand,
                                 children: [
                                   ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.file(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Image.file(
                                       _capturedImages.last.watermarkedFile,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
                                   if (_capturedImages.last.isProcessing)
                                     Container(
                                       color: Colors.black.withOpacity(0.6),
@@ -1375,89 +806,50 @@ class _CameraScreenState extends State<CameraScreen> {
                       ),
 
                       // Shutter Button
-                GestureDetector(
-                        onTap: (_isCapturing || (_isVideoMode && !_ffmpegSupported)) ? null : () async {
-                          if (_isVideoMode) {
-                            if (_isRecording) {
-                              await _stopVideoRecording();
-                            } else {
-                              await _startVideoRecording();
-                            }
-                          } else {
-                            _takePicture();
-                          }
+                      GestureDetector(
+                        onTap: (_isCapturing) ? null : () async {
+                          _takePicture();
                         },
-                  child: Container(
+                        child: Container(
                           width: 80,
                           height: 80,
-                    decoration: BoxDecoration(
-                            color: _isRecording ? Colors.red : (_isVideoMode && !_ffmpegSupported) ? Colors.grey : Colors.white,
-                      shape: BoxShape.circle,
+                          decoration: BoxDecoration(
+                            color: _isCapturing ? Colors.grey : Colors.white,
+                            shape: BoxShape.circle,
                             border: Border.all(
-                              color: _isRecording 
-                                ? Colors.red.withOpacity(0.3)
-                                : (_isVideoMode && !_ffmpegSupported) ? Colors.grey.withOpacity(0.3)
-                                : Colors.white.withOpacity(0.3),
+                              color: _isCapturing ? Colors.grey.withOpacity(0.3) : Colors.white.withOpacity(0.3),
                               width: 4,
                             ),
-                      boxShadow: [
-                        BoxShadow(
+                            boxShadow: [
+                              BoxShadow(
                                 color: Colors.black.withOpacity(0.3),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: _isCapturing
-                              ? Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.withOpacity(0.3),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 3,
-                                  ),
-                                )
-                              : _isRecording
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: _isCapturing
                                 ? Container(
                                     width: 60,
                                     height: 60,
                                     decoration: BoxDecoration(
-                                      color: Colors.red,
+                                      color: Colors.grey.withOpacity(0.3),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(
-                                      Icons.stop,
+                                    child: const CircularProgressIndicator(
                                       color: Colors.white,
-                                      size: 30,
+                                      strokeWidth: 3,
                                     ),
                                   )
-                                : (_isVideoMode && !_ffmpegSupported)
-                                  ? Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.withOpacity(0.5),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.block,
-                                        color: Colors.white,
-                                        size: 30,
-                                      ),
-                                    )
-                                  : Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                      ),
+                                : Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
                                     ),
+                                  ),
                           ),
                         ),
                       ),
@@ -1473,7 +865,7 @@ class _CameraScreenState extends State<CameraScreen> {
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                    _isTorchOn ? Icons.flash_on : Icons.flash_off,
+                            _isTorchOn ? Icons.flash_on : Icons.flash_off,
                             color: _isTorchOn ? const Color(0xFFFFD700) : Colors.white,
                             size: 24,
                           ),
@@ -1488,15 +880,15 @@ class _CameraScreenState extends State<CameraScreen> {
                   Container(
                     width: 40,
                     height: 4,
-                decoration: BoxDecoration(
+                    decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(2),
-                ),
+                    ),
                   ),
                 ],
-                ),
               ),
             ),
+          ),
         ],
       ),
     );
