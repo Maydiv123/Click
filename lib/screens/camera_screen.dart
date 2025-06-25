@@ -66,12 +66,14 @@ class _CameraScreenState extends State<CameraScreen> {
   final CustomAuthService _authService = CustomAuthService();
   final DatabaseService _databaseService = DatabaseService();
   final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _ffmpegSupported = true; // Track if FFmpeg is supported
 
   @override
   void initState() {
     super.initState();
     _initializeCamera();
     _loadUserData();
+    _testFFmpeg(); // Test FFmpeg functionality
   }
 
   Future<void> _initializeCamera() async {
@@ -244,7 +246,7 @@ class _CameraScreenState extends State<CameraScreen> {
     );
     canvas.drawRRect(
       rrect,
-      Paint()..color = Colors.black.withOpacity(0.85),
+      Paint()..color = Colors.black.withOpacity(0.6),
     );
 
     // Prepare text styles
@@ -326,10 +328,10 @@ class _CameraScreenState extends State<CameraScreen> {
       y += fourthLinePainter.height + 8;
     }
     
-    // Fifth line: userName, teamName (if available)
+    // Fifth line: userName, teamName (if available) - CAPITALIZED
     final userParts = <String>[];
-    if (userName.isNotEmpty) userParts.add(userName);
-    if (teamName.isNotEmpty) userParts.add(teamName);
+    if (userName.isNotEmpty) userParts.add(userName.toUpperCase());
+    if (teamName.isNotEmpty) userParts.add(teamName.toUpperCase());
     
     if (userParts.isNotEmpty) {
       final fifthLineText = userParts.join(', ');
@@ -340,6 +342,24 @@ class _CameraScreenState extends State<CameraScreen> {
       )..layout(maxWidth: cardWidth - 2 * cardPadding);
       fifthLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
     }
+
+    // Add app branding 'click' at the bottom right of the card
+    final brandingText = 'click';
+    final brandingStyle = TextStyle(
+      color: Colors.white.withOpacity(0.8),
+      fontSize: imageWidth * 0.03,
+      fontWeight: FontWeight.bold,
+      letterSpacing: 1.5,
+    );
+    final brandingPainter = TextPainter(
+      text: TextSpan(text: brandingText, style: brandingStyle),
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: cardWidth - 2 * cardPadding);
+    // Position at bottom right inside the card, with padding
+    final brandingX = cardLeft + cardWidth - brandingPainter.width - cardPadding;
+    final brandingY = cardTop + cardHeight - brandingPainter.height - cardPadding / 2;
+    brandingPainter.paint(canvas, Offset(brandingX, brandingY));
 
     // Convert the canvas to an image
     final picture = recorder.endRecording();
@@ -386,36 +406,154 @@ class _CameraScreenState extends State<CameraScreen> {
       final userName = '${_userData['firstName'] ?? ''} ${_userData['lastName'] ?? ''}'.trim();
       final teamName = _userData['teamName'] ?? '';
       
-      // Create watermark text
-      final watermarkText = '${widget.photoType} | $processedAddress $dateTimeStr | $customerName${sapCode.isNotEmpty ? ' - $sapCode' : ''} | $zone, $salesArea, $district | $userName${teamName.isNotEmpty ? ', $teamName' : ''}';
+      // Create watermark text - include user information with capitalization
+      final userInfo = <String>[];
+      if (userName.isNotEmpty) userInfo.add(userName.toUpperCase());
+      if (teamName.isNotEmpty) userInfo.add(teamName.toUpperCase());
       
-      // Escape special characters for FFmpeg
-      final escapedText = watermarkText.replaceAll("'", "\\'").replaceAll('"', '\\"');
+      final watermarkText = '${widget.photoType} | $processedAddress $dateTimeStr | $customerName${sapCode.isNotEmpty ? ' - $sapCode' : ''} | ${userInfo.join(', ')} | click';
       
-      // FFmpeg command to add text watermark
-      final command = '''
-        -i "${videoFile.path}" 
-        -vf "drawtext=text='$escapedText':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.7:boxborderw=5:x=w-text_w-10:y=h-text_h-10" 
-        -codec:a copy 
-        "$outputPath"
-      ''';
+      // Try multiple FFmpeg approaches for better compatibility
+      File? watermarkedFile = await _tryFFmpegWatermark(videoFile, watermarkText, outputPath);
       
-      // Execute FFmpeg command
-      final result = await FFmpegKit.execute(command);
-      final returnCode = await result.getReturnCode();
-      
-      if (ReturnCode.isSuccess(returnCode)) {
-        // FFmpeg was successful, return the watermarked video
-        return File(outputPath);
-      } else {
-        // FFmpeg failed, return original video
-        debugPrint('FFmpeg watermarking failed, using original video');
-        return videoFile;
+      if (watermarkedFile != null) {
+        return watermarkedFile;
       }
+      
+      // If first attempt failed, try simpler approach
+      debugPrint('First FFmpeg attempt failed, trying simpler approach...');
+      watermarkedFile = await _trySimpleFFmpegWatermark(videoFile, watermarkText, outputPath);
+      
+      if (watermarkedFile != null) {
+        return watermarkedFile;
+      }
+      
+      // If all FFmpeg attempts failed, return original video
+      debugPrint('All FFmpeg watermarking attempts failed, returning original video');
+      return videoFile;
+      
     } catch (e) {
       debugPrint('Error adding video watermark: $e');
       // Return original video if watermarking fails
       return videoFile;
+    }
+  }
+
+  Future<File?> _tryFFmpegWatermark(File videoFile, String watermarkText, String outputPath) async {
+    try {
+      // Escape special characters for FFmpeg - more comprehensive escaping
+      String escapedText = watermarkText
+          .replaceAll("'", "\\'")
+          .replaceAll('"', '\\"')
+          .replaceAll(':', '\\:')
+          .replaceAll('|', '\\|')
+          .replaceAll('[', '\\[')
+          .replaceAll(']', '\\]')
+          .replaceAll('(', '\\(')
+          .replaceAll(')', '\\)');
+      
+      // FFmpeg command to add text watermark with better formatting
+      final command = [
+        '-i', videoFile.path,
+        '-vf', 'drawtext=text=\'$escapedText\':fontcolor=white:fontsize=32:box=1:boxcolor=black@0.8:boxborderw=8:x=w-text_w-20:y=h-text_h-20:font=Arial',
+        '-codec:a', 'copy',
+        '-y', // Overwrite output file if it exists
+        outputPath
+      ].join(' ');
+      
+      debugPrint('FFmpeg command: $command');
+      
+      // Execute FFmpeg command
+      final result = await FFmpegKit.execute(command);
+      final returnCode = await result.getReturnCode();
+      final logs = await result.getLogs();
+      
+      // Log FFmpeg output for debugging
+      for (final log in logs) {
+        debugPrint('FFmpeg log: ${log.getMessage()}');
+      }
+      
+      if (ReturnCode.isSuccess(returnCode)) {
+        // Check if output file was actually created
+        final outputFile = File(outputPath);
+        if (await outputFile.exists()) {
+          debugPrint('Video watermarking successful: $outputPath');
+          return outputFile;
+        } else {
+          debugPrint('FFmpeg succeeded but output file not found: $outputPath');
+          return null;
+        }
+      } else {
+        // FFmpeg failed, log the error
+        final failureStackTrace = await result.getFailStackTrace();
+        debugPrint('FFmpeg watermarking failed with return code: $returnCode');
+        debugPrint('FFmpeg failure stack trace: $failureStackTrace');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error in _tryFFmpegWatermark: $e');
+      return null;
+    }
+  }
+
+  Future<File?> _trySimpleFFmpegWatermark(File videoFile, String watermarkText, String outputPath) async {
+    try {
+      // Create a simpler output path
+      final directory = await getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final simpleOutputPath = '${directory.path}/simple_watermarked_video_$timestamp.mp4';
+      
+      // Use a much simpler FFmpeg command with minimal text
+      final simpleText = '${widget.photoType} ${DateFormat('dd/MM/yyyy').format(DateTime.now())}';
+      
+      // Try different FFmpeg approaches for better compatibility
+      List<String> commands = [
+        // Approach 1: Simple text with basic parameters
+        '-i ${videoFile.path} -vf "drawtext=text=\'$simpleText\':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.7:x=10:y=10" -codec:a copy -y $simpleOutputPath',
+        
+        // Approach 2: Even simpler without box
+        '-i ${videoFile.path} -vf "drawtext=text=\'$simpleText\':fontcolor=white:fontsize=24:x=10:y=10" -codec:a copy -y $simpleOutputPath',
+        
+        // Approach 3: Using different text format
+        '-i ${videoFile.path} -vf "drawtext=text=\'$simpleText\':fontcolor=white:fontsize=20:x=w-text_w-10:y=h-text_h-10" -codec:a copy -y $simpleOutputPath',
+      ];
+      
+      for (int i = 0; i < commands.length; i++) {
+        try {
+          debugPrint('Trying simple FFmpeg approach ${i + 1}: ${commands[i]}');
+          
+          final result = await FFmpegKit.execute(commands[i]);
+          final returnCode = await result.getReturnCode();
+          final logs = await result.getLogs();
+          
+          // Log FFmpeg output for debugging
+          for (final log in logs) {
+            debugPrint('Simple FFmpeg log ${i + 1}: ${log.getMessage()}');
+          }
+          
+          if (ReturnCode.isSuccess(returnCode)) {
+            // Check if output file was actually created
+            final outputFile = File(simpleOutputPath);
+            if (await outputFile.exists()) {
+              debugPrint('Simple video watermarking successful with approach ${i + 1}: $simpleOutputPath');
+              return outputFile;
+            } else {
+              debugPrint('Simple FFmpeg approach ${i + 1} succeeded but output file not found');
+            }
+          } else {
+            final failureStackTrace = await result.getFailStackTrace();
+            debugPrint('Simple FFmpeg approach ${i + 1} failed: $failureStackTrace');
+          }
+        } catch (e) {
+          debugPrint('Error in simple FFmpeg approach ${i + 1}: $e');
+        }
+      }
+      
+      debugPrint('All simple FFmpeg watermarking approaches failed');
+      return null;
+    } catch (e) {
+      debugPrint('Error in _trySimpleFFmpegWatermark: $e');
+      return null;
     }
   }
 
@@ -455,23 +593,70 @@ class _CameraScreenState extends State<CameraScreen> {
         await Future.delayed(const Duration(milliseconds: 100));
       }
       
-      // Save the watermarked video to gallery
-      final result = await ImageGallerySaver.saveFile(
-        videoCapturedImage.watermarkedFile.path,
-        name: "click_video_watermarked_${DateTime.now().millisecondsSinceEpoch}.mp4"
-      );
+      // Check if watermarking was successful by comparing file paths
+      final isWatermarked = videoCapturedImage.watermarkedFile.path != videoCapturedImage.originalPath;
       
-      if (mounted) {
-        // Clear any existing snackbars first
-        ScaffoldMessenger.of(context).clearSnackBars();
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['isSuccess'] ? 'Watermarked video saved to gallery: ${_formatDuration(duration)}' : 'Failed to save watermarked video'),
-            backgroundColor: result['isSuccess'] ? Colors.green : Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
+      if (isWatermarked) {
+        // Save the watermarked video to gallery
+        final result = await ImageGallerySaver.saveFile(
+          videoCapturedImage.watermarkedFile.path,
+          name: "click_video_watermarked_${DateTime.now().millisecondsSinceEpoch}.mp4"
         );
+        
+        if (mounted) {
+          // Clear any existing snackbars first
+          ScaffoldMessenger.of(context).clearSnackBars();
+          
+          if (result['isSuccess']) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Watermarked video saved to gallery: ${_formatDuration(duration)}'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to save watermarked video'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      } else {
+        // Watermarking failed - don't save the video and inform user
+        if (mounted) {
+          // Clear any existing snackbars first
+          ScaffoldMessenger.of(context).clearSnackBars();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Video watermarking failed. Video not saved.'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+              action: SnackBarAction(
+                label: 'Info',
+                textColor: Colors.white,
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Video watermarking is required. The video was not saved because watermarking failed.'),
+                      backgroundColor: Colors.blue,
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        }
+        
+        // Remove the video from captured images since it wasn't saved
+        setState(() {
+          _capturedImages.removeWhere((img) => img.originalPath == videoCapturedImage.originalPath);
+        });
       }
     } catch (e) {
       debugPrint('Error saving watermarked video to gallery: $e');
@@ -480,12 +665,17 @@ class _CameraScreenState extends State<CameraScreen> {
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save watermarked video: ${e.toString()}'),
-            backgroundColor: Colors.orange,
+            content: Text('Error saving video: ${e.toString()}'),
+            backgroundColor: Colors.red,
             duration: const Duration(seconds: 2),
           ),
         );
       }
+      
+      // Remove the video from captured images since saving failed
+      setState(() {
+        _capturedImages.removeWhere((img) => img.originalPath == videoCapturedImage.originalPath);
+      });
     }
   }
 
@@ -626,6 +816,20 @@ class _CameraScreenState extends State<CameraScreen> {
       return;
     }
 
+    // Prevent recording if FFmpeg is not supported since videos won't be saved
+    if (!_ffmpegSupported) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Video watermarking is not supported on this device. Videos will not be saved without watermarks.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+      return; // Don't start recording
+    }
+
     try {
       await _controller!.startVideoRecording();
       setState(() {
@@ -683,40 +887,6 @@ class _CameraScreenState extends State<CameraScreen> {
         _isRecording = false;
         _recordingDuration = Duration.zero;
       });
-
-      // Save video to gallery
-      try {
-        final result = await ImageGallerySaver.saveFile(
-          videoFile.path,
-          name: "click_video_${DateTime.now().millisecondsSinceEpoch}.mp4"
-        );
-        
-        if (mounted) {
-          // Clear any existing snackbars first
-          ScaffoldMessenger.of(context).clearSnackBars();
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['isSuccess'] ? 'Video saved to gallery: ${_formatDuration(finalDuration)}' : 'Failed to save video'),
-              backgroundColor: result['isSuccess'] ? Colors.green : Colors.red,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          // Clear any existing snackbars first
-          ScaffoldMessenger.of(context).clearSnackBars();
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to save video: ${e.toString()}'),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
 
       // Add video to captured images list for review with watermark processing
       final videoCapturedImage = CapturedImage(
@@ -794,6 +964,37 @@ class _CameraScreenState extends State<CameraScreen> {
         !returnedPaths.contains(capturedImage.watermarkedFile.path)
       );
     });
+  }
+
+  Future<void> _testFFmpeg() async {
+    try {
+      debugPrint('Testing FFmpeg functionality...');
+      final result = await FFmpegKit.execute('-version');
+      final returnCode = await result.getReturnCode();
+      final logs = await result.getLogs();
+      
+      debugPrint('FFmpeg test return code: $returnCode');
+      if (logs.isNotEmpty) {
+        debugPrint('FFmpeg version: ${logs.first.getMessage()}');
+      }
+      
+      if (ReturnCode.isSuccess(returnCode)) {
+        debugPrint('FFmpeg is working properly');
+        setState(() {
+          _ffmpegSupported = true;
+        });
+      } else {
+        debugPrint('FFmpeg test failed');
+        setState(() {
+          _ffmpegSupported = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error testing FFmpeg: $e');
+      setState(() {
+        _ffmpegSupported = false;
+      });
+    }
   }
 
   @override
@@ -947,18 +1148,43 @@ class _CameraScreenState extends State<CameraScreen> {
                       // Video mode toggle
                       GestureDetector(
                         onTap: _toggleVideoMode,
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: _isVideoMode 
-                              ? const Color(0xFF35C2C1).withOpacity(0.8)
-                              : Colors.black.withOpacity(0.3),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            _isVideoMode ? Icons.videocam : Icons.videocam_outlined,
-                            color: Colors.white,
-                            size: 24,
+                        child: Tooltip(
+                          message: _isVideoMode && !_ffmpegSupported 
+                            ? 'Video watermarking not supported - videos will not be saved'
+                            : _isVideoMode 
+                              ? 'Video mode' 
+                              : 'Switch to video mode',
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _isVideoMode 
+                                ? const Color(0xFF35C2C1).withOpacity(0.8)
+                                : Colors.black.withOpacity(0.3),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Stack(
+                              children: [
+                                Icon(
+                                  _isVideoMode ? Icons.videocam : Icons.videocam_outlined,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                                // Show warning indicator if FFmpeg is not supported and in video mode
+                                if (_isVideoMode && !_ffmpegSupported)
+                                  Positioned(
+                                    top: 0,
+                                    right: 0,
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.orange,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1150,7 +1376,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
                       // Shutter Button
                 GestureDetector(
-                        onTap: _isCapturing ? null : () async {
+                        onTap: (_isCapturing || (_isVideoMode && !_ffmpegSupported)) ? null : () async {
                           if (_isVideoMode) {
                             if (_isRecording) {
                               await _stopVideoRecording();
@@ -1165,11 +1391,12 @@ class _CameraScreenState extends State<CameraScreen> {
                           width: 80,
                           height: 80,
                     decoration: BoxDecoration(
-                            color: _isRecording ? Colors.red : Colors.white,
+                            color: _isRecording ? Colors.red : (_isVideoMode && !_ffmpegSupported) ? Colors.grey : Colors.white,
                       shape: BoxShape.circle,
                             border: Border.all(
                               color: _isRecording 
                                 ? Colors.red.withOpacity(0.3)
+                                : (_isVideoMode && !_ffmpegSupported) ? Colors.grey.withOpacity(0.3)
                                 : Colors.white.withOpacity(0.3),
                               width: 4,
                             ),
@@ -1209,14 +1436,28 @@ class _CameraScreenState extends State<CameraScreen> {
                                       size: 30,
                                     ),
                                   )
-                                : Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
+                                : (_isVideoMode && !_ffmpegSupported)
+                                  ? Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.withOpacity(0.5),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.block,
+                                        color: Colors.white,
+                                        size: 30,
+                                      ),
+                                    )
+                                  : Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
                                     ),
-                                  ),
                           ),
                         ),
                       ),
