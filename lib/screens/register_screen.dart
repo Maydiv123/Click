@@ -181,7 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'I am',
+          'I Am',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -237,34 +237,38 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       onTap: () => setState(() {
         _selectedUserType = type;
       }),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.shade50 : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey.shade300,
-            width: 2,
+      child: SizedBox(
+        width: 60, // Reduced width for each box
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.blue.shade50 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? Colors.blue : Colors.grey.shade300,
+              width: 2,
+            ),
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.blue : Colors.grey,
-              size: 24,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: TextStyle(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
                 color: isSelected ? Colors.blue : Colors.grey,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                size: 18,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: TextStyle(
+                  color: isSelected ? Colors.blue : Colors.grey,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 12, // Smaller font size to fit in narrower box
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
