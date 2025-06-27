@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import '../services/map_service.dart';
 import '../services/petrol_pump_request_service.dart';
 import '../services/custom_auth_service.dart';
@@ -72,6 +73,13 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   int _totalItems = 0;
   String _importStatus = '';
   
+  // Real-time validation messages
+  String _pincodeGuidance = '';
+  String _latitudeGuidance = '';
+  String _longitudeGuidance = '';
+  String _mobileGuidance = '';
+  String _sapCodeGuidance = '';
+  
   @override
   void initState() {
     super.initState();
@@ -82,11 +90,29 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     
     // Add listener to pincode field to auto-fetch details when pincode is entered
     _pincodeController.addListener(_onPincodeChanged);
+    
+    // Add listeners for real-time validation
+    _latitudeController.addListener(() => _onLatitudeChanged(_latitudeController.text));
+    _longitudeController.addListener(() => _onLongitudeChanged(_longitudeController.text));
+    _contactDetailsController.addListener(() => _onMobileChanged(_contactDetailsController.text));
+    _sapCodeController.addListener(() => _onSapCodeChanged(_sapCodeController.text));
+    
+    // Add listeners for character count updates
+    _pincodeController.addListener(() => setState(() {}));
+    _contactDetailsController.addListener(() => setState(() {}));
   }
   
   @override
   void dispose() {
     _pincodeController.removeListener(_onPincodeChanged);
+    _latitudeController.removeListener(() => _onLatitudeChanged(_latitudeController.text));
+    _longitudeController.removeListener(() => _onLongitudeChanged(_longitudeController.text));
+    _contactDetailsController.removeListener(() => _onMobileChanged(_contactDetailsController.text));
+    _sapCodeController.removeListener(() => _onSapCodeChanged(_sapCodeController.text));
+    
+    // Remove character count listeners
+    _pincodeController.removeListener(() => setState(() {}));
+    _contactDetailsController.removeListener(() => setState(() {}));
     
     _jsonController.dispose();
     _zoneController.dispose();
@@ -121,6 +147,118 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       // Only trigger lookup when a complete 6-digit pincode is entered
       _fetchPetrolPumpByPincodeAndLocation();
     }
+    
+    // Real-time validation guidance
+    setState(() {
+      if (pincode.isEmpty) {
+        _pincodeGuidance = '';
+      } else if (RegExp(r'[a-zA-Z]').hasMatch(pincode)) {
+        _pincodeGuidance = '❌ Pincode should only contain numbers (0-9), not letters';
+      } else if (RegExp(r'[^0-9]').hasMatch(pincode)) {
+        _pincodeGuidance = '❌ Pincode should only contain numbers (0-9), no special characters';
+      } else if (pincode.length < 6) {
+        _pincodeGuidance = 'Enter ${6 - pincode.length} more digits to complete pincode';
+      } else if (pincode.length > 6) {
+        _pincodeGuidance = 'Pincode should be exactly 6 digits';
+      } else {
+        _pincodeGuidance = '✓ Valid pincode format';
+      }
+    });
+  }
+
+  void _onLatitudeChanged(String value) {
+    setState(() {
+      if (value.isEmpty) {
+        _latitudeGuidance = '';
+      } else if (RegExp(r'[a-zA-Z]').hasMatch(value)) {
+        _latitudeGuidance = '❌ Latitude should only contain numbers and decimal point, not letters';
+      } else if (!RegExp(r'^-?\d*\.?\d*$').hasMatch(value)) {
+        _latitudeGuidance = '❌ Enter a valid number (e.g., 28.6139) - only numbers and decimal point allowed';
+      } else {
+        double? lat = double.tryParse(value);
+        if (lat == null) {
+          _latitudeGuidance = 'Enter a valid latitude number';
+        } else if (lat < -90 || lat > 90) {
+          _latitudeGuidance = '❌ Latitude must be between -90 and 90 degrees';
+        } else {
+          _latitudeGuidance = '✓ Valid latitude';
+        }
+      }
+    });
+  }
+
+  void _onLongitudeChanged(String value) {
+    setState(() {
+      if (value.isEmpty) {
+        _longitudeGuidance = '';
+      } else if (RegExp(r'[a-zA-Z]').hasMatch(value)) {
+        _longitudeGuidance = '❌ Longitude should only contain numbers and decimal point, not letters';
+      } else if (!RegExp(r'^-?\d*\.?\d*$').hasMatch(value)) {
+        _longitudeGuidance = '❌ Enter a valid number (e.g., 77.2090) - only numbers and decimal point allowed';
+      } else {
+        double? lng = double.tryParse(value);
+        if (lng == null) {
+          _longitudeGuidance = 'Enter a valid longitude number';
+        } else if (lng < -180 || lng > 180) {
+          _longitudeGuidance = '❌ Longitude must be between -180 and 180 degrees';
+        } else {
+          _longitudeGuidance = '✓ Valid longitude';
+        }
+      }
+    });
+  }
+
+  void _onMobileChanged(String value) {
+    setState(() {
+      if (value.isEmpty) {
+        _mobileGuidance = '';
+      } else if (RegExp(r'[a-zA-Z]').hasMatch(value)) {
+        _mobileGuidance = '❌ Mobile number should only contain numbers (0-9), not letters';
+      } else if (RegExp(r'[^0-9]').hasMatch(value)) {
+        _mobileGuidance = '❌ Mobile number should only contain numbers (0-9), no special characters';
+      } else if (value.length < 10) {
+        _mobileGuidance = 'Enter ${10 - value.length} more digits';
+      } else if (value.length > 10) {
+        _mobileGuidance = 'Mobile number should be exactly 10 digits';
+      } else if (value.length == 10) {
+        // Check first digit when complete number is entered
+        if (value.startsWith('0')) {
+          _mobileGuidance = '❌ Mobile number cannot start with 0';
+        } else if (value.startsWith('1')) {
+          _mobileGuidance = '❌ Mobile number should start with 6, 7, 8, or 9 (not 1)';
+        } else if (value.startsWith('2')) {
+          _mobileGuidance = '❌ Mobile number should start with 6, 7, 8, or 9 (not 2)';
+        } else if (value.startsWith('3')) {
+          _mobileGuidance = '❌ Mobile number should start with 6, 7, 8, or 9 (not 3)';
+        } else if (value.startsWith('4')) {
+          _mobileGuidance = '❌ Mobile number should start with 6, 7, 8, or 9 (not 4)';
+        } else if (value.startsWith('5')) {
+          _mobileGuidance = '❌ Mobile number should start with 6, 7, 8, or 9 (not 5)';
+        } else if (RegExp(r'^[6-9][0-9]{9}$').hasMatch(value)) {
+          _mobileGuidance = '✓ Valid mobile number';
+        } else {
+          _mobileGuidance = '❌ Invalid mobile number format';
+        }
+      }
+    });
+  }
+
+  void _onSapCodeChanged(String value) {
+    setState(() {
+      if (value.isEmpty) {
+        _sapCodeGuidance = '';
+      } else if (RegExp(r'[a-zA-Z]').hasMatch(value)) {
+        _sapCodeGuidance = '❌ SAP Code should only contain numbers (0-9), not letters';
+      } else if (RegExp(r'[^0-9]').hasMatch(value)) {
+        _sapCodeGuidance = '❌ SAP Code should only contain numbers (0-9), no special characters';
+      } else if (value.length < 5) {
+        _sapCodeGuidance = 'SAP Code should be at least 5 digits';
+      } else if (value.length > 15) {
+        _sapCodeGuidance = 'SAP Code should not exceed 15 digits';
+      } else {
+        _sapCodeGuidance = '✓ Valid SAP Code format';
+      }
+    });
   }
 
   void _updateProgress() {
@@ -814,15 +952,6 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                             mainAxisSize: MainAxisSize.max, // Ensure row takes full width
                             children: _companies.map((company) {
                               final isSelected = _selectedCompany == company;
-                              // Get the appropriate image path for each company
-                              String imagePath = '';
-                              if (company == 'HPCL') {
-                                imagePath = 'assets/images/HPCL Color.png';
-                              } else if (company == 'BPCL') {
-                                imagePath = 'assets/images/BPCL Color.png';
-                              } else if (company == 'IOCL') {
-                                imagePath = 'assets/images/IOCL Color.png';
-                              }
                               
                               return GestureDetector(
                                 onTap: () {
@@ -837,10 +966,10 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                   }
                                 },
                                 child: Container(
-                                  width: 80,
-                                  height: 80,
-                                  padding: const EdgeInsets.all(6), // Even padding all around
-                                                                      decoration: BoxDecoration(
+                                  width: 100,
+                                  height: 100,
+                                  padding: const EdgeInsets.all(2), // Even padding all around
+                                  decoration: BoxDecoration(
                                     color: isSelected ? const Color(0xFF35C2C1).withOpacity(0.1) : Colors.white,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
@@ -859,9 +988,9 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                   ),
                                   child: Center(
                                     child: Image.asset(
-                                      imagePath,
-                                      height: 55, // Increased height to fill the container
-                                      width: 55, // Increased width to fill the container
+                                      _getCompanyImagePath(company, isSelected),
+                                      height: 85, // Increased height to fill the container
+                                      width: 85, // Increased width to fill the container
                                       fit: BoxFit.contain,
                                     ),
                                   ),
@@ -904,6 +1033,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
+                              suffixText: '${_pincodeController.text.length}/6',
                               suffixIcon: _pincodeController.text.isNotEmpty
                                   ? IconButton(
                                       icon: const Icon(Icons.clear),
@@ -916,57 +1046,157 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                   : null,
                             ),
                             keyboardType: TextInputType.number,
-                            maxLength: 6,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(6),
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter pincode';
+                                return 'Please enter a 6-digit pincode (e.g., 110001)';
                               }
                               if (value.length != 6) {
-                                return 'Pincode must be 6 digits';
+                                return 'Pincode must be exactly 6 digits (e.g., 110001)';
+                              }
+                              if (!RegExp(r'^[0-9]{6}$').hasMatch(value)) {
+                                return 'Pincode should only contain numbers (0-9)';
                               }
                               return null;
                             },
                           ),
+                          if (_pincodeGuidance.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                _pincodeGuidance,
+                                style: TextStyle(
+                                  color: _pincodeGuidance.startsWith('✓') 
+                                    ? Colors.green 
+                                    : _pincodeGuidance.startsWith('❌')
+                                      ? Colors.red
+                                      : Colors.orange,
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
                           const SizedBox(height: 16),
                           
                           // Coordinates section
                           Row(
                             children: [
                               Expanded(
-                                child: TextFormField(
-                                  controller: _latitudeController,
-                                  decoration: InputDecoration(
-                                    labelText: 'Latitude *',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
+                                child: Container(
+                                  height: 90, // Increased height to accommodate error messages
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _latitudeController,
+                                          decoration: InputDecoration(
+                                            labelText: 'Latitude *',
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                                          ],
+                                          validator: (value) {
+                                            if (value == null || value.isEmpty) {
+                                              return 'Please enter latitude (e.g., 28.6139)';
+                                            }
+                                            if (!RegExp(r'^-?\d+\.?\d*$').hasMatch(value)) {
+                                              return 'Latitude should be a number (e.g., 28.6139)';
+                                            }
+                                            double? lat = double.tryParse(value);
+                                            if (lat == null) {
+                                              return 'Please enter a valid latitude number';
+                                            }
+                                            if (lat < -90 || lat > 90) {
+                                              return 'Latitude must be between -90 and 90 degrees';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                      if (_latitudeGuidance.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4.0),
+                                          child: Text(
+                                            _latitudeGuidance,
+                                            style: TextStyle(
+                                              color: _latitudeGuidance.startsWith('✓') 
+                                                ? Colors.green 
+                                                : _latitudeGuidance.startsWith('❌')
+                                                  ? Colors.red
+                                                  : Colors.orange,
+                                              fontSize: 12,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                  keyboardType: TextInputType.number,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Required';
-                                    }
-                                    return null;
-                                  },
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: TextFormField(
-                                  controller: _longitudeController,
-                                  decoration: InputDecoration(
-                                    labelText: 'Longitude *',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
+                                child: Container(
+                                  height: 90, // Increased height to accommodate error messages
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _longitudeController,
+                                          decoration: InputDecoration(
+                                            labelText: 'Longitude *',
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                                          ],
+                                          validator: (value) {
+                                            if (value == null || value.isEmpty) {
+                                              return 'Please enter longitude (e.g., 77.2090)';
+                                            }
+                                            if (!RegExp(r'^-?\d+\.?\d*$').hasMatch(value)) {
+                                              return 'Longitude should be a number (e.g., 77.2090)';
+                                            }
+                                            double? lng = double.tryParse(value);
+                                            if (lng == null) {
+                                              return 'Please enter a valid longitude number';
+                                            }
+                                            if (lng < -180 || lng > 180) {
+                                              return 'Longitude must be between -180 and 180 degrees';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                      if (_longitudeGuidance.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4.0),
+                                          child: Text(
+                                            _longitudeGuidance,
+                                            style: TextStyle(
+                                              color: _longitudeGuidance.startsWith('✓') 
+                                                ? Colors.green 
+                                                : _longitudeGuidance.startsWith('❌')
+                                                  ? Colors.red
+                                                  : Colors.orange,
+                                              fontSize: 12,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                  keyboardType: TextInputType.number,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Required';
-                                    }
-                                    return null;
-                                  },
                                 ),
                               ),
                             ],
@@ -1067,13 +1297,13 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                               filled: true,
                               fillColor: Colors.grey[100],
                             ),
-                            readOnly: true,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter district';
                               }
                               return null;
                             },
+                            onChanged: (_) => _updateProgress(),
                           ),
                           const SizedBox(height: 16),
                           
@@ -1088,13 +1318,13 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                               filled: true,
                               fillColor: Colors.grey[100],
                             ),
-                            readOnly: true,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter regional office';
                               }
                               return null;
                             },
+                            onChanged: (_) => _updateProgress(),
                           ),
                           const SizedBox(height: 16),
                           
@@ -1109,13 +1339,13 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                               filled: true,
                               fillColor: Colors.grey[100],
                             ),
-                            readOnly: true,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter sales area';
                               }
                               return null;
                             },
+                            onChanged: (_) => _updateProgress(),
                           ),
                           const SizedBox(height: 16),
                           
@@ -1130,13 +1360,13 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                               filled: true,
                               fillColor: Colors.grey[100],
                             ),
-                            readOnly: true,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter zone';
                               }
                               return null;
                             },
+                            onChanged: (_) => _updateProgress(),
                           ),
                           const SizedBox(height: 16),
                           
@@ -1157,6 +1387,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                               }
                               return null;
                             },
+                            onChanged: (_) => _updateProgress(),
                           ),
                         ],
                       ),
@@ -1194,9 +1425,42 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                               ),
                               hintText: 'Enter SAP Code if available',
                             ),
-                            // No validation since it's optional
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            validator: (value) {
+                              if (value != null && value.isNotEmpty) {
+                                if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                                  return 'SAP Code should only contain numbers (0-9)';
+                                }
+                                if (value.length < 5) {
+                                  return 'SAP Code should be at least 5 digits';
+                                }
+                                if (value.length > 15) {
+                                  return 'SAP Code should not exceed 15 digits';
+                                }
+                              }
+                              return null;
+                            },
                             onChanged: (_) => _updateProgress(),
                           ),
+                          if (_sapCodeGuidance.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                _sapCodeGuidance,
+                                style: TextStyle(
+                                  color: _sapCodeGuidance.startsWith('✓') 
+                                    ? Colors.green 
+                                    : _sapCodeGuidance.startsWith('❌')
+                                      ? Colors.red
+                                      : Colors.orange,
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
                           const SizedBox(height: 16),
                           
                           // Customer Name field
@@ -1278,35 +1542,61 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Contact Details field (10-digit mobile number)
                           TextFormField(
                             controller: _contactDetailsController,
-                                                          decoration: InputDecoration(
+                            decoration: InputDecoration(
                               labelText: 'Mobile Number *',
                               hintText: 'Enter 10-digit mobile number',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               prefixText: '+91 ',
-                              // Remove the static counterText since maxLength will show a counter automatically
+                              suffixText: '${_contactDetailsController.text.length}/10',
                             ),
                             keyboardType: TextInputType.phone,
-                            maxLength: 10,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(10),
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter mobile number';
+                                return 'Please enter a 10-digit mobile number (e.g., 9876543210)';
                               }
-                              if (value.length != 10 || !RegExp(r'^[0-9]{10}$').hasMatch(value)) {
-                                return 'Please enter valid 10-digit mobile number';
+                              if (value.length != 10) {
+                                return 'Mobile number must be exactly 10 digits (e.g., 9876543210)';
+                              }
+                              if (!RegExp(r'^[0-9]{10}$').hasMatch(value)) {
+                                return 'Mobile number should only contain numbers (0-9)';
+                              }
+                              if (!RegExp(r'^[6-9][0-9]{9}$').hasMatch(value)) {
+                                return 'Mobile number should start with 6, 7, 8, or 9';
                               }
                               return null;
                             },
                             onChanged: (_) => _updateProgress(),
                           ),
+                          if (_mobileGuidance.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                _mobileGuidance,
+                                style: TextStyle(
+                                  color: _mobileGuidance.startsWith('✓') 
+                                    ? Colors.green 
+                                    : _mobileGuidance.startsWith('❌')
+                                      ? Colors.red
+                                      : Colors.orange,
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   
-                  // Images section
+                  // Images section - COMMENTED OUT
+                  /*
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
@@ -1396,6 +1686,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                       ),
                     ),
                   ),
+                  */
                   
                   // Submit button
                   const SizedBox(height: 24),
@@ -1449,16 +1740,32 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
             children: const [
               Text('How to add a petrol pump:', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
               SizedBox(height: 12),
-              Text('1. Fill in all required fields', style: TextStyle(color: Colors.black54)),
-              Text('2. Use the "Use Current Location" button to get coordinates', style: TextStyle(color: Colors.black54)),
-              Text('3. Upload required documents and images', style: TextStyle(color: Colors.black54)),
+              Text('1. Select your company (HPCL, BPCL, or IOCL)', style: TextStyle(color: Colors.black54)),
+              Text('2. Enter pincode and get current location for coordinates', style: TextStyle(color: Colors.black54)),
+              Text('3. Auto-filled fields will be populated based on location', style: TextStyle(color: Colors.black54)),
+              Text('4. Fill in petrol pump details and contact information', style: TextStyle(color: Colors.black54)),
+              Text('5. Complete at least 70% of required fields to submit', style: TextStyle(color: Colors.black54)),
               SizedBox(height: 16),
-              Text('Required Documents:', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+              Text('Real-time Validation:', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
               SizedBox(height: 8),
-              Text('• Petrol pump banner image', style: TextStyle(color: Colors.black54)),
-              Text('• Petrol pump board image', style: TextStyle(color: Colors.black54)),
-              Text('• Bill slip (Optional)', style: TextStyle(color: Colors.black54)),
-              Text('• Legal government document (Optional)', style: TextStyle(color: Colors.black54)),
+              Text('• Pincode: Must be 6 digits (e.g., 110001)', style: TextStyle(color: Colors.black54)),
+              Text('• Mobile: Must be 10 digits starting with 6, 7, 8, or 9', style: TextStyle(color: Colors.black54)),
+              Text('• Coordinates: Valid latitude (-90 to 90) and longitude (-180 to 180)', style: TextStyle(color: Colors.black54)),
+              Text('• SAP Code: Optional, 5-15 digits if provided', style: TextStyle(color: Colors.black54)),
+              SizedBox(height: 16),
+              Text('Required Fields:', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+              SizedBox(height: 8),
+              Text('• Company selection', style: TextStyle(color: Colors.black54)),
+              Text('• Pincode and coordinates', style: TextStyle(color: Colors.black54)),
+              Text('• District, Regional Office, Sales Area, Zone, CO/CL/DO', style: TextStyle(color: Colors.black54)),
+              Text('• Petrol pump name and address', style: TextStyle(color: Colors.black54)),
+              Text('• Dealer name and mobile number', style: TextStyle(color: Colors.black54)),
+              SizedBox(height: 16),
+              Text('Auto-filled Fields:', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+              SizedBox(height: 8),
+              Text('• Administrative fields are auto-filled based on location', style: TextStyle(color: Colors.black54)),
+              Text('• You can edit these fields if needed', style: TextStyle(color: Colors.black54)),
+              Text('• Progress indicator shows completion percentage', style: TextStyle(color: Colors.black54)),
             ],
           ),
         ),
@@ -1530,5 +1837,22 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
         return null;
       },
     );
+  }
+
+  String _getCompanyImagePath(String company, bool isSelected) {
+    if (company == 'HPCL') {
+      return isSelected
+        ? 'assets/images/HPCL Color.png'
+        : 'assets/images/HPCL B&W1.png';
+    } else if (company == 'BPCL') {
+      return isSelected
+        ? 'assets/images/BPCL Color.png'
+        : 'assets/images/BPCL B&W1.png';
+    } else if (company == 'IOCL') {
+      return isSelected
+        ? 'assets/images/IOCL Color.png'
+        : 'assets/images/IOCL B&W.png';
+    }
+    return 'assets/images/HPCL Color.png'; // Default fallback
   }
 } 
