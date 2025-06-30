@@ -59,12 +59,17 @@ class _CameraScreenState extends State<CameraScreen> {
   final CustomAuthService _authService = CustomAuthService();
   final DatabaseService _databaseService = DatabaseService();
   final AudioPlayer _audioPlayer = AudioPlayer();
+  
+  // Track if visit has been recorded for current pump in this session
+  bool _hasRecordedVisitForCurrentPump = false;
+  String _currentPumpId = '';
 
   @override
   void initState() {
     super.initState();
     _initializeCamera();
     _loadUserData();
+    _initializePumpTracking();
   }
 
   Future<void> _initializeCamera() async {
@@ -559,6 +564,15 @@ class _CameraScreenState extends State<CameraScreen> {
     });
   }
 
+  void _initializePumpTracking() {
+    if (widget.location != null) {
+      _currentPumpId = widget.location!.sapCode.isNotEmpty 
+          ? widget.location!.sapCode 
+          : 'pump_${widget.location!.latitude}_${widget.location!.longitude}';
+      _hasRecordedVisitForCurrentPump = false;
+    }
+  }
+
   Future<void> _trackImageUpload(File imageFile) async {
     try {
       // Track the upload
@@ -571,20 +585,16 @@ class _CameraScreenState extends State<CameraScreen> {
         metadata,
       );
       
-      // Track visit if this is from a petrol pump location
-      if (widget.location != null) {
+      // Track visit only once per pump per session
+      if (widget.location != null && !_hasRecordedVisitForCurrentPump) {
         final Map<String, dynamic> pumpDetails = {
           'customerName': widget.location!.customerName,
           'addressLine1': widget.location!.addressLine1,
           'company': widget.location!.company,
         };
         
-        // Use sapCode as pumpId for visit tracking
-        final visitPumpId = widget.location!.sapCode.isNotEmpty 
-            ? widget.location!.sapCode 
-            : 'pump_${widget.location!.latitude}_${widget.location!.longitude}';
-        
-        await _databaseService.addPumpVisit(visitPumpId, pumpDetails);
+        await _databaseService.addPumpVisit(_currentPumpId, pumpDetails);
+        _hasRecordedVisitForCurrentPump = true; // Mark as visited for this session
       }
       
       if (uploadSuccess) {

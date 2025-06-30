@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' as latlong;
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -43,7 +43,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
   
   final TextEditingController _searchController = TextEditingController();
   
-  static const LatLng _defaultCenter = LatLng(23.0225, 72.5714);
+  static const latlong.LatLng _defaultCenter = latlong.LatLng(23.0225, 72.5714);
   double _currentZoom = 7.0;
 
   @override
@@ -110,7 +110,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
 
       if (mounted) {
         _mapController.move(
-          LatLng(position.latitude, position.longitude),
+          latlong.LatLng(position.latitude, position.longitude),
           12.0,
         );
         
@@ -201,7 +201,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
     if (_showCurrentLocation && _currentPosition != null) {
       markers.add(
         Marker(
-          point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          point: latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
           width: 40,
           height: 40,
           child: Container(
@@ -231,30 +231,12 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
       if (location.latitude != 0.0 && location.longitude != 0.0) {
         markers.add(
           Marker(
-            point: LatLng(location.latitude, location.longitude),
+            point: latlong.LatLng(location.latitude, location.longitude),
             width: 40,
-            height: 40,
+            height: 48,
             child: GestureDetector(
               onTap: () => _showLocationDetails(location),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.local_gas_station,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
+              child: CompanyPinMarker(company: location.company),
             ),
           ),
         );
@@ -267,127 +249,114 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
   }
 
   void _showLocationDetails(MapLocation location) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.4,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: EdgeInsets.zero,
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.85,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.local_gas_station, color: Colors.red),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              location.customerName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              location.location,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildInfoRow('Address', '${location.addressLine1}, ${location.addressLine2}'),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('District', location.district),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('Zone', location.zone),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('Dealer', location.dealerName),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('Company', location.company),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final url = 'https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}';
+                            if (await canLaunchUrl(Uri.parse(url))) {
+                              await launchUrl(Uri.parse(url));
+                            }
+                          },
+                          icon: const Icon(Icons.location_on),
+                          label: const Text('Directions'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF35C2C1),
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PetrolPumpDetailsScreen(location: location),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.info_outline),
+                          label: const Text('View Details'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.local_gas_station, color: Colors.red),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                location.customerName,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                location.location,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInfoRow('Address', '${location.addressLine1}, ${location.addressLine2}'),
-                    const SizedBox(height: 8),
-                    _buildInfoRow('District', location.district),
-                    const SizedBox(height: 8),
-                    _buildInfoRow('Zone', location.zone),
-                    const SizedBox(height: 8),
-                    _buildInfoRow('Dealer', location.dealerName),
-                    const SizedBox(height: 8),
-                    _buildInfoRow('Company', location.company),
-                    const Spacer(),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
-                              final url = 'https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}';
-                              if (await canLaunchUrl(Uri.parse(url))) {
-                                await launchUrl(Uri.parse(url));
-                              }
-                            },
-                            icon: const Icon(Icons.location_on),
-                            label: const Text('Directions'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF35C2C1),
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PetrolPumpDetailsScreen(location: location),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.info_outline),
-                            label: const Text('View Details'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -421,12 +390,12 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
     );
   }
 
-  void _moveToLocation(LatLng location) {
+  void _moveToLocation(latlong.LatLng location) {
     _mapController.move(location, 15.0);
   }
   
   void _highlightAndCenterOnMap(MapLocation location) {
-    _moveToLocation(LatLng(location.latitude, location.longitude));
+    _moveToLocation(latlong.LatLng(location.latitude, location.longitude));
   }
 
   @override
@@ -508,7 +477,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                   mapController: _mapController,
                   options: MapOptions(
                     initialCenter: _currentPosition != null
-                        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+                        ? latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
                         : _defaultCenter,
                     initialZoom: _currentZoom,
                     minZoom: 3.0,
@@ -549,7 +518,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                         mini: true,
                         onPressed: () {
                           if (_currentPosition != null) {
-                            _moveToLocation(LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
+                            _moveToLocation(latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
                           } else {
                             _getCurrentLocation();
                           }
@@ -732,14 +701,16 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.grey[300]!),
                     ),
-                    child: const Icon(Icons.local_gas_station, 
-                      color: Colors.red, 
-                      size: 16,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: _getCompanyLogo(location.company),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -912,8 +883,8 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
   LatLngBounds _calculateBounds(List<MapLocation> locations) {
     if (locations.isEmpty) {
       return LatLngBounds(
-        const LatLng(-90, -180),
-        const LatLng(90, 180),
+        const latlong.LatLng(-90, -180),
+        const latlong.LatLng(90, 180),
       );
     }
 
@@ -930,8 +901,131 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
     }
 
     return LatLngBounds(
-      LatLng(minLat, minLng),
-      LatLng(maxLat, maxLng),
+      latlong.LatLng(minLat, minLng),
+      latlong.LatLng(maxLat, maxLng),
     );
   }
+
+  Widget _getCompanyLogo(String company) {
+    switch (company.toUpperCase()) {
+      case 'BPCL':
+        return Image.asset(
+          'assets/images/BPCL_logo.png',
+          fit: BoxFit.contain,
+        );
+      case 'HPCL':
+        return Image.asset(
+          'assets/images/HPCL_logo.png',
+          fit: BoxFit.contain,
+        );
+      case 'IOCL':
+        return Image.asset(
+          'assets/images/IOCL_logo.png',
+          fit: BoxFit.contain,
+        );
+      default:
+        return Container(
+          color: Colors.grey[200],
+          child: const Icon(
+            Icons.local_gas_station,
+            color: Colors.grey,
+            size: 16,
+          ),
+        );
+    }
+  }
+}
+
+class CompanyPinMarker extends StatelessWidget {
+  final String company;
+  const CompanyPinMarker({Key? key, required this.company}) : super(key: key);
+
+  Color _getPinColor(String company) {
+    switch (company.toUpperCase()) {
+      case 'BPCL':
+        return const Color(0xFFFFE001); // Yellow (BPCL)
+      case 'HPCL':
+        return const Color(0xFF000269); // Blue (HPCL)
+      case 'IOCL':
+        return const Color(0xFFF37022); // Orange (IOCL)
+      default:
+        return const Color(0xFF9C27B0); // Default purple
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pinColor = _getPinColor(company);
+    return SizedBox(
+      width: 40,
+      height: 48,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: const Size(40, 48),
+            painter: _PinShapePainter(pinColor),
+          ),
+          Positioned(
+            top: 8,
+            left: 8,
+            right: 8,
+            child: ClipOval(
+              child: _getCompanyLogo(company),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _getCompanyLogo(String company) {
+    switch (company.toUpperCase()) {
+      case 'BPCL':
+        return Image.asset('assets/images/BPCL_logo.png', width: 24, height: 24, fit: BoxFit.contain);
+      case 'HPCL':
+        return Image.asset('assets/images/HPCL_logo.png', width: 24, height: 24, fit: BoxFit.contain);
+      case 'IOCL':
+        return Image.asset('assets/images/IOCL_logo.png', width: 24, height: 24, fit: BoxFit.contain);
+      default:
+        return Container(
+          width: 24,
+          height: 24,
+          color: Colors.grey[200],
+          child: const Icon(Icons.local_gas_station, color: Colors.grey, size: 16),
+        );
+    }
+  }
+}
+
+class _PinShapePainter extends CustomPainter {
+  final Color pinColor;
+  _PinShapePainter(this.pinColor);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = pinColor
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(size.width / 2, size.height);
+    path.quadraticBezierTo(size.width, size.height * 0.6, size.width, size.height * 0.35);
+    path.arcToPoint(
+      Offset(0, size.height * 0.35),
+      radius: Radius.circular(size.width / 2),
+      clockwise: false,
+    );
+    path.quadraticBezierTo(0, size.height * 0.6, size.width / 2, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    // Draw white circle in the center for the logo background
+    final circlePaint = Paint()..color = Colors.white;
+    canvas.drawCircle(Offset(size.width / 2, size.height * 0.35), 16, circlePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 } 

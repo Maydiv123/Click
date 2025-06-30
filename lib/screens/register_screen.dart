@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome package
+import 'package:country_picker/country_picker.dart'; // Import country picker
 import 'login_screen.dart'; // Import Login screen for navigation
 import '../services/custom_auth_service.dart';
 import 'home_screen.dart';
@@ -45,9 +46,18 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   String? _errorMessage;
   String? _userTypeError;
 
+  // Country code variables
+  String _selectedCountryCode = '+91';
+  String _selectedCountryName = 'India';
+  String _selectedCountryFlag = '🇮🇳';
+
   // Input formatters for validation
   final RegExp _nameRegex = RegExp(r'^[a-zA-Z\s]+$');
   final RegExp _phoneRegex = RegExp(r'^[0-9]+$');
+  final RegExp _mpinRegex = RegExp(r'^[0-9]{6}$');
+
+  // Get full phone number with country code
+  String get _fullPhoneNumber => '$_selectedCountryCode${_mobileController.text}';
 
   @override
   void initState() {
@@ -97,7 +107,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       });
     } else if (_passwordController.text != confirmPassword) {
       setState(() {
-        _passwordMatchError = 'Passwords do not match';
+        _passwordMatchError = 'MPINs do not match';
       });
     } else {
       setState(() {
@@ -125,6 +135,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     if (!_formKey.currentState!.validate()) return;
     if (_passwordMatchError != null) return;
 
+    // Validate MPIN format
+    if (!_mpinRegex.hasMatch(_passwordController.text)) {
+      setState(() {
+        _errorMessage = 'MPIN must be exactly 6 digits';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -140,7 +158,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       final result = await _authService.registerUser(
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
-        mobile: _mobileController.text.trim(),
+        mobile: _fullPhoneNumber,
         password: _passwordController.text,
         userType: _selectedUserType,
         teamCode: _selectedUserType == 'member' ? _teamCodeController.text.trim() : null,
@@ -385,33 +403,94 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         const SizedBox(height: 20),
                         
                         // Mobile No
-                        TextFormField(
-                          controller: _mobileController,
-                          validator: (value) {
-                            if (value?.isEmpty ?? true) {
-                              return 'Please enter your mobile number';
-                            }
-                            if (!_phoneRegex.hasMatch(value!)) {
-                              return 'Mobile number can only contain digits';
-                            }
-                            if (value.length != 10) {
-                              return 'Mobile number must be exactly 10 digits';
-                            }
-                            if (!value.startsWith(RegExp(r'[6-9]'))) {
-                              return 'Mobile number should start with 6, 7, 8, or 9';
-                            }
-                            return null;
-                          },
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                            LengthLimitingTextInputFormatter(10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Mobile Number',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.transparent),
+                              ),
+                              child: Row(
+                                children: [
+                                  // Country Code Selector
+                                  GestureDetector(
+                                    onTap: _showCountryPicker,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      alignment: Alignment.center,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            _selectedCountryFlag,
+                                            style: const TextStyle(fontSize: 18),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _selectedCountryCode,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            Icons.keyboard_arrow_down,
+                                            color: Colors.grey[600],
+                                            size: 20,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _mobileController,
+                                      validator: (value) {
+                                        if (value?.isEmpty ?? true) {
+                                          return 'Please enter your mobile number';
+                                        }
+                                        if (!_phoneRegex.hasMatch(value!)) {
+                                          return 'Mobile number can only contain digits';
+                                        }
+                                        if (value.length < 6) {
+                                          return 'Mobile number must be at least 6 digits';
+                                        }
+                                        if (value.length > 15) {
+                                          return 'Mobile number is too long';
+                                        }
+                                        return null;
+                                      },
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                                        LengthLimitingTextInputFormatter(15),
+                                      ],
+                                      keyboardType: TextInputType.phone,
+                                      decoration: const InputDecoration(
+                                        hintText: 'Enter mobile number',
+                                        border: InputBorder.none,
+                                        filled: false,
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                        errorStyle: TextStyle(color: Colors.red, fontSize: 12),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
-                          keyboardType: TextInputType.phone,
-                          decoration: _buildInputDecoration(
-                            'Mobile Number',
-                            'e.g., 9876543XXX',
-                            Icons.phone_android,
-                          ),
                         ),
                         const SizedBox(height: 20),
 
@@ -479,14 +558,19 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         TextFormField(
                           controller: _passwordController,
                           validator: (value) {
-                            if (value?.isEmpty ?? true) return 'Please enter a password';
-                            if (value!.length < 6) return 'Password must be at least 6 characters';
+                            if (value?.isEmpty ?? true) return 'Please enter your MPIN';
+                            if (!_mpinRegex.hasMatch(value!)) return 'MPIN must be exactly 6 digits';
                             return null;
                           },
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                            LengthLimitingTextInputFormatter(6),
+                          ],
+                          keyboardType: TextInputType.number,
                           obscureText: !_isPasswordVisible,
                           decoration: _buildInputDecoration(
-                            'Password',
-                            'Enter your password',
+                            'MPIN',
+                            'Enter New 6-digit MPIN',
                             Icons.lock_outline,
                           ).copyWith(
                             suffixIcon: IconButton(
@@ -504,15 +588,21 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         TextFormField(
                           controller: _confirmPasswordController,
                           validator: (value) {
-                            if (value?.isEmpty ?? true) return 'Please confirm your password';
-                            if (value != _passwordController.text) return 'Passwords do not match';
+                            if (value?.isEmpty ?? true) return 'Please confirm your MPIN';
+                            if (!_mpinRegex.hasMatch(value!)) return 'MPIN must be exactly 6 digits';
+                            if (value != _passwordController.text) return 'MPINs do not match';
                             return null;
                           },
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                            LengthLimitingTextInputFormatter(6),
+                          ],
+                          keyboardType: TextInputType.number,
                           obscureText: !_isConfirmPasswordVisible,
                           onChanged: _checkPasswordMatch,
                           decoration: _buildInputDecoration(
-                            'Confirm Password',
-                            'Re-enter your password',
+                            'Confirm MPIN',
+                            'Re-enter New 6-digit MPIN',
                             Icons.lock_outline,
                           ).copyWith(
                             suffixIcon: IconButton(
@@ -534,7 +624,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _register,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
+                              backgroundColor: Colors.teal,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -570,7 +660,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                               child: const Text(
                                 'Login',
                                 style: TextStyle(
-                                  color: Colors.blue,
+                                  color: Colors.teal,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -775,6 +865,46 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
           child: FaIcon(icon, color: color),
         ),
       ),
+    );
+  }
+
+  void _showCountryPicker() {
+    showCountryPicker(
+      context: context,
+      showPhoneCode: true,
+      showSearch: true,
+      searchAutofocus: true,
+      countryListTheme: CountryListThemeData(
+        flagSize: 25,
+        backgroundColor: Colors.white,
+        textStyle: const TextStyle(fontSize: 16, color: Colors.black),
+        bottomSheetHeight: 500,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20.0),
+          topRight: Radius.circular(20.0),
+        ),
+        searchTextStyle: const TextStyle(fontSize: 16, color: Colors.black),
+        inputDecoration: InputDecoration(
+          labelText: 'Search',
+          hintText: 'Start typing to search',
+          prefixIcon: const Icon(Icons.search),
+          border: OutlineInputBorder(
+            borderSide: BorderSide(
+              color: const Color(0xFF8C98A8).withOpacity(0.2),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.blue.shade300),
+          ),
+        ),
+      ),
+      onSelect: (Country country) {
+        setState(() {
+          _selectedCountryCode = '+${country.phoneCode}';
+          _selectedCountryName = country.name;
+          _selectedCountryFlag = country.flagEmoji;
+        });
+      },
     );
   }
 } 
