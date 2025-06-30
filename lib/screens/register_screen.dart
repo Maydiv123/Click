@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font 
 import 'login_screen.dart'; // Import Login screen for navigation
 import '../services/custom_auth_service.dart';
 import 'home_screen.dart';
+import 'package:flutter/services.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -43,6 +44,10 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   String? _passwordMatchError;
   String? _errorMessage;
   String? _userTypeError;
+
+  // Input formatters for validation
+  final RegExp _nameRegex = RegExp(r'^[a-zA-Z\s]+$');
+  final RegExp _phoneRegex = RegExp(r'^[0-9]+$');
 
   @override
   void initState() {
@@ -328,10 +333,25 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         // First Name
                         TextFormField(
                           controller: _firstNameController,
-                          validator: (value) => value?.isEmpty ?? true ? 'Please enter your first name' : null,
+                          validator: (value) {
+                            if (value?.isEmpty ?? true) {
+                              return 'Please enter your first name';
+                            }
+                            if (!_nameRegex.hasMatch(value!)) {
+                              return 'First name can only contain letters';
+                            }
+                            if (value.length < 2) {
+                              return 'First name must be at least 2 characters';
+                            }
+                            return null;
+                          },
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                          ],
+                          textCapitalization: TextCapitalization.words,
                           decoration: _buildInputDecoration(
                             'First Name',
-                            'Enter your first name',
+                            'e.g., John',
                             Icons.person_outline,
                           ),
                         ),
@@ -340,10 +360,25 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         // Last Name
                         TextFormField(
                           controller: _lastNameController,
-                          validator: (value) => value?.isEmpty ?? true ? 'Please enter your last name' : null,
+                          validator: (value) {
+                            if (value?.isEmpty ?? true) {
+                              return 'Please enter your last name';
+                            }
+                            if (!_nameRegex.hasMatch(value!)) {
+                              return 'Last name can only contain letters';
+                            }
+                            if (value.length < 2) {
+                              return 'Last name must be at least 2 characters';
+                            }
+                            return null;
+                          },
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                          ],
+                          textCapitalization: TextCapitalization.words,
                           decoration: _buildInputDecoration(
                             'Last Name',
-                            'Enter your last name',
+                            'e.g., Smith',
                             Icons.person_outline,
                           ),
                         ),
@@ -353,15 +388,28 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         TextFormField(
                           controller: _mobileController,
                           validator: (value) {
-                            if (value?.isEmpty ?? true) return 'Please enter your mobile number';
-                            if (value!.length != 10) return 'Mobile number must be 10 digits';
+                            if (value?.isEmpty ?? true) {
+                              return 'Please enter your mobile number';
+                            }
+                            if (!_phoneRegex.hasMatch(value!)) {
+                              return 'Mobile number can only contain digits';
+                            }
+                            if (value.length != 10) {
+                              return 'Mobile number must be exactly 10 digits';
+                            }
+                            if (!value.startsWith(RegExp(r'[6-9]'))) {
+                              return 'Mobile number should start with 6, 7, 8, or 9';
+                            }
                             return null;
                           },
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                            LengthLimitingTextInputFormatter(10),
+                          ],
                           keyboardType: TextInputType.phone,
-                          maxLength: 10,
                           decoration: _buildInputDecoration(
-                            'Mobile No',
-                            'Enter your 10-digit mobile number',
+                            'Mobile Number',
+                            'e.g., 9876543XXX',
                             Icons.phone_android,
                           ),
                         ),

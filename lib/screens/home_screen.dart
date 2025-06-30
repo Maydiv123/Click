@@ -42,6 +42,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic> _userData = {};
   bool _isLoadingUserData = true;
   
+  // Real-time stats
+  Map<String, dynamic> _userStats = {};
+  StreamSubscription<Map<String, dynamic>>? _statsSubscription;
+  
+  // Daily refresh timer
+  Timer? _dailyRefreshTimer;
+  
   // Location variables
   Position? _currentPosition;
   String _locationMessage = 'Fetching location...';
@@ -105,6 +112,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserData();
     _loadAdImages();
     _loadSpecialOfferData();
+    _initializeRealTimeStats();
+    _initializeDailyRefresh();
     
     // Set up periodic location updates (every 10 minutes instead of 5 minutes)
     _locationTimer = Timer.periodic(
@@ -126,6 +135,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _adPageController?.dispose();
     _adTimer?.cancel();
     _carouselTimer?.cancel();
+    _statsSubscription?.cancel();
+    _dailyRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -393,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context) {
               final userData = _userData;
               final completionPercentage = _calculateProfileCompletion(userData);
-              final stats = userData['stats'] as Map<String, dynamic>? ?? {};
+              final stats = _userStats;
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -609,7 +620,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [Colors.teal.withOpacity(0.7), Colors.teal.withOpacity(0.9)],
+                                colors: [const Color(0xFF4A6FFF).withOpacity(0.7), const Color(0xFF4A6FFF).withOpacity(0.9)],
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                               ),
@@ -1929,7 +1940,7 @@ class _HomeScreenState extends State<HomeScreen> {
           buttonColor = Colors.teal.withOpacity(0.7);
           break;
         case 1:
-          buttonColor = Colors.teal.withOpacity(0.7);
+          buttonColor = const Color(0xFF4A6FFF).withOpacity(0.7);
           break;
         case 2:
           buttonColor = Colors.deepPurple.withOpacity(0.7);
@@ -2525,6 +2536,81 @@ class _HomeScreenState extends State<HomeScreen> {
           _loadingSpecialOffer = false;
         });
       }
+    }
+  }
+
+  void _initializeRealTimeStats() {
+    _statsSubscription = _databaseService.getRealTimeUserStats().listen(
+      (stats) {
+        if (mounted) {
+          setState(() {
+            _userStats = stats;
+          });
+        }
+      },
+      onError: (error) {
+        print('Error listening to real-time stats: $error');
+      },
+    );
+  }
+
+  void _initializeDailyRefresh() {
+    // Check if stats need to be reset (in case app was closed during reset time)
+    _checkAndResetStatsIfNeeded();
+    
+    // Calculate time until next midnight (24 hours from now)
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final timeUntilMidnight = tomorrow.difference(now);
+    
+    // Set timer for next midnight
+    _dailyRefreshTimer = Timer(timeUntilMidnight, () {
+      _resetDailyStats();
+      // Set up recurring daily refresh
+      _dailyRefreshTimer = Timer.periodic(
+        const Duration(days: 1),
+        (timer) => _resetDailyStats(),
+      );
+    });
+  }
+
+  Future<void> _checkAndResetStatsIfNeeded() async {
+    try {
+      final userId = await _authService.getCurrentUserId();
+      if (userId == null) return;
+      
+      // Get the last reset date from user data
+      final userData = await _authService.getCurrentUserData();
+      final stats = userData['stats'] as Map<String, dynamic>? ?? {};
+      final lastResetDate = stats['lastResetDate'];
+      
+      if (lastResetDate != null) {
+        final lastReset = (lastResetDate as Timestamp).toDate();
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final lastResetDay = DateTime(lastReset.year, lastReset.month, lastReset.day);
+        
+        // If last reset was not today, reset the stats
+        if (today.isAfter(lastResetDay)) {
+          await _resetDailyStats();
+        }
+      }
+    } catch (e) {
+      print('Error checking if stats need reset: $e');
+    }
+  }
+
+  Future<void> _resetDailyStats() async {
+    try {
+      final userId = await _authService.getCurrentUserId();
+      if (userId == null) return;
+      
+      // Reset daily stats to 0
+      await _firestoreService.resetDailyStats(userId);
+      
+      print('Daily stats reset successfully');
+    } catch (e) {
+      print('Error resetting daily stats: $e');
     }
   }
 }

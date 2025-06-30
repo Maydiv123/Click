@@ -31,6 +31,7 @@ class PetrolPumpDetailsScreen extends StatelessWidget {
 
 📍 ${location.customerName}
 🆔 SAP Code: ${location.sapCode}
+🏢 Company: ${location.company}
 
 📍 Location Details:
 • Zone: ${location.zone}
@@ -130,6 +131,7 @@ Pincode: ${location.pincode}
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildInfoRow('Company', location.company),
                     _buildInfoRow('Zone', location.zone),
                     _buildInfoRow('Sales Area', location.salesArea),
                     _buildInfoRow('CO/CL/DO', location.coClDo),

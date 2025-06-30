@@ -125,4 +125,42 @@ class FirestoreService {
       rethrow;
     }
   }
+  
+  // Reset daily stats (visits and uploads to 0)
+  Future<void> resetDailyStats(String userId) async {
+    try {
+      // Reset stats to 0
+      await _firestore.collection('user_data').doc(userId).update({
+        'stats.visits': 0,
+        'stats.uploads': 0,
+        'stats.lastResetDate': FieldValue.serverTimestamp(),
+      });
+      
+      // Clear daily visits collection
+      await _clearDailyVisits(userId);
+    } catch (e) {
+      print('Error resetting daily stats: $e');
+      rethrow;
+    }
+  }
+  
+  // Clear daily visits collection
+  Future<void> _clearDailyVisits(String userId) async {
+    try {
+      final visitsSnapshot = await _firestore
+          .collection('user_data')
+          .doc(userId)
+          .collection('dailyVisits')
+          .get();
+      
+      // Delete all documents in the dailyVisits collection
+      final batch = _firestore.batch();
+      for (final doc in visitsSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (e) {
+      print('Error clearing daily visits: $e');
+    }
+  }
 } 

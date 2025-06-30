@@ -340,6 +340,8 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                     _buildInfoRow('Zone', location.zone),
                     const SizedBox(height: 8),
                     _buildInfoRow('Dealer', location.dealerName),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Company', location.company),
                     const Spacer(),
                     Row(
                       children: [

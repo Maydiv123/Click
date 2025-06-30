@@ -304,6 +304,26 @@ class DatabaseService {
         });
   }
 
+  // Get real-time user stats from user_data collection
+  Stream<Map<String, dynamic>> getRealTimeUserStats() async* {
+    final userId = await _authService.getCurrentUserId();
+    print('Fetching real-time user stats for user: $userId'); // Debug print
+    if (userId == null) {
+      yield {};
+      return;
+    }
+
+    yield* _firestore
+        .collection('user_data')
+        .doc(userId)
+        .snapshots()
+        .map((doc) {
+          print('Real-time user stats received: ${doc.data()}'); // Debug print
+          final data = doc.data() ?? {};
+          return data['stats'] as Map<String, dynamic>? ?? {};
+        });
+  }
+
   // Get frequent visits
   Stream<List<Map<String, dynamic>>> getFrequentVisits() {
     final userId = _auth.currentUser?.uid;
@@ -466,23 +486,61 @@ class DatabaseService {
     if (userId == null) return false;
     
     try {
-      // Add visit record
-      await _firestore.collection('visits').add({
-        'userId': userId,
-        'pumpId': pumpId,
-        'pumpDetails': pumpDetails,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+      // Check if user has already visited this pump today
+      final hasVisitedToday = await _checkIfVisitedToday(userId, pumpId);
       
-      // Update user stats
-      await _firestore.collection('user_data').doc(userId).update({
-        'stats.visits': FieldValue.increment(1),
-      });
+      if (!hasVisitedToday) {
+        // Only increment visit count if this is the first visit to this pump today
+        await _firestore.collection('user_data').doc(userId).update({
+          'stats.visits': FieldValue.increment(1),
+        });
+        
+        // Record this visit to prevent duplicates
+        await _recordPumpVisit(userId, pumpId);
+      }
       
       return true;
     } catch (e) {
       print('Error adding pump visit: $e');
       return false;
+    }
+  }
+
+  // Check if user has already visited this pump today
+  Future<bool> _checkIfVisitedToday(String userId, String pumpId) async {
+    try {
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      
+      final snapshot = await _firestore
+          .collection('user_data')
+          .doc(userId)
+          .collection('dailyVisits')
+          .where('pumpId', isEqualTo: pumpId)
+          .where('visitDate', isGreaterThanOrEqualTo: startOfDay)
+          .limit(1)
+          .get();
+      
+      return snapshot.docs.isNotEmpty;
+    } catch (e) {
+      print('Error checking if visited today: $e');
+      return false;
+    }
+  }
+
+  // Record a pump visit to prevent duplicates
+  Future<void> _recordPumpVisit(String userId, String pumpId) async {
+    try {
+      await _firestore
+          .collection('user_data')
+          .doc(userId)
+          .collection('dailyVisits')
+          .add({
+        'pumpId': pumpId,
+        'visitDate': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error recording pump visit: $e');
     }
   }
 
@@ -492,17 +550,7 @@ class DatabaseService {
     if (userId == null) return false;
     
     try {
-      // Add upload record
-      await _firestore.collection('uploads').add({
-        'userId': userId,
-        'pumpId': pumpId,
-        'imageUrl': imageUrl,
-        'metadata': metadata,
-        'timestamp': FieldValue.serverTimestamp(),
-        'status': 'pending', // pending, approved, rejected
-      });
-      
-      // Update user stats
+      // Only update user stats - no need to store upload details
       await _firestore.collection('user_data').doc(userId).update({
         'stats.uploads': FieldValue.increment(1),
       });

@@ -204,7 +204,10 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
             width: 40,
             height: 40,
             child: GestureDetector(
-              onTap: () => _openCamera(location),
+              onTap: () {
+                _highlightAndCenterOnMap(location);
+                _openCamera(location);
+              },
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.red,

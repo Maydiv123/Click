@@ -229,11 +229,10 @@ class _CameraScreenState extends State<CameraScreen> {
     final now = DateTime.now();
     final dateTimeStr = DateFormat('dd/MM/yyyy hh:mm a').format(now);
     
-    // Process address line 1 - extract first word and add "cl"
-    String processedAddress = '';
-    if (widget.location?.addressLine1.isNotEmpty == true) {
-      final firstWord = widget.location!.addressLine1.split(' ').first;
-      processedAddress = '${firstWord}CL';
+    // Get company from location data
+    String company = '';
+    if (widget.location?.company.isNotEmpty == true) {
+      company = widget.location!.company;
     }
     
     // Location information
@@ -299,14 +298,14 @@ class _CameraScreenState extends State<CameraScreen> {
     firstLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
     y += firstLinePainter.height + 8;
     
-    // Second line: processedAddress date and time
+    // Second line: Company date and time
     final secondLineParts = <String>[];
-    if (processedAddress.isNotEmpty) {
-      secondLineParts.add(processedAddress);
+    if (company.isNotEmpty) {
+      secondLineParts.add(company);
     }
     secondLineParts.add(dateTimeStr);
     
-    final secondLineText = secondLineParts.join(' ');
+    final secondLineText = secondLineParts.join(', ');
     final secondLinePainter = TextPainter(
       text: TextSpan(text: secondLineText, style: subtitleStyle),
         textDirection: ui.TextDirection.ltr,
@@ -414,6 +413,9 @@ class _CameraScreenState extends State<CameraScreen> {
       setState(() {
         _capturedImages.add(newImage);
       });
+
+      // Track the image upload
+      await _trackImageUpload(tempFile);
 
       // Process watermark and save in background
       _processWatermarkInBackground(newImage);
@@ -555,6 +557,44 @@ class _CameraScreenState extends State<CameraScreen> {
         !returnedPaths.contains(capturedImage.watermarkedFile.path)
       );
     });
+  }
+
+  Future<void> _trackImageUpload(File imageFile) async {
+    try {
+      // Track the upload
+      final pumpId = 'image_upload';
+      final Map<String, dynamic> metadata = {};
+      
+      final uploadSuccess = await _databaseService.addImageUpload(
+        imageFile.path,
+        pumpId,
+        metadata,
+      );
+      
+      // Track visit if this is from a petrol pump location
+      if (widget.location != null) {
+        final Map<String, dynamic> pumpDetails = {
+          'customerName': widget.location!.customerName,
+          'addressLine1': widget.location!.addressLine1,
+          'company': widget.location!.company,
+        };
+        
+        // Use sapCode as pumpId for visit tracking
+        final visitPumpId = widget.location!.sapCode.isNotEmpty 
+            ? widget.location!.sapCode 
+            : 'pump_${widget.location!.latitude}_${widget.location!.longitude}';
+        
+        await _databaseService.addPumpVisit(visitPumpId, pumpDetails);
+      }
+      
+      if (uploadSuccess) {
+        print('Successfully tracked image upload');
+      } else {
+        print('Failed to track image upload');
+      }
+    } catch (e) {
+      print('Error tracking image upload: $e');
+    }
   }
 
   @override
