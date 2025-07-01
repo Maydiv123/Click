@@ -258,31 +258,13 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
           Marker(
             point: latlong.LatLng(location.latitude, location.longitude),
             width: 40,
-            height: 40,
+            height: 48,
             child: GestureDetector(
               onTap: () {
                 _highlightAndCenterOnMap(location);
                 _openCamera(location);
               },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.local_gas_station,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
+              child: CompanyPinMarker(company: location.company),
             ),
           ),
         );

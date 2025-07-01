@@ -202,7 +202,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
     // Load and draw branding image at the top
     try {
-      final brandingImageData = await rootBundle.load('assets/images/branding.png');
+      final brandingImageData = await rootBundle.load('assets/images/Branding.png');
       final brandingImage = await decodeImageFromList(brandingImageData.buffer.asUint8List());
       
       // Calculate branding image dimensions (proportional to image width)
@@ -297,36 +297,33 @@ class _CameraScreenState extends State<CameraScreen> {
     );
 
     // Layout and draw text with optimized spacing
-    double y = imageHeight * 0.75; // Start from 75% down the image
-    final leftMargin = imageWidth * 0.03; // 3% margin from left
-    final rightMargin = imageWidth * 0.03; // 3% margin from right
-    final maxTextWidth = imageWidth - leftMargin - rightMargin;
-    
+    final List<TextPainter> watermarkPainters = [];
+    final List<double> lineSpacings = [];
+
     // First line: Before/Working/After
     final firstLinePainter = TextPainter(
       text: TextSpan(text: widget.photoType, style: titleStyle),
       textDirection: ui.TextDirection.ltr,
       maxLines: 1,
     )..layout(maxWidth: maxTextWidth);
-    firstLinePainter.paint(canvas, Offset(leftMargin, y));
-    y += firstLinePainter.height + 6;
-    
+    watermarkPainters.add(firstLinePainter);
+    lineSpacings.add(6);
+
     // Second line: Company date and time
     final secondLineParts = <String>[];
     if (company.isNotEmpty) {
       secondLineParts.add(company);
     }
     secondLineParts.add(dateTimeStr);
-    
     final secondLineText = secondLineParts.join(', ');
     final secondLinePainter = TextPainter(
       text: TextSpan(text: secondLineText, style: subtitleStyle),
       textDirection: ui.TextDirection.ltr,
       maxLines: 1,
     )..layout(maxWidth: maxTextWidth);
-    secondLinePainter.paint(canvas, Offset(leftMargin, y));
-    y += secondLinePainter.height + 6;
-    
+    watermarkPainters.add(secondLinePainter);
+    lineSpacings.add(6);
+
     // Third line: customerName - sapCode
     if (customerName.isNotEmpty || sapCode.isNotEmpty) {
       final thirdLineText = sapCode.isNotEmpty ? '$customerName - $sapCode' : customerName;
@@ -335,16 +332,15 @@ class _CameraScreenState extends State<CameraScreen> {
         textDirection: ui.TextDirection.ltr,
         maxLines: 1,
       )..layout(maxWidth: maxTextWidth);
-      thirdLinePainter.paint(canvas, Offset(leftMargin, y));
-      y += thirdLinePainter.height + 6;
+      watermarkPainters.add(thirdLinePainter);
+      lineSpacings.add(6);
     }
-    
+
     // Fourth line: zone, salesArea, district
     final locationParts = <String>[];
     if (zone.isNotEmpty) locationParts.add(zone);
     if (salesArea.isNotEmpty) locationParts.add(salesArea);
     if (district.isNotEmpty) locationParts.add(district);
-    
     if (locationParts.isNotEmpty) {
       final fourthLineText = locationParts.join(', ');
       final fourthLinePainter = TextPainter(
@@ -352,15 +348,14 @@ class _CameraScreenState extends State<CameraScreen> {
         textDirection: ui.TextDirection.ltr,
         maxLines: 1,
       )..layout(maxWidth: maxTextWidth);
-      fourthLinePainter.paint(canvas, Offset(leftMargin, y));
-      y += fourthLinePainter.height + 6;
+      watermarkPainters.add(fourthLinePainter);
+      lineSpacings.add(6);
     }
-    
+
     // Fifth line: userName, teamName (if available) - CAPITALIZED
     final userParts = <String>[];
     if (userName.isNotEmpty) userParts.add(userName.toUpperCase());
     if (teamName.isNotEmpty) userParts.add(teamName.toUpperCase());
-    
     if (userParts.isNotEmpty) {
       final fifthLineText = userParts.join(', ');
       final fifthLinePainter = TextPainter(
@@ -368,8 +363,60 @@ class _CameraScreenState extends State<CameraScreen> {
         textDirection: ui.TextDirection.ltr,
         maxLines: 1,
       )..layout(maxWidth: maxTextWidth);
-      fifthLinePainter.paint(canvas, Offset(leftMargin, y));
-      y += fifthLinePainter.height + 8; // Extra spacing before branding
+      watermarkPainters.add(fifthLinePainter);
+      // Extra spacing before branding
+      lineSpacings.add(8);
+    }
+
+    // Calculate total height of all watermark lines (including spacing, except after last line)
+    double totalWatermarkHeight = 0;
+    for (int i = 0; i < watermarkPainters.length; i++) {
+      totalWatermarkHeight += watermarkPainters[i].height;
+      if (i < watermarkPainters.length - 1) {
+        totalWatermarkHeight += lineSpacings[i];
+      }
+    }
+
+    // Calculate the Y position for the last line to align with branding/logo
+    // The branding/logo is drawn at: imageHeight - logoHeight - leftMargin
+    // We'll use the same margin for the last line
+    double lastLineBottomY;
+    double logoHeight = 0;
+    try {
+      final brandingPainter = TextPainter(
+        text: TextSpan(text: 'Click', style: TextStyle(
+          color: Colors.teal.shade900,
+          fontSize: imageWidth * 0.035,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.5,
+          shadows: [
+            Shadow(
+              offset: const Offset(1, 1),
+              blurRadius: 2,
+              color: Colors.black.withOpacity(0.8),
+            ),
+          ],
+        )),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout(maxWidth: imageWidth - 2 * leftMargin);
+      logoHeight = (brandingPainter.height * 1.2).clamp(20.0, 40.0); // mimic logo height logic
+    } catch (_) {
+      logoHeight = 30.0; // fallback
+    }
+    lastLineBottomY = imageHeight - logoHeight - leftMargin;
+
+    // Calculate the starting Y so the last line is at lastLineBottomY
+    double startY = lastLineBottomY - totalWatermarkHeight + watermarkPainters.last.height;
+
+    // Draw each watermark line from top to bottom
+    double y = startY;
+    for (int i = 0; i < watermarkPainters.length; i++) {
+      watermarkPainters[i].paint(canvas, Offset(leftMargin, y));
+      y += watermarkPainters[i].height;
+      if (i < watermarkPainters.length - 1) {
+        y += lineSpacings[i];
+      }
     }
 
     // Add app branding 'click' with logo at the bottom right of the image
@@ -395,14 +442,12 @@ class _CameraScreenState extends State<CameraScreen> {
     
     // Load and draw small branding logo beside the text
     double logoWidth = 0;
-    double logoHeight = 0;
     try {
-      final brandingImageData = await rootBundle.load('assets/images/branding.png');
+      final brandingImageData = await rootBundle.load('assets/images/Branding.png');
       final brandingImage = await decodeImageFromList(brandingImageData.buffer.asUint8List());
       
       // Calculate logo dimensions (proportional to text height with minimum size)
-      logoHeight = (brandingPainter.height * 1.2).clamp(20.0, 40.0); // 120% of text height, min 20px, max 40px
-      logoWidth = (brandingImage.width / brandingImage.height) * logoHeight;
+      logoWidth = (brandingPainter.width * 1.2).clamp(20.0, 40.0); // 120% of text width, min 20px, max 40px
       
       // Ensure logo doesn't get too wide
       if (logoWidth > logoHeight * 2) {
