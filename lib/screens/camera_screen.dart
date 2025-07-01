@@ -200,31 +200,6 @@ class _CameraScreenState extends State<CameraScreen> {
     // Draw the original image
     canvas.drawImage(image, Offset.zero, Paint());
 
-    // Load and draw branding image at the top
-    try {
-      final brandingImageData = await rootBundle.load('assets/images/Branding.png');
-      final brandingImage = await decodeImageFromList(brandingImageData.buffer.asUint8List());
-      
-      // Calculate branding image dimensions (proportional to image width)
-      final brandingWidth = imageWidth * 0.3; // 30% of image width
-      final brandingHeight = (brandingImage.height / brandingImage.width) * brandingWidth;
-      
-      // Position at top center with some margin
-      final brandingX = (imageWidth - brandingWidth) / 2;
-      final brandingY = imageHeight * 0.05; // 5% from top
-      
-      // Draw branding image
-      canvas.drawImageRect(
-        brandingImage,
-        Rect.fromLTWH(0, 0, brandingImage.width.toDouble(), brandingImage.height.toDouble()),
-        Rect.fromLTWH(brandingX, brandingY, brandingWidth, brandingHeight),
-        Paint(),
-      );
-    } catch (e) {
-      debugPrint('Error loading branding image: $e');
-      // Continue without branding image if there's an error
-    }
-
     // Prepare watermark content
     final now = DateTime.now();
     final dateTimeStr = DateFormat('dd/MM/yyyy hh:mm a').format(now);
@@ -392,18 +367,11 @@ class _CameraScreenState extends State<CameraScreen> {
           fontSize: imageWidth * 0.035,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.5,
-          shadows: [
-            Shadow(
-              offset: const Offset(1, 1),
-              blurRadius: 2,
-              color: Colors.black.withOpacity(0.8),
-            ),
-          ],
         )),
         textDirection: ui.TextDirection.ltr,
         maxLines: 1,
       )..layout(maxWidth: imageWidth - 2 * leftMargin);
-      logoHeight = (brandingPainter.height * 1.2).clamp(20.0, 40.0); // mimic logo height logic
+      logoHeight = (brandingPainter.height * 1.2).clamp(20.0, 40.0); // 120% of text height, min 20px, max 40px
     } catch (_) {
       logoHeight = 30.0; // fallback
     }
@@ -422,20 +390,13 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     }
 
-    // Add app branding 'click' with logo at the bottom right of the image
-    final brandingText = 'click';
+    // Add app branding 'Click' with logo at the bottom right of the image
+    final brandingText = 'Click';
     final brandingStyle = TextStyle(
       color: Colors.teal.shade900,
       fontSize: imageWidth * 0.035,
       fontWeight: FontWeight.bold,
       letterSpacing: 1.5,
-      shadows: [
-        Shadow(
-          offset: const Offset(1, 1),
-          blurRadius: 2,
-          color: Colors.black.withOpacity(0.8),
-        ),
-      ],
     );
     final brandingPainter = TextPainter(
       text: TextSpan(text: brandingText, style: brandingStyle),
@@ -450,7 +411,7 @@ class _CameraScreenState extends State<CameraScreen> {
       final brandingImage = await decodeImageFromList(brandingImageData.buffer.asUint8List());
       
       // Calculate logo dimensions (proportional to text height with minimum size)
-      logoWidth = (brandingPainter.width * 1.2).clamp(20.0, 40.0); // 120% of text width, min 20px, max 40px
+      logoWidth = logoHeight; // Make the logo square
       
       // Ensure logo doesn't get too wide
       if (logoWidth > logoHeight * 2) {
