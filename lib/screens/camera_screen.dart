@@ -297,6 +297,9 @@ class _CameraScreenState extends State<CameraScreen> {
     );
 
     // Layout and draw text with optimized spacing
+    final leftMargin = imageWidth * 0.03; // 3% margin from left
+    final rightMargin = imageWidth * 0.03; // 3% margin from right
+    final maxTextWidth = imageWidth - leftMargin - rightMargin;
     final List<TextPainter> watermarkPainters = [];
     final List<double> lineSpacings = [];
 
