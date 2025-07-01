@@ -427,7 +427,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                   GestureDetector(
                                     onTap: _showCountryPicker,
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
                                       alignment: Alignment.center,
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -436,7 +436,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                             _selectedCountryFlag,
                                             style: const TextStyle(fontSize: 18),
                                           ),
-                                          const SizedBox(width: 8),
+                                          const SizedBox(width: 6),
                                           Text(
                                             _selectedCountryCode,
                                             style: const TextStyle(
@@ -445,7 +445,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                               color: Colors.black,
                                             ),
                                           ),
-                                          const SizedBox(width: 4),
+                                          const SizedBox(width: 2),
                                           Icon(
                                             Icons.keyboard_arrow_down,
                                             color: Colors.grey[600],
@@ -465,25 +465,26 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                         if (!_phoneRegex.hasMatch(value!)) {
                                           return 'Mobile number can only contain digits';
                                         }
-                                        if (value.length < 6) {
-                                          return 'Mobile number must be at least 6 digits';
-                                        }
-                                        if (value.length > 15) {
-                                          return 'Mobile number is too long';
+                                        if (_selectedCountryCode == '+91') {
+                                          if (value.length != 10) return 'Indian phone number must be exactly 10 digits';
+                                        } else {
+                                          if (value.length < 6) return 'Phone number must be at least 6 digits';
+                                          if (value.length > 15) return 'Phone number is too long';
                                         }
                                         return null;
                                       },
                                       inputFormatters: [
                                         FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                                        LengthLimitingTextInputFormatter(15),
+                                        LengthLimitingTextInputFormatter(_selectedCountryCode == '+91' ? 10 : 15),
                                       ],
                                       keyboardType: TextInputType.phone,
                                       decoration: const InputDecoration(
                                         hintText: 'Enter mobile number',
                                         border: InputBorder.none,
                                         filled: false,
-                                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                        contentPadding: EdgeInsets.only(left: 4, right: 16, top: 16, bottom: 16),
                                         errorStyle: TextStyle(color: Colors.red, fontSize: 12),
+                                        counterText: "",
                                       ),
                                     ),
                                   ),

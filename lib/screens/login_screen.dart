@@ -91,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     try {
       // Use custom auth service for login
       final result = await _authService.loginUser(
-        mobile: _phoneController.text.trim(),
+        mobile: _selectedCountryCode + _phoneController.text.trim(),
         password: _passwordController.text,
       );
       
@@ -197,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       GestureDetector(
                         onTap: _showCountryPicker,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           alignment: Alignment.center,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -206,7 +206,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 _selectedCountryFlag,
                                 style: const TextStyle(fontSize: 18),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Text(
                                 _selectedCountryCode,
                                 style: const TextStyle(
@@ -215,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   fontSize: 16,
                                 ),
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 2),
                               Icon(
                                 Icons.keyboard_arrow_down,
                                 color: Colors.grey[600],
@@ -238,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             hintText: 'Enter your Mobile Number',
                             border: InputBorder.none,
                             filled: false,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            contentPadding: EdgeInsets.only(left: 4, right: 16, top: 16, bottom: 16),
                             counterText: "",
                           ),
                           validator: (value) {
