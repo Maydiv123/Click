@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' as latlong;
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/map_location.dart';
 import '../services/map_service.dart';
 import '../services/database_service.dart';
+import '../services/custom_auth_service.dart';
 import '../widgets/bottom_navigation_bar_widget.dart';
 import 'petrol_pump_details_screen.dart';
 import 'search_petrol_pumps_screen.dart';
@@ -27,6 +29,7 @@ class NearestPetrolPumpsScreen extends StatefulWidget {
 class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
   final MapService _mapService = MapService();
   final MapController _mapController = MapController();
+  final CustomAuthService _authService = CustomAuthService();
   
   List<Marker> _markers = [];
   List<MapLocation> _allLocations = [];
@@ -39,7 +42,11 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
   double _radiusInKm = 0.1;  // 100 meters
   bool _useRadiusFilter = true;  // Always enabled
   
-  static const LatLng _defaultCenter = LatLng(23.0225, 72.5714);
+  // Preferred companies filter
+  List<String> _userPreferredCompanies = [];
+  bool _usePreferredCompaniesFilter = true; // Always enabled when user has preferred companies
+  
+  static const latlong.LatLng _defaultCenter = latlong.LatLng(23.0225, 72.5714);
   double _currentZoom = 7.0;
 
   @override
@@ -47,6 +54,16 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
     super.initState();
     _getCurrentLocation();
     _loadMapLocations();
+    _loadUserPreferredCompanies();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh user data when screen is focused (in case profile was updated)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshUserData();
+    });
   }
 
   @override
@@ -103,7 +120,7 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
 
       if (mounted) {
         _mapController.move(
-          LatLng(position.latitude, position.longitude),
+          latlong.LatLng(position.latitude, position.longitude),
           12.0,
         );
         
@@ -141,6 +158,39 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
     });
   }
 
+  Future<void> _loadUserPreferredCompanies() async {
+    try {
+      final userData = await _authService.getCurrentUserData();
+      if (userData.isNotEmpty && userData['preferredCompanies'] != null) {
+        final preferredCompanies = List<String>.from(userData['preferredCompanies'] as List);
+        setState(() {
+          _userPreferredCompanies = preferredCompanies;
+        });
+        // Apply filters after loading preferred companies
+        _applyFilters();
+      }
+    } catch (e) {
+      print('Error loading user preferred companies: $e');
+    }
+  }
+
+  Future<void> _refreshUserData() async {
+    try {
+      final userData = await _authService.getCurrentUserData();
+      if (userData.isNotEmpty && userData['preferredCompanies'] != null) {
+        final preferredCompanies = List<String>.from(userData['preferredCompanies'] as List);
+        if (!listEquals(preferredCompanies, _userPreferredCompanies)) {
+          setState(() {
+            _userPreferredCompanies = preferredCompanies;
+          });
+          _applyFilters();
+        }
+      }
+    } catch (e) {
+      print('Error refreshing user data: $e');
+    }
+  }
+
   void _applyFilters() {
     setState(() {
       _filteredLocations = _allLocations.where((location) {
@@ -157,7 +207,13 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
           withinRadius = distanceInKm <= _radiusInKm;
         }
 
-        return withinRadius;
+        // Check preferred companies if filter is enabled
+        bool matchesPreferredCompanies = true;
+        if (_userPreferredCompanies.isNotEmpty) {
+          matchesPreferredCompanies = _userPreferredCompanies.contains(location.company);
+        }
+
+        return withinRadius && matchesPreferredCompanies;
       }).toList();
     });
     
@@ -170,7 +226,7 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
     if (_showCurrentLocation && _currentPosition != null) {
       markers.add(
         Marker(
-          point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          point: latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
           width: 40,
           height: 40,
           child: Container(
@@ -200,7 +256,7 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
       if (location.latitude != 0.0 && location.longitude != 0.0) {
         markers.add(
           Marker(
-            point: LatLng(location.latitude, location.longitude),
+            point: latlong.LatLng(location.latitude, location.longitude),
             width: 40,
             height: 40,
             child: GestureDetector(
@@ -238,12 +294,12 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
     });
   }
 
-  void _moveToLocation(LatLng location) {
+  void _moveToLocation(latlong.LatLng location) {
     _mapController.move(location, 15.0);
   }
   
   void _highlightAndCenterOnMap(MapLocation location) {
-    _moveToLocation(LatLng(location.latitude, location.longitude));
+    _moveToLocation(latlong.LatLng(location.latitude, location.longitude));
   }
 
   @override
@@ -286,7 +342,7 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
                   mapController: _mapController,
                   options: MapOptions(
                     initialCenter: _currentPosition != null
-                        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+                        ? latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
                         : _defaultCenter,
                     initialZoom: _currentZoom,
                     minZoom: 3.0,
@@ -307,7 +363,7 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
                       CircleLayer(
                         circles: [
                           CircleMarker(
-                            point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                            point: latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
                             radius: 100,
                             color: Colors.blue.withOpacity(0.1),
                             borderColor: Colors.blue.withOpacity(0.3),
@@ -340,7 +396,7 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
                         mini: true,
                         onPressed: () {
                           if (_currentPosition != null) {
-                            _moveToLocation(LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
+                            _moveToLocation(latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
                           } else {
                             _getCurrentLocation();
                           }
@@ -404,13 +460,20 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
                                   ],
                                 ),
                               )
-                            : ListView.builder(
-                                itemCount: _filteredLocations.length,
-                                padding: const EdgeInsets.all(0),
-                                itemBuilder: (context, index) {
-                                  final location = _filteredLocations[index];
-                                  return _buildLocationListItem(location);
-                                },
+                            : Column(
+                                children: [
+                                  // Location list
+                                  Expanded(
+                                    child: ListView.builder(
+                                      itemCount: _filteredLocations.length,
+                                      padding: const EdgeInsets.all(0),
+                                      itemBuilder: (context, index) {
+                                        final location = _filteredLocations[index];
+                                        return _buildLocationListItem(location);
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
                   ),
                 ],
@@ -497,17 +560,7 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.local_gas_station, 
-                      color: Colors.red, 
-                      size: 16,
-                    ),
-                  ),
+                  CompanyPinMarker(company: location.company),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -600,6 +653,35 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
     );
   }
 
+  Widget _getCompanyLogo(String company) {
+    switch (company.toUpperCase()) {
+      case 'BPCL':
+        return Image.asset(
+          'assets/images/BPCL_logo.png',
+          fit: BoxFit.contain,
+        );
+      case 'HPCL':
+        return Image.asset(
+          'assets/images/HPCL_logo.png',
+          fit: BoxFit.contain,
+        );
+      case 'IOCL':
+        return Image.asset(
+          'assets/images/IOCL_logo.png',
+          fit: BoxFit.contain,
+        );
+      default:
+        return Container(
+          color: Colors.grey[200],
+          child: const Icon(
+            Icons.local_gas_station,
+            color: Colors.grey,
+            size: 16,
+          ),
+        );
+    }
+  }
+
   void _openCamera(MapLocation location) {
     Navigator.push(
       context,
@@ -608,4 +690,98 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
       ),
     );
   }
+}
+
+class CompanyPinMarker extends StatelessWidget {
+  final String company;
+  const CompanyPinMarker({Key? key, required this.company}) : super(key: key);
+
+  Color _getPinColor(String company) {
+    switch (company.toUpperCase()) {
+      case 'BPCL':
+        return const Color(0xFFFFE001); // Yellow (BPCL)
+      case 'HPCL':
+        return const Color(0xFF000269); // Blue (HPCL)
+      case 'IOCL':
+        return const Color(0xFFF37022); // Orange (IOCL)
+      default:
+        return const Color(0xFF9C27B0); // Default purple
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pinColor = _getPinColor(company);
+    return SizedBox(
+      width: 32,
+      height: 38,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: const Size(32, 38),
+            painter: _PinShapePainter(pinColor),
+          ),
+          Positioned(
+            top: 6,
+            left: 6,
+            right: 6,
+            child: ClipOval(
+              child: _getCompanyLogo(company),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _getCompanyLogo(String company) {
+    switch (company.toUpperCase()) {
+      case 'BPCL':
+        return Image.asset('assets/images/BPCL_logo.png', width: 20, height: 20, fit: BoxFit.contain);
+      case 'HPCL':
+        return Image.asset('assets/images/HPCL_logo.png', width: 20, height: 20, fit: BoxFit.contain);
+      case 'IOCL':
+        return Image.asset('assets/images/IOCL_logo.png', width: 20, height: 20, fit: BoxFit.contain);
+      default:
+        return Container(
+          width: 20,
+          height: 20,
+          color: Colors.grey[200],
+          child: const Icon(Icons.local_gas_station, color: Colors.grey, size: 14),
+        );
+    }
+  }
+}
+
+class _PinShapePainter extends CustomPainter {
+  final Color pinColor;
+  _PinShapePainter(this.pinColor);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = pinColor
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(size.width / 2, size.height);
+    path.quadraticBezierTo(size.width, size.height * 0.6, size.width, size.height * 0.35);
+    path.arcToPoint(
+      Offset(0, size.height * 0.35),
+      radius: Radius.circular(size.width / 2),
+      clockwise: false,
+    );
+    path.quadraticBezierTo(0, size.height * 0.6, size.width / 2, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    // Draw white circle in the center for the logo background
+    final circlePaint = Paint()..color = Colors.white;
+    canvas.drawCircle(Offset(size.width / 2, size.height * 0.35), 10, circlePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 } 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import 'package:geolocator/geolocator.dart';
@@ -7,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/map_location.dart';
 import '../services/map_service.dart';
 import '../services/database_service.dart';
+import '../services/custom_auth_service.dart';
 import '../widgets/bottom_navigation_bar_widget.dart';
 import '../widgets/app_drawer.dart';
 import 'petrol_pump_details_screen.dart';
@@ -23,6 +25,7 @@ class OpenStreetMapScreen extends StatefulWidget {
 class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
   final MapService _mapService = MapService();
   final MapController _mapController = MapController();
+  final CustomAuthService _authService = CustomAuthService();
   
   List<Marker> _markers = [];
   List<MapLocation> _allLocations = [];
@@ -41,6 +44,10 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
   bool _useRadiusFilter = false;
   final List<double> _availableRadiusOptions = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0];
   
+  // Preferred companies filter
+  List<String> _userPreferredCompanies = [];
+  bool _usePreferredCompaniesFilter = true; // Always enabled when user has preferred companies
+  
   final TextEditingController _searchController = TextEditingController();
   
   static const latlong.LatLng _defaultCenter = latlong.LatLng(23.0225, 72.5714);
@@ -51,7 +58,17 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
     super.initState();
     _getCurrentLocation();
     _loadMapLocations();
+    _loadUserPreferredCompanies();
     _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh user data when screen is focused (in case profile was updated)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshUserData();
+    });
   }
 
   @override
@@ -138,6 +155,39 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
     });
   }
 
+  Future<void> _loadUserPreferredCompanies() async {
+    try {
+      final userData = await _authService.getCurrentUserData();
+      if (userData.isNotEmpty && userData['preferredCompanies'] != null) {
+        final preferredCompanies = List<String>.from(userData['preferredCompanies'] as List);
+        setState(() {
+          _userPreferredCompanies = preferredCompanies;
+        });
+        // Apply filters after loading preferred companies
+        _applyFilters();
+      }
+    } catch (e) {
+      print('Error loading user preferred companies: $e');
+    }
+  }
+
+  Future<void> _refreshUserData() async {
+    try {
+      final userData = await _authService.getCurrentUserData();
+      if (userData.isNotEmpty && userData['preferredCompanies'] != null) {
+        final preferredCompanies = List<String>.from(userData['preferredCompanies'] as List);
+        if (!listEquals(preferredCompanies, _userPreferredCompanies)) {
+          setState(() {
+            _userPreferredCompanies = preferredCompanies;
+          });
+          _applyFilters();
+        }
+      }
+    } catch (e) {
+      print('Error refreshing user data: $e');
+    }
+  }
+
   void _updateFilterOptions() {
     final zones = _allLocations.map((loc) => loc.zone).where((zone) => zone.isNotEmpty).toSet().toList();
     final districts = _allLocations.map((loc) => loc.district).where((district) => district.isNotEmpty).toSet().toList();
@@ -188,7 +238,13 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
           withinRadius = distanceInKm <= _radiusInKm;
         }
 
-        return matchesSearch && matchesZone && matchesDistrict && withinRadius;
+        // Check preferred companies if filter is enabled
+        bool matchesPreferredCompanies = true;
+        if (_userPreferredCompanies.isNotEmpty) {
+          matchesPreferredCompanies = _userPreferredCompanies.contains(location.company);
+        }
+
+        return matchesSearch && matchesZone && matchesDistrict && withinRadius && matchesPreferredCompanies;
       }).toList();
     });
     
@@ -258,105 +314,105 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
         content: SizedBox(
           width: MediaQuery.of(context).size.width * 0.85,
           child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.local_gas_station, color: Colors.red),
                         ),
-                        child: const Icon(Icons.local_gas_station, color: Colors.red),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              location.customerName,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                location.customerName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              location.location,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
+                              Text(
+                                location.location,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildInfoRow('Address', '${location.addressLine1}, ${location.addressLine2}'),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('District', location.district),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('Zone', location.zone),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('Dealer', location.dealerName),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('Company', location.company),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final url = 'https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}';
-                            if (await canLaunchUrl(Uri.parse(url))) {
-                              await launchUrl(Uri.parse(url));
-                            }
-                          },
-                          icon: const Icon(Icons.location_on),
-                          label: const Text('Directions'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFF35C2C1),
-                            foregroundColor: Colors.white,
+                            ],
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => PetrolPumpDetailsScreen(location: location),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.info_outline),
-                          label: const Text('View Details'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInfoRow('Address', '${location.addressLine1}, ${location.addressLine2}'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('District', location.district),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Zone', location.zone),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Dealer', location.dealerName),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Company', location.company),
+                  const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final url = 'https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}';
+                              if (await canLaunchUrl(Uri.parse(url))) {
+                                await launchUrl(Uri.parse(url));
+                              }
+                            },
+                            icon: const Icon(Icons.location_on),
+                            label: const Text('Directions'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFF35C2C1),
+                              foregroundColor: Colors.white,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => PetrolPumpDetailsScreen(location: location),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.info_outline),
+                            label: const Text('View Details'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ),
       ),
     );
@@ -462,7 +518,9 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
+                  if (_useRadiusFilter && _currentPosition != null)
                   _buildStatItem('In Radius', _filteredLocations.length.toString()),
+                  if (_useRadiusFilter && _currentPosition != null)
                   _buildStatItem('Radius', '${_radiusInKm.toStringAsFixed(1)} km'),
                 ],
               ),
@@ -608,13 +666,20 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                                   ],
                                 ),
                               )
-                            : ListView.builder(
+                            : Column(
+                                children: [
+                                  // Location list
+                                  Expanded(
+                                    child: ListView.builder(
                                 itemCount: _filteredLocations.length,
                                 padding: const EdgeInsets.all(0),
                                 itemBuilder: (context, index) {
                                   final location = _filteredLocations[index];
                                   return _buildLocationListItem(location);
                                 },
+                                    ),
+                                  ),
+                                ],
                               ),
                   ),
                 ],

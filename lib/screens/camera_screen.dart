@@ -59,17 +59,12 @@ class _CameraScreenState extends State<CameraScreen> {
   final CustomAuthService _authService = CustomAuthService();
   final DatabaseService _databaseService = DatabaseService();
   final AudioPlayer _audioPlayer = AudioPlayer();
-  
-  // Track if visit has been recorded for current pump in this session
-  bool _hasRecordedVisitForCurrentPump = false;
-  String _currentPumpId = '';
 
   @override
   void initState() {
     super.initState();
     _initializeCamera();
     _loadUserData();
-    _initializePumpTracking();
   }
 
   Future<void> _initializeCamera() async {
@@ -251,57 +246,70 @@ class _CameraScreenState extends State<CameraScreen> {
     final userName = '${_userData['firstName'] ?? ''} ${_userData['lastName'] ?? ''}'.trim();
     final teamName = _userData['teamName'] ?? '';
 
-    // Enhanced card dimensions for new layout
-    final double cardWidth = imageWidth * 0.94;
-    final double cardPadding = 16;
-    final double cardHeight = imageHeight * 0.25; // Optimized height
-    final double cardLeft = (imageWidth - cardWidth) / 2;
-    final double cardTop = imageHeight - cardHeight - imageHeight * 0.02;
-    final double borderRadius = 16;
-
-    // Draw card background (semi-transparent black with rounded corners)
-    final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cardLeft, cardTop, cardWidth, cardHeight),
-      Radius.circular(borderRadius),
-    );
-    canvas.drawRRect(
-      rrect,
-      Paint()..color = Colors.black.withOpacity(0.6),
-    );
-
-    // Prepare text styles
+    // Prepare text styles with better visibility (dark orange text with black outline)
     final titleStyle = TextStyle(
-      color: Colors.white,
-      fontSize: imageWidth * 0.045,
+      color: Colors.deepOrange.shade800,
+      fontSize: imageWidth * 0.04,
       fontWeight: FontWeight.bold,
+      shadows: [
+        Shadow(
+          offset: const Offset(1, 1),
+          blurRadius: 2,
+          color: Colors.black.withOpacity(0.8),
+        ),
+      ],
     );
     final subtitleStyle = TextStyle(
-      color: Colors.white.withOpacity(0.9),
+      color: Colors.deepOrange.shade800,
       fontSize: imageWidth * 0.035,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w600,
+      shadows: [
+        Shadow(
+          offset: const Offset(1, 1),
+          blurRadius: 2,
+          color: Colors.black.withOpacity(0.8),
+        ),
+      ],
     );
     final detailStyle = TextStyle(
-      color: Colors.white.withOpacity(0.8),
-      fontSize: imageWidth * 0.028,
-      fontWeight: FontWeight.w400,
+      color: Colors.deepOrange.shade800,
+      fontSize: imageWidth * 0.03,
+      fontWeight: FontWeight.w500,
+      shadows: [
+        Shadow(
+          offset: const Offset(1, 1),
+          blurRadius: 2,
+          color: Colors.black.withOpacity(0.8),
+        ),
+      ],
     );
     final smallStyle = TextStyle(
-      color: Colors.white.withOpacity(0.7),
+      color: Colors.deepOrange.shade800,
       fontSize: imageWidth * 0.025,
       fontWeight: FontWeight.w400,
+      shadows: [
+        Shadow(
+          offset: const Offset(1, 1),
+          blurRadius: 2,
+          color: Colors.black.withOpacity(0.8),
+        ),
+      ],
     );
 
-    // Layout and draw text
-    double y = cardTop + cardPadding;
+    // Layout and draw text with optimized spacing
+    double y = imageHeight * 0.75; // Start from 75% down the image
+    final leftMargin = imageWidth * 0.03; // 3% margin from left
+    final rightMargin = imageWidth * 0.03; // 3% margin from right
+    final maxTextWidth = imageWidth - leftMargin - rightMargin;
     
     // First line: Before/Working/After
     final firstLinePainter = TextPainter(
       text: TextSpan(text: widget.photoType, style: titleStyle),
       textDirection: ui.TextDirection.ltr,
       maxLines: 1,
-    )..layout(maxWidth: cardWidth - 2 * cardPadding);
-    firstLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
-    y += firstLinePainter.height + 8;
+    )..layout(maxWidth: maxTextWidth);
+    firstLinePainter.paint(canvas, Offset(leftMargin, y));
+    y += firstLinePainter.height + 6;
     
     // Second line: Company date and time
     final secondLineParts = <String>[];
@@ -313,11 +321,11 @@ class _CameraScreenState extends State<CameraScreen> {
     final secondLineText = secondLineParts.join(', ');
     final secondLinePainter = TextPainter(
       text: TextSpan(text: secondLineText, style: subtitleStyle),
-        textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
-      )..layout(maxWidth: cardWidth - 2 * cardPadding);
-    secondLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
-    y += secondLinePainter.height + 8;
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: maxTextWidth);
+    secondLinePainter.paint(canvas, Offset(leftMargin, y));
+    y += secondLinePainter.height + 6;
     
     // Third line: customerName - sapCode
     if (customerName.isNotEmpty || sapCode.isNotEmpty) {
@@ -326,9 +334,9 @@ class _CameraScreenState extends State<CameraScreen> {
         text: TextSpan(text: thirdLineText, style: subtitleStyle),
         textDirection: ui.TextDirection.ltr,
         maxLines: 1,
-      )..layout(maxWidth: cardWidth - 2 * cardPadding);
-      thirdLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
-      y += thirdLinePainter.height + 8;
+      )..layout(maxWidth: maxTextWidth);
+      thirdLinePainter.paint(canvas, Offset(leftMargin, y));
+      y += thirdLinePainter.height + 6;
     }
     
     // Fourth line: zone, salesArea, district
@@ -343,9 +351,9 @@ class _CameraScreenState extends State<CameraScreen> {
         text: TextSpan(text: fourthLineText, style: detailStyle),
         textDirection: ui.TextDirection.ltr,
         maxLines: 1,
-      )..layout(maxWidth: cardWidth - 2 * cardPadding);
-      fourthLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
-      y += fourthLinePainter.height + 8;
+      )..layout(maxWidth: maxTextWidth);
+      fourthLinePainter.paint(canvas, Offset(leftMargin, y));
+      y += fourthLinePainter.height + 6;
     }
     
     // Fifth line: userName, teamName (if available) - CAPITALIZED
@@ -359,27 +367,77 @@ class _CameraScreenState extends State<CameraScreen> {
         text: TextSpan(text: fifthLineText, style: detailStyle),
         textDirection: ui.TextDirection.ltr,
         maxLines: 1,
-      )..layout(maxWidth: cardWidth - 2 * cardPadding);
-      fifthLinePainter.paint(canvas, Offset(cardLeft + cardPadding, y));
+      )..layout(maxWidth: maxTextWidth);
+      fifthLinePainter.paint(canvas, Offset(leftMargin, y));
+      y += fifthLinePainter.height + 8; // Extra spacing before branding
     }
 
-    // Add app branding 'click' at the bottom right of the card
+    // Add app branding 'click' with logo at the bottom right of the image
     final brandingText = 'click';
     final brandingStyle = TextStyle(
-      color: Colors.white.withOpacity(0.8),
-      fontSize: imageWidth * 0.03,
+      color: Colors.teal.shade900,
+      fontSize: imageWidth * 0.035,
       fontWeight: FontWeight.bold,
       letterSpacing: 1.5,
+      shadows: [
+        Shadow(
+          offset: const Offset(1, 1),
+          blurRadius: 2,
+          color: Colors.black.withOpacity(0.8),
+        ),
+      ],
     );
     final brandingPainter = TextPainter(
       text: TextSpan(text: brandingText, style: brandingStyle),
       textDirection: ui.TextDirection.ltr,
       maxLines: 1,
-    )..layout(maxWidth: cardWidth - 2 * cardPadding);
-    // Position at bottom right inside the card, with padding
-    final brandingX = cardLeft + cardWidth - brandingPainter.width - cardPadding;
-    final brandingY = cardTop + cardHeight - brandingPainter.height - cardPadding / 2;
-    brandingPainter.paint(canvas, Offset(brandingX, brandingY));
+    )..layout(maxWidth: imageWidth - 2 * leftMargin);
+    
+    // Load and draw small branding logo beside the text
+    double logoWidth = 0;
+    double logoHeight = 0;
+    try {
+      final brandingImageData = await rootBundle.load('assets/images/branding.png');
+      final brandingImage = await decodeImageFromList(brandingImageData.buffer.asUint8List());
+      
+      // Calculate logo dimensions (proportional to text height with minimum size)
+      logoHeight = (brandingPainter.height * 1.2).clamp(20.0, 40.0); // 120% of text height, min 20px, max 40px
+      logoWidth = (brandingImage.width / brandingImage.height) * logoHeight;
+      
+      // Ensure logo doesn't get too wide
+      if (logoWidth > logoHeight * 2) {
+        logoWidth = logoHeight * 2;
+      }
+      
+      // Calculate spacing based on image size
+      final spacing = (imageWidth * 0.01).clamp(4.0, 12.0); // 1% of image width, min 4px, max 12px
+      
+      // Position logo and text together at bottom right
+      final totalWidth = logoWidth + spacing + brandingPainter.width; // logo + spacing + text
+      final startX = imageWidth - totalWidth - leftMargin;
+      final startY = imageHeight - logoHeight - leftMargin;
+      
+      // Draw logo with better quality
+      canvas.drawImageRect(
+        brandingImage,
+        Rect.fromLTWH(0, 0, brandingImage.width.toDouble(), brandingImage.height.toDouble()),
+        Rect.fromLTWH(startX, startY, logoWidth, logoHeight),
+        Paint()..filterQuality = ui.FilterQuality.high,
+      );
+      
+      // Draw text beside logo with perfect vertical centering
+      final textY = startY + (logoHeight - brandingPainter.height) / 2;
+      brandingPainter.paint(canvas, Offset(startX + logoWidth + spacing, textY));
+      
+      debugPrint('Branding logo drawn successfully: ${logoWidth}x${logoHeight}px');
+      
+    } catch (e) {
+      debugPrint('Error loading branding logo for watermark: $e');
+      // Fallback to just text if logo fails to load
+      final brandingX = imageWidth - brandingPainter.width - leftMargin;
+      final brandingY = imageHeight - brandingPainter.height - leftMargin;
+      brandingPainter.paint(canvas, Offset(brandingX, brandingY));
+    }
 
     // Convert the canvas to an image
     final picture = recorder.endRecording();
@@ -564,15 +622,6 @@ class _CameraScreenState extends State<CameraScreen> {
     });
   }
 
-  void _initializePumpTracking() {
-    if (widget.location != null) {
-      _currentPumpId = widget.location!.sapCode.isNotEmpty 
-          ? widget.location!.sapCode 
-          : 'pump_${widget.location!.latitude}_${widget.location!.longitude}';
-      _hasRecordedVisitForCurrentPump = false;
-    }
-  }
-
   Future<void> _trackImageUpload(File imageFile) async {
     try {
       // Track the upload
@@ -585,16 +634,21 @@ class _CameraScreenState extends State<CameraScreen> {
         metadata,
       );
       
-      // Track visit only once per pump per session
-      if (widget.location != null && !_hasRecordedVisitForCurrentPump) {
+      // Track visit if this is from a petrol pump location
+      // The database service will handle duplicate prevention for the same pump on the same day
+      if (widget.location != null) {
         final Map<String, dynamic> pumpDetails = {
           'customerName': widget.location!.customerName,
           'addressLine1': widget.location!.addressLine1,
           'company': widget.location!.company,
         };
         
-        await _databaseService.addPumpVisit(_currentPumpId, pumpDetails);
-        _hasRecordedVisitForCurrentPump = true; // Mark as visited for this session
+        // Use sapCode as pumpId for visit tracking
+        final visitPumpId = widget.location!.sapCode.isNotEmpty 
+            ? widget.location!.sapCode 
+            : 'pump_${widget.location!.latitude}_${widget.location!.longitude}';
+        
+        await _databaseService.addPumpVisit(visitPumpId, pumpDetails);
       }
       
       if (uploadSuccess) {

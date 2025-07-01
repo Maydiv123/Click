@@ -2558,18 +2558,26 @@ class _HomeScreenState extends State<HomeScreen> {
     // Check if stats need to be reset (in case app was closed during reset time)
     _checkAndResetStatsIfNeeded();
     
-    // Calculate time until next midnight (24 hours from now)
+    // Calculate time until next midnight
     final now = DateTime.now();
-    final tomorrow = DateTime(now.year, now.month, now.day + 1);
-    final timeUntilMidnight = tomorrow.difference(now);
+    final tomorrow = now.add(const Duration(days: 1));
+    final nextMidnight = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+    final timeUntilMidnight = nextMidnight.difference(now);
+    
+    print('Time until next midnight: ${timeUntilMidnight.inHours}h ${timeUntilMidnight.inMinutes % 60}m');
     
     // Set timer for next midnight
     _dailyRefreshTimer = Timer(timeUntilMidnight, () {
+      print('Executing daily reset at midnight');
       _resetDailyStats();
-      // Set up recurring daily refresh
+      
+      // Set up recurring daily refresh every 24 hours
       _dailyRefreshTimer = Timer.periodic(
         const Duration(days: 1),
-        (timer) => _resetDailyStats(),
+        (timer) {
+          print('Executing periodic daily reset');
+          _resetDailyStats();
+        },
       );
     });
   }
@@ -2590,10 +2598,17 @@ class _HomeScreenState extends State<HomeScreen> {
         final today = DateTime(now.year, now.month, now.day);
         final lastResetDay = DateTime(lastReset.year, lastReset.month, lastReset.day);
         
+        print('Last reset: $lastResetDay, Today: $today');
+        
         // If last reset was not today, reset the stats
         if (today.isAfter(lastResetDay)) {
+          print('Stats need reset - last reset was not today');
           await _resetDailyStats();
+        } else {
+          print('Stats do not need reset - last reset was today');
         }
+      } else {
+        print('No last reset date found - this might be first time user');
       }
     } catch (e) {
       print('Error checking if stats need reset: $e');
@@ -2603,12 +2618,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _resetDailyStats() async {
     try {
       final userId = await _authService.getCurrentUserId();
-      if (userId == null) return;
+      if (userId == null) {
+        print('Cannot reset stats - no user ID');
+        return;
+      }
+      
+      print('Resetting daily stats for user: $userId');
       
       // Reset daily stats to 0
       await _firestoreService.resetDailyStats(userId);
       
-      print('Daily stats reset successfully');
+      print('Daily stats reset successfully at ${DateTime.now()}');
     } catch (e) {
       print('Error resetting daily stats: $e');
     }

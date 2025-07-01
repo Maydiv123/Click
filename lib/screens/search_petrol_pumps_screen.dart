@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/map_location.dart';
 import '../services/map_service.dart';
+import '../services/custom_auth_service.dart';
 import '../widgets/bottom_navigation_bar_widget.dart';
 import '../widgets/app_drawer.dart';
 import 'petrol_pump_details_screen.dart';
@@ -18,15 +20,29 @@ class SearchPetrolPumpsScreen extends StatefulWidget {
 class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final MapService _mapService = MapService();
+  final CustomAuthService _authService = CustomAuthService();
   String _selectedZone = 'All Zones';
   String _selectedDistrict = 'All Districts';
   List<String> _zones = ['All Zones'];
   List<String> _districts = ['All Districts'];
+  
+  // Preferred companies filter
+  List<String> _userPreferredCompanies = [];
 
   @override
   void initState() {
     super.initState();
     _loadFilterOptions();
+    _loadUserPreferredCompanies();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh user data when screen is focused (in case profile was updated)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshUserData();
+    });
   }
 
   Future<void> _loadFilterOptions() async {
@@ -38,6 +54,36 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
       _zones = ['All Zones', ...zones];
       _districts = ['All Districts', ...districts];
     });
+  }
+
+  Future<void> _loadUserPreferredCompanies() async {
+    try {
+      final userData = await _authService.getCurrentUserData();
+      if (userData.isNotEmpty && userData['preferredCompanies'] != null) {
+        final preferredCompanies = List<String>.from(userData['preferredCompanies'] as List);
+        setState(() {
+          _userPreferredCompanies = preferredCompanies;
+        });
+      }
+    } catch (e) {
+      print('Error loading user preferred companies: $e');
+    }
+  }
+
+  Future<void> _refreshUserData() async {
+    try {
+      final userData = await _authService.getCurrentUserData();
+      if (userData.isNotEmpty && userData['preferredCompanies'] != null) {
+        final preferredCompanies = List<String>.from(userData['preferredCompanies'] as List);
+        if (!listEquals(preferredCompanies, _userPreferredCompanies)) {
+          setState(() {
+            _userPreferredCompanies = preferredCompanies;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error refreshing user data: $e');
+    }
   }
 
   @override
@@ -163,7 +209,13 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
                   final matchesDistrict = _selectedDistrict == 'All Districts' ||
                       location.district == _selectedDistrict;
 
-                  return matchesSearch && matchesZone && matchesDistrict;
+                  // Check preferred companies if user has any
+                  bool matchesPreferredCompanies = true;
+                  if (_userPreferredCompanies.isNotEmpty) {
+                    matchesPreferredCompanies = _userPreferredCompanies.contains(location.company);
+                  }
+
+                  return matchesSearch && matchesZone && matchesDistrict && matchesPreferredCompanies;
                 }).toList();
 
                 if (filteredLocations.isEmpty) {
@@ -178,12 +230,24 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No petrol pumps found',
+                          _userPreferredCompanies.isNotEmpty 
+                              ? 'No preferred company pumps found'
+                              : 'No petrol pumps found',
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 18,
                           ),
                         ),
+                        if (_userPreferredCompanies.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Try adjusting your search or filters',
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );
@@ -217,15 +281,16 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
                           child: Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(12),
+                                width: 32,
+                                height: 32,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF35C2C1).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.grey[300]!),
                                 ),
-                                child: const Icon(
-                                  Icons.local_gas_station,
-                                  color: Color(0xFF35C2C1),
-                                  size: 32,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: _getCompanyLogo(location.company),
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -259,7 +324,13 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
-                                          '${location.location}, ${location.district}',
+                                          location.location.isNotEmpty && location.district.isNotEmpty
+                                              ? '${location.location}, ${location.district}'
+                                              : location.location.isNotEmpty
+                                                  ? location.location
+                                                  : location.district.isNotEmpty
+                                                      ? location.district
+                                                      : '',
                                           style: TextStyle(
                                             color: Colors.grey[600],
                                             fontSize: 14,
@@ -398,5 +469,25 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Widget _getCompanyLogo(String company) {
+    switch (company.toUpperCase()) {
+      case 'BPCL':
+        return Image.asset('assets/images/BPCL_logo.png', fit: BoxFit.contain);
+      case 'HPCL':
+        return Image.asset('assets/images/HPCL_logo.png', fit: BoxFit.contain);
+      case 'IOCL':
+        return Image.asset('assets/images/IOCL_logo.png', fit: BoxFit.contain);
+      default:
+        return Container(
+          color: Colors.grey[200],
+          child: const Icon(
+            Icons.local_gas_station,
+            color: Colors.grey,
+            size: 16,
+          ),
+        );
+    }
   }
 } 
