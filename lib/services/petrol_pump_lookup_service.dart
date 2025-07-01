@@ -450,9 +450,14 @@ class PetrolPumpLookupService {
   
   // Helper method to check if a pump belongs to a specific company
   bool _isPumpOfCompany(MapLocation pump, String company) {
+    print('DEBUG: Checking if pump "${pump.customerName}" belongs to $company');
+    
     // First check if company field exists and matches
     if (pump.company.isNotEmpty) {
-      return pump.company.toUpperCase() == company.toUpperCase();
+      if (pump.company.toUpperCase() == company.toUpperCase()) {
+        print('DEBUG: ✓ Direct company field match');
+        return true;
+      }
     }
     
     // For HPCL detection
@@ -460,15 +465,21 @@ class PetrolPumpLookupService {
       // Check for HP or HPCL in various fields
       if (pump.customerName.toUpperCase().contains("HP ") || 
           pump.customerName.toUpperCase().contains("HPCL") ||
-          pump.customerName.toUpperCase().contains("HPC ")) {
-        // print('LOOKUP: Matched HPCL in customerName: ${pump.customerName}');
+          pump.customerName.toUpperCase().contains("HPC ") ||
+          pump.customerName.toUpperCase().contains("HINDUSTAN PETROLEUM") ||
+          pump.customerName.toUpperCase().contains("HP PETROL") ||
+          pump.customerName.toUpperCase().contains("H.P.")) {
+        print('DEBUG: ✓ Matched HPCL in customerName: ${pump.customerName}');
         return true;
       }
       
       if (pump.addressLine1.toUpperCase().contains("HP ") || 
           pump.addressLine1.toUpperCase().contains("HPCL") ||
-          pump.addressLine1.toUpperCase().contains("HPC ")) {
-        // print('LOOKUP: Matched HPCL in addressLine1: ${pump.addressLine1}');
+          pump.addressLine1.toUpperCase().contains("HPC ") ||
+          pump.addressLine1.toUpperCase().contains("HINDUSTAN PETROLEUM") ||
+          pump.addressLine1.toUpperCase().contains("HP PETROL") ||
+          pump.addressLine1.toUpperCase().contains("H.P.")) {
+        print('DEBUG: ✓ Matched HPCL in addressLine1: ${pump.addressLine1}');
         return true;
       }
     }
@@ -478,15 +489,17 @@ class PetrolPumpLookupService {
       // Check for BP or BPCL in various fields
       if (pump.customerName.toUpperCase().contains("BP ") || 
           pump.customerName.toUpperCase().contains("BPCL") || 
-          pump.customerName.toUpperCase().contains("BHARAT")) {
-        // print('LOOKUP: Matched BPCL in customerName: ${pump.customerName}');
+          pump.customerName.toUpperCase().contains("BHARAT") ||
+          pump.customerName.toUpperCase().contains("B.P.")) {
+        print('DEBUG: ✓ Matched BPCL in customerName: ${pump.customerName}');
         return true;
       }
       
       if (pump.addressLine1.toUpperCase().contains("BP ") || 
           pump.addressLine1.toUpperCase().contains("BPCL") ||
-          pump.addressLine1.toUpperCase().contains("BHARAT")) {
-        // print('LOOKUP: Matched BPCL in addressLine1: ${pump.addressLine1}');
+          pump.addressLine1.toUpperCase().contains("BHARAT") ||
+          pump.addressLine1.toUpperCase().contains("B.P.")) {
+        print('DEBUG: ✓ Matched BPCL in addressLine1: ${pump.addressLine1}');
         return true;
       }
     }
@@ -496,15 +509,17 @@ class PetrolPumpLookupService {
       // Check for IO or IOCL in various fields
       if (pump.customerName.toUpperCase().contains("INDIAN OIL") || 
           pump.customerName.toUpperCase().contains("IOCL") || 
-          pump.customerName.toUpperCase().contains("IOC")) {
-        // print('LOOKUP: Matched IOCL in customerName: ${pump.customerName}');
+          pump.customerName.toUpperCase().contains("IOC") ||
+          pump.customerName.toUpperCase().contains("I.O.C.")) {
+        print('DEBUG: ✓ Matched IOCL in customerName: ${pump.customerName}');
         return true;
       }
       
       if (pump.addressLine1.toUpperCase().contains("INDIAN OIL") || 
           pump.addressLine1.toUpperCase().contains("IOCL") ||
-          pump.addressLine1.toUpperCase().contains("IOC")) {
-        // print('LOOKUP: Matched IOCL in addressLine1: ${pump.addressLine1}');
+          pump.addressLine1.toUpperCase().contains("IOC") ||
+          pump.addressLine1.toUpperCase().contains("I.O.C.")) {
+        print('DEBUG: ✓ Matched IOCL in addressLine1: ${pump.addressLine1}');
         return true;
       }
     }
@@ -696,5 +711,247 @@ class PetrolPumpLookupService {
         math.cos((lat2 - lat1) * p) / 2 + 
         math.cos(lat1 * p) * math.cos(lat2 * p) * (1 - math.cos((lon2 - lon1) * p)) / 2;
     return 12742 * math.asin(math.sqrt(a)); // 2 * R; R = 6371 km
+  }
+  
+  // Find petrol pumps by company and district
+  Future<List<MapLocation>> findPetrolPumpsByCompanyAndDistrict(String company, String district) async {
+    try {
+      // print('DEBUG: Finding $company pumps in district: $district');
+      
+      // Try direct district fetch with case-insensitive check
+      try {
+        // print('DEBUG: Trying case-insensitive district search for $district');
+        QuerySnapshot districtSnapshot = await _firestore
+            .collection('petrolPumps')
+            .get();
+
+        // print('DEBUG: Full collection query returned ${districtSnapshot.docs.length} results');
+
+        // Convert to MapLocation objects
+        List<MapLocation> allPumps = [];
+        for (var doc in districtSnapshot.docs) {
+          try {
+            MapLocation location = MapLocation.fromMap(doc.data() as Map<String, dynamic>);
+            allPumps.add(location);
+          } catch (e) {
+            print('DEBUG: Error parsing document: $e');
+          }
+        }
+
+        // print('DEBUG: Successfully parsed ${allPumps.length} total pumps');
+
+        // Filter by company and district (case-insensitive)
+        List<MapLocation> results = allPumps
+            .where((pump) => 
+                _isPumpOfCompany(pump, company) && 
+                pump.district.toLowerCase() == district.toLowerCase())
+            .toList();
+        
+        // print('DEBUG: After case-insensitive filtering, found ${results.length} $company pumps in district $district');
+        
+        // If we still have no results, try more flexible district matching
+        if (results.isEmpty) {
+          // print('DEBUG: Trying more flexible district matching');
+          results = allPumps
+              .where((pump) => 
+                  _isPumpOfCompany(pump, company) && 
+                  pump.district.toLowerCase().contains(district.toLowerCase()))
+              .toList();
+              
+          // print('DEBUG: After flexible district matching, found ${results.length} $company pumps');
+        }
+        
+        if (results.isNotEmpty) {
+          return results;
+        }
+      } catch (e) {
+        print('DEBUG: Error in case-insensitive district search: $e');
+      }
+      
+      // Original approach as fallback
+      // Try with uppercase field name first
+      // print('DEBUG: Trying query with District=$district and Company=$company (uppercase fields)');
+      QuerySnapshot snapshotUpper = await _firestore
+          .collection('petrolPumps')
+          .where('District', isEqualTo: district)
+          .where('Company', isEqualTo: company)
+          .get();
+      
+      // print('DEBUG: Uppercase query returned ${snapshotUpper.docs.length} results');
+      
+      if (snapshotUpper.docs.isNotEmpty) {
+        List<MapLocation> results = [];
+        for (var doc in snapshotUpper.docs) {
+          try {
+            MapLocation location = MapLocation.fromMap(doc.data() as Map<String, dynamic>);
+            results.add(location);
+            // print('DEBUG: Added pump: ${location.customerName} at ${location.latitude}, ${location.longitude}');
+          } catch (e) {
+            print('DEBUG: Error parsing document: $e');
+          }
+        }
+        
+        if (results.isNotEmpty) {
+          // print('DEBUG: Found ${results.length} pumps with uppercase fields');
+          return results;
+        }
+      }
+      
+      // Try with lowercase field names
+      // print('DEBUG: Trying query with district=$district and company=$company (lowercase fields)');
+      QuerySnapshot snapshotLower = await _firestore
+          .collection('petrolPumps')
+          .where('district', isEqualTo: district)
+          .where('company', isEqualTo: company)
+          .get();
+          
+      // print('DEBUG: Lowercase query returned ${snapshotLower.docs.length} results');
+      
+      if (snapshotLower.docs.isNotEmpty) {
+        List<MapLocation> results = [];
+        for (var doc in snapshotLower.docs) {
+          try {
+            MapLocation location = MapLocation.fromMap(doc.data() as Map<String, dynamic>);
+            results.add(location);
+            // print('DEBUG: Added pump: ${location.customerName} at ${location.latitude}, ${location.longitude}');
+          } catch (e) {
+            print('DEBUG: Error parsing document: $e');
+          }
+        }
+        
+        if (results.isNotEmpty) {
+          // print('DEBUG: Found ${results.length} pumps with lowercase fields');
+          return results;
+        }
+      }
+      
+      // If still no results, try to find by district only and then filter by company name
+      // Try uppercase district field
+      // print('DEBUG: Trying query with District=$district (uppercase district only)');
+      QuerySnapshot districtSnapshot = await _firestore
+          .collection('petrolPumps')
+          .where('District', isEqualTo: district)
+          .get();
+          
+      // print('DEBUG: District query (uppercase) returned ${districtSnapshot.docs.length} results');
+      
+      if (districtSnapshot.docs.isNotEmpty) {
+        // Convert to MapLocation objects
+        List<MapLocation> allPumps = [];
+        for (var doc in districtSnapshot.docs) {
+          try {
+            MapLocation location = MapLocation.fromMap(doc.data() as Map<String, dynamic>);
+            allPumps.add(location);
+          } catch (e) {
+            print('DEBUG: Error parsing document: $e');
+          }
+        }
+        
+        // print('DEBUG: Found ${allPumps.length} total pumps in district $district (uppercase)');
+        
+        // Filter by company
+        List<MapLocation> results = allPumps
+            .where((pump) => _isPumpOfCompany(pump, company))
+            .toList();
+        
+        // print('DEBUG: After filtering by company, found ${results.length} $company pumps');
+        
+        if (results.isNotEmpty) {
+          return results;
+        }
+      }
+      
+      // Try lowercase district field
+      // print('DEBUG: Trying query with district=$district (lowercase district only)');
+      QuerySnapshot districtSnapshotLower = await _firestore
+          .collection('petrolPumps')
+          .where('district', isEqualTo: district)
+          .get();
+          
+      // print('DEBUG: District query (lowercase) returned ${districtSnapshotLower.docs.length} results');
+      
+      if (districtSnapshotLower.docs.isNotEmpty) {
+        // Convert to MapLocation objects
+        List<MapLocation> allPumps = [];
+        for (var doc in districtSnapshotLower.docs) {
+          try {
+            MapLocation location = MapLocation.fromMap(doc.data() as Map<String, dynamic>);
+            allPumps.add(location);
+          } catch (e) {
+            print('DEBUG: Error parsing document: $e');
+          }
+        }
+        
+        // print('DEBUG: Found ${allPumps.length} total pumps in district $district (lowercase)');
+        
+        // Filter by company
+        List<MapLocation> results = allPumps
+            .where((pump) => _isPumpOfCompany(pump, company))
+            .toList();
+        
+        // print('DEBUG: After filtering by company, found ${results.length} $company pumps');
+        
+        if (results.isNotEmpty) {
+          return results;
+        }
+      }
+      
+      // print('DEBUG: No $company pumps found in district $district');
+      return [];
+    } catch (e) {
+      print('ERROR in findPetrolPumpsByCompanyAndDistrict: $e');
+      return [];
+    }
+  }
+  
+  // Find nearest petrol pump by company and district
+  Future<MapLocation?> findNearestPetrolPumpByCompanyAndDistrict(
+    String company, 
+    String district, 
+    double latitude, 
+    double longitude
+  ) async {
+    try {
+      // print('DEBUG: Finding nearest $company pump in district $district at coordinates: $latitude, $longitude');
+      
+      // First, try to find pumps with matching company and district
+      final pumpsByCompanyAndDistrict = await findPetrolPumpsByCompanyAndDistrict(company, district);
+      
+      if (pumpsByCompanyAndDistrict.isEmpty) {
+        // print('DEBUG: No $company pumps found in district $district');
+        return null;
+      }
+      
+      // print('DEBUG: Found ${pumpsByCompanyAndDistrict.length} $company pumps in district $district');
+      
+      // If we have pumps with matching district, find the nearest one
+      if (pumpsByCompanyAndDistrict.length == 1) {
+        // print('DEBUG: Only one pump found, returning it: ${pumpsByCompanyAndDistrict.first.customerName}');
+        return pumpsByCompanyAndDistrict.first;
+      }
+      
+      // Sort by distance (closest first)
+      pumpsByCompanyAndDistrict.sort((a, b) {
+        final distanceA = _calculateDistance(latitude, longitude, a.latitude, a.longitude);
+        final distanceB = _calculateDistance(latitude, longitude, b.latitude, b.longitude);
+        return distanceA.compareTo(distanceB);
+      });
+      
+      final nearestPump = pumpsByCompanyAndDistrict.first;
+      final distance = _calculateDistance(latitude, longitude, nearestPump.latitude, nearestPump.longitude);
+      
+      // print('DEBUG: Nearest pump is ${nearestPump.customerName} at distance ${distance.toStringAsFixed(2)} km');
+      // print('DEBUG: Nearest pump details:');
+      // print('DEBUG:   - District: ${nearestPump.district}');
+      // print('DEBUG:   - Regional Office: ${nearestPump.regionalOffice}');
+      // print('DEBUG:   - Zone: ${nearestPump.zone}');
+      // print('DEBUG:   - Sales Area: ${nearestPump.salesArea}');
+      // print('DEBUG:   - CO/CL/DO: ${nearestPump.coClDo}');
+      
+      return nearestPump;
+    } catch (e) {
+      print('ERROR in findNearestPetrolPumpByCompanyAndDistrict: $e');
+      return null;
+    }
   }
 } 

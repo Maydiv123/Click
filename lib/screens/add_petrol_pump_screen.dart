@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import '../services/map_service.dart';
 import '../services/petrol_pump_request_service.dart';
 import '../services/custom_auth_service.dart';
@@ -145,7 +146,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     final pincode = _pincodeController.text.trim();
     if (pincode.length == 6) {
       // Only trigger lookup when a complete 6-digit pincode is entered
-      _fetchPetrolPumpByPincodeAndLocation();
+      _fetchDistrictFromPincode(pincode);
     }
     
     // Real-time validation guidance
@@ -343,8 +344,10 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       });
       
       // After getting coordinates, try to fetch petrol pump details
-      if (_pincodeController.text.isNotEmpty && _pincodeController.text.length == 6) {
-        _fetchPetrolPumpByPincodeAndLocation();
+      if (_districtController.text.isNotEmpty) {
+        _fetchPetrolPumpByDistrictAndLocation(_districtController.text);
+      } else if (_pincodeController.text.isNotEmpty && _pincodeController.text.length == 6) {
+        _fetchDistrictFromPincode(_pincodeController.text);
       }
       
       _updateProgress();
@@ -356,11 +359,104 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     }
   }
 
-  // Fetch petrol pump details based on selected company, pincode, and coordinates
-  Future<void> _fetchPetrolPumpByPincodeAndLocation() async {
-    // Check if we have both pincode and coordinates
-    if (_pincodeController.text.isEmpty || _latitudeController.text.isEmpty || _longitudeController.text.isEmpty) {
-      // We need both pincode and coordinates to proceed
+  // New method to fetch district from pincode using an API
+  Future<void> _fetchDistrictFromPincode(String pincode) async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      print('DEBUG: Fetching district for pincode: $pincode');
+      
+      // Call the India Post API or any other pincode API
+      final response = await http.get(
+        Uri.parse('https://api.postalpincode.in/pincode/$pincode'),
+      );
+      
+      print('DEBUG: API response status code: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        print('DEBUG: API response received');
+        
+        if (data.isNotEmpty && data[0]['Status'] == 'Success') {
+          final List<dynamic> postOffices = data[0]['PostOffice'];
+          if (postOffices.isNotEmpty) {
+            final String district = postOffices[0]['District'];
+            
+            print('DEBUG: Found district: $district');
+            
+            // Set the district in the controller
+            setState(() {
+              _districtController.text = district;
+            });
+            
+            // Now fetch petrol pump based on district and coordinates if available
+            if (_latitudeController.text.isNotEmpty && _longitudeController.text.isNotEmpty) {
+              print('DEBUG: Coordinates available, fetching petrol pump by district and location');
+              _fetchPetrolPumpByDistrictAndLocation(district);
+            } else {
+              print('DEBUG: Coordinates NOT available, skipping petrol pump lookup');
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('District found. Please add coordinates to find nearest petrol pump.'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          } else {
+            print('DEBUG: No post offices found for pincode $pincode');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('No district found for pincode $pincode'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        } else {
+          print('DEBUG: Invalid pincode or pincode not found: $pincode');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Invalid pincode or pincode not found: $pincode'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } else {
+        print('DEBUG: Error fetching district information: ${response.statusCode}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error fetching district information: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('ERROR in _fetchDistrictFromPincode: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error fetching district information: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+  
+  // Updated method to fetch petrol pump by district and coordinates
+  Future<void> _fetchPetrolPumpByDistrictAndLocation(String district) async {
+    // Check if we have coordinates
+    if (_latitudeController.text.isEmpty || _longitudeController.text.isEmpty) {
+      print('DEBUG: Coordinates missing, cannot find nearest petrol pump');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please provide coordinates to find the nearest petrol pump'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
     
@@ -369,23 +465,31 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
         _isLoading = true;
       });
       
-      final pincode = _pincodeController.text.trim();
       final latitude = double.parse(_latitudeController.text);
       final longitude = double.parse(_longitudeController.text);
       
-      // Find nearest petrol pump based on company, pincode, and coordinates
-      final nearestPump = await _petrolPumpLookupService.findNearestPetrolPumpByCompanyAndPincode(
+      print('DEBUG: Finding nearest $_selectedCompany pump in district $district at coordinates: $latitude, $longitude');
+      
+      // Find nearest petrol pump based on company, district, and coordinates
+      final nearestPump = await _petrolPumpLookupService.findNearestPetrolPumpByCompanyAndDistrict(
         _selectedCompany,
-        pincode,
+        district,
         latitude,
         longitude
       );
       
       if (nearestPump != null) {
+        print('DEBUG: Found nearest pump: ${nearestPump.customerName}');
+        print('DEBUG: Pump details:');
+        print('DEBUG:   - District: ${nearestPump.district}');
+        print('DEBUG:   - Regional Office: ${nearestPump.regionalOffice}');
+        print('DEBUG:   - Zone: ${nearestPump.zone}');
+        print('DEBUG:   - Sales Area: ${nearestPump.salesArea}');
+        print('DEBUG:   - CO/CL/DO: ${nearestPump.coClDo}');
+        
         // Auto-fill only the specific fields (District, Regional office, Sales Area, Zone, CO/CL/DO)
         // Leave all other fields for the user to fill in
         setState(() {
-          _districtController.text = nearestPump.district;
           _salesAreaController.text = nearestPump.salesArea;
           _zoneController.text = nearestPump.zone;
           _regionalOfficeController.text = nearestPump.regionalOffice; // Use regionalOffice directly
@@ -402,21 +506,25 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           // - All images (banner, board, bill slip, government doc)
         });
         
+        print('DEBUG: Auto-filled fields from nearest pump');
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Auto-filled administrative fields from nearest ${_selectedCompany} petrol pump'),
+            content: Text('Auto-filled administrative fields from nearest ${_selectedCompany} petrol pump in $district'),
             backgroundColor: Colors.green,
           ),
         );
       } else {
+        print('DEBUG: No $_selectedCompany petrol pump found in $district district');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('No ${_selectedCompany} petrol pump found with pincode $pincode'),
+            content: Text('No ${_selectedCompany} petrol pump found in $district district'),
             backgroundColor: Colors.orange,
           ),
         );
       }
     } catch (e) {
+      print('ERROR in _fetchPetrolPumpByDistrictAndLocation: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error fetching petrol pump details: $e'),
@@ -962,7 +1070,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                   if (_pincodeController.text.isNotEmpty && 
                                       _latitudeController.text.isNotEmpty && 
                                       _longitudeController.text.isNotEmpty) {
-                                    _fetchPetrolPumpByPincodeAndLocation();
+                                    _fetchPetrolPumpByDistrictAndLocation(_districtController.text);
                                   }
                                 },
                                 child: Container(
