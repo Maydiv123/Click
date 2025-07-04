@@ -5,6 +5,8 @@ import 'package:latlong2/latlong.dart' as latlong;
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import '../models/map_location.dart';
 import '../services/map_service.dart';
 import '../services/database_service.dart';
@@ -34,19 +36,25 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
   bool _isLoading = true;
   bool _showCurrentLocation = false;
   
-  String _selectedZone = 'All Zones';
-  String _selectedDistrict = 'All Districts';
-  List<String> _zones = ['All Zones'];
-  List<String> _districts = ['All Districts'];
+  // Remove zone filter
+  String? _selectedState;
+  String? _selectedDistrict;
+  List<String> _states = [];
+  List<String> _districts = [];
+  Map<String, List<String>> _stateDistrictMap = {};
   
   // Radius filter
-  double _radiusInKm = 1.0;  // Default radius 5km
+  double _radiusInKm = 0.0;  // Start at 0 km - no data loaded initially
   bool _useRadiusFilter = false;
   final List<double> _availableRadiusOptions = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0];
   
   // Preferred companies filter
   List<String> _userPreferredCompanies = [];
-  bool _usePreferredCompaniesFilter = true; // Always enabled when user has preferred companies
+  List<String> _selectedCompanies = [];
+  TextEditingController _stateSearchController = TextEditingController();
+  TextEditingController _districtSearchController = TextEditingController();
+  List<String> _filteredStates = [];
+  List<String> _filteredDistricts = [];
   
   final TextEditingController _searchController = TextEditingController();
   
@@ -59,6 +67,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
     _getCurrentLocation();
     _loadMapLocations();
     _loadUserPreferredCompanies();
+    _loadStateDistrictData();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -75,6 +84,8 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _stateSearchController.dispose();
+    _districtSearchController.dispose();
     super.dispose();
   }
 
@@ -131,8 +142,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
           12.0,
         );
         
-        // Apply filters after getting location
-        _applyFilters();
+        // Don't apply filters automatically - wait for user to move slider
       }
     } catch (e) {
       print('Error getting current location: $e');
@@ -146,12 +156,11 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
     _mapService.getMapLocations().listen((locations) {
       setState(() {
         _allLocations = locations;
-        _filteredLocations = locations;
         _isLoading = false;
       });
       
       _updateFilterOptions();
-      _createMarkers();
+      _applyFilters(); // Apply filter immediately after loading
     });
   }
 
@@ -162,9 +171,10 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
         final preferredCompanies = List<String>.from(userData['preferredCompanies'] as List);
         setState(() {
           _userPreferredCompanies = preferredCompanies;
+          // Initialize selected companies with user's preferred companies
+          _selectedCompanies = List.from(preferredCompanies);
         });
-        // Apply filters after loading preferred companies
-        _applyFilters();
+        // Don't apply filters automatically - wait for user to move slider
       }
     } catch (e) {
       print('Error loading user preferred companies: $e');
@@ -179,8 +189,12 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
         if (!listEquals(preferredCompanies, _userPreferredCompanies)) {
           setState(() {
             _userPreferredCompanies = preferredCompanies;
+            // Update selected companies if they were using the old preferred companies
+            if (listEquals(_selectedCompanies, _userPreferredCompanies)) {
+              _selectedCompanies = List.from(preferredCompanies);
+            }
           });
-          _applyFilters();
+          // Don't apply filters automatically - wait for user to move slider
         }
       }
     } catch (e) {
@@ -188,17 +202,19 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
     }
   }
 
-  void _updateFilterOptions() {
-    final zones = _allLocations.map((loc) => loc.zone).where((zone) => zone.isNotEmpty).toSet().toList();
-    final districts = _allLocations.map((loc) => loc.district).where((district) => district.isNotEmpty).toSet().toList();
-    
-    zones.sort();
-    districts.sort();
-    
+  Future<void> _loadStateDistrictData() async {
+    final String jsonString = await rootBundle.loadString('assets/json/statewise_districts.json');
+    final Map<String, dynamic> jsonData = json.decode(jsonString);
     setState(() {
-      _zones = ['All Zones', ...zones];
-      _districts = ['All Districts', ...districts];
+      _stateDistrictMap = jsonData.map((k, v) => MapEntry(k, List<String>.from(v)));
+      _states = _stateDistrictMap.keys.toList();
+      _filteredStates = List.from(_states);
     });
+  }
+
+  void _updateFilterOptions() {
+    // This method is no longer needed since we're using state/district from JSON
+    // and companies are hardcoded. Keeping it for potential future use.
   }
 
   void _onSearchChanged() {
@@ -207,47 +223,67 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
 
   void _applyFilters() {
     final searchQuery = _searchController.text.toLowerCase();
-    
+
     setState(() {
-      _filteredLocations = _allLocations.where((location) {
-        // Check text search
-        final matchesSearch = searchQuery.isEmpty ||
-            location.customerName.toLowerCase().contains(searchQuery) ||
-            location.location.toLowerCase().contains(searchQuery) ||
-            location.addressLine1.toLowerCase().contains(searchQuery) ||
-            location.dealerName.toLowerCase().contains(searchQuery);
+      // If slider is at 0, show nothing
+      if (_radiusInKm == 0.0) {
+        _filteredLocations = [];
+      } else {
+        _filteredLocations = _allLocations.where((location) {
+          // Text search
+          final matchesSearch = searchQuery.isEmpty ||
+              location.customerName.toLowerCase().contains(searchQuery) ||
+              location.location.toLowerCase().contains(searchQuery) ||
+              location.addressLine1.toLowerCase().contains(searchQuery) ||
+              location.dealerName.toLowerCase().contains(searchQuery);
 
-        // Check zone
-        final matchesZone = _selectedZone == 'All Zones' ||
-            location.zone == _selectedZone;
+          // State filter - check if location's district belongs to selected state
+          bool matchesState = true;
+          if (_selectedState != null && _selectedState!.isNotEmpty) {
+            // Get districts for the selected state
+            final stateDistricts = _stateDistrictMap[_selectedState!] ?? [];
+            // Check if location's district is in the state's district list
+            matchesState = location.district.isNotEmpty &&
+                stateDistricts.any((stateDistrict) => 
+                    location.district.toLowerCase().contains(stateDistrict.toLowerCase()) ||
+                    stateDistrict.toLowerCase().contains(location.district.toLowerCase())
+                );
+          }
 
-        // Check district
-        final matchesDistrict = _selectedDistrict == 'All Districts' ||
-            location.district == _selectedDistrict;
-            
-        // Check radius if filter is enabled and we have current position
-        bool withinRadius = true;
-        if (_useRadiusFilter && _currentPosition != null) {
-          final distanceInKm = Geolocator.distanceBetween(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            location.latitude,
-            location.longitude,
-          ) / 1000; // Convert to km
-          
-          withinRadius = distanceInKm <= _radiusInKm;
-        }
+          // District filter - direct match
+          bool matchesDistrict = true;
+          if (_selectedDistrict != null && _selectedDistrict!.isNotEmpty) {
+            matchesDistrict = location.district.toLowerCase().contains(_selectedDistrict!.toLowerCase()) ||
+                            _selectedDistrict!.toLowerCase().contains(location.district.toLowerCase());
+          }
 
-        // Check preferred companies if filter is enabled
-        bool matchesPreferredCompanies = true;
-        if (_userPreferredCompanies.isNotEmpty) {
-          matchesPreferredCompanies = _userPreferredCompanies.contains(location.company);
-        }
+          // Radius
+          bool withinRadius = true;
+          if (_useRadiusFilter && _currentPosition != null) {
+            final distanceInKm = Geolocator.distanceBetween(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              location.latitude,
+              location.longitude,
+            ) / 1000;
+            withinRadius = distanceInKm <= _radiusInKm;
+          }
 
-        return matchesSearch && matchesZone && matchesDistrict && withinRadius && matchesPreferredCompanies;
-      }).toList();
+          // Preferred companies filter
+          bool matchesPreferredCompanies = true;
+          if (_selectedCompanies.isNotEmpty) {
+            // If user has manually selected companies in filter, use those
+            matchesPreferredCompanies = _selectedCompanies.contains(location.company);
+          } else if (_userPreferredCompanies.isNotEmpty) {
+            // If no manual selection, use user's preferred companies
+            matchesPreferredCompanies = _userPreferredCompanies.contains(location.company);
+          }
+
+          return matchesSearch && matchesState && matchesDistrict && withinRadius && matchesPreferredCompanies;
+        }).toList();
+      }
     });
-    
+
     _createMarkers();
   }
 
@@ -511,16 +547,16 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
           ),
           
           // Stats bar
-          if (_useRadiusFilter && _currentPosition != null)
+          if (_useRadiusFilter && _currentPosition != null && _radiusInKm > 0.0)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               color: Colors.blue[50],
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  if (_useRadiusFilter && _currentPosition != null)
+                  if (_useRadiusFilter && _currentPosition != null && _radiusInKm > 0.0)
                   _buildStatItem('In Radius', _filteredLocations.length.toString()),
-                  if (_useRadiusFilter && _currentPosition != null)
+                  if (_useRadiusFilter && _currentPosition != null && _radiusInKm > 0.0)
                   _buildStatItem('Radius', '${_radiusInKm.toStringAsFixed(1)} km'),
                 ],
               ),
@@ -616,21 +652,21 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                           Expanded(
                             child: Slider(
                               value: _radiusInKm,
-                              min: 1.0,
+                              min: 0.0,
                               max: 100.0,
                               divisions: 20,
-                              label: '${_radiusInKm.toStringAsFixed(1)} km',
+                              label: _radiusInKm == 0.0 ? 'No filter' : '${_radiusInKm.toStringAsFixed(1)} km',
                               onChanged: (value) {
                                 setState(() {
                                   _radiusInKm = value;
-                                  _useRadiusFilter = true;
+                                  _useRadiusFilter = value > 0.0;
                                 });
                                 _applyFilters();
                               },
                             ),
                           ),
                           Text(
-                            '${_radiusInKm.toStringAsFixed(1)} km',
+                            _radiusInKm == 0.0 ? 'No filter' : '${_radiusInKm.toStringAsFixed(1)} km',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -651,18 +687,31 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      Icons.location_off,
+                                      _radiusInKm == 0.0 ? Icons.tune : Icons.location_off,
                                       size: 48,
                                       color: Colors.grey[400],
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
-                                      'No locations found',
+                                      _radiusInKm == 0.0 
+                                          ? 'Move the slider to load nearby petrol pumps'
+                                          : 'No locations found',
                                       style: TextStyle(
                                         color: Colors.grey[600],
                                         fontSize: 16,
                                       ),
                                     ),
+                                    if (_radiusInKm == 0.0) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Adjust the radius to see petrol pumps in your area',
+                                        style: TextStyle(
+                                          color: Colors.grey[500],
+                                          fontSize: 12,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
                                   ],
                                 ),
                               )
@@ -710,14 +759,15 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
           }
         },
         showFloatingActionButton: true,
+        floatingActionButtonTooltip: 'Refresh',
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          setState(() {
-            _isLoading = true;
-            _useRadiusFilter = false;
-            _radiusInKm = 1.0;
-          });
+                  setState(() {
+          _isLoading = true;
+          _useRadiusFilter = false;
+          _radiusInKm = 0.0;
+        });
           _loadMapLocations();
           _getCurrentLocation();
         },
@@ -881,42 +931,97 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Zone filter
-                DropdownButtonFormField<String>(
-                  value: _selectedZone,
-                  decoration: const InputDecoration(
-                    labelText: 'Zone',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _zones.map((zone) {
-                    return DropdownMenuItem(value: zone, child: Text(zone));
-                  }).toList(),
+                // Preferred Companies (multi-select chips)
+                const Text('Preferred Companies', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                _userPreferredCompanies.isNotEmpty
+                  ? Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _userPreferredCompanies.map((company) {
+                        final isSelected = _selectedCompanies.contains(company);
+                        return ChoiceChip(
+                          label: Text(company),
+                          selected: isSelected,
+                          selectedColor: const Color(0xFF35C2C1),
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedCompanies.add(company);
+                              } else {
+                                // Prevent deselecting the last company
+                                if (_selectedCompanies.length > 1) {
+                                  _selectedCompanies.remove(company);
+                                }
+                                // No warning message - silently prevent deselection
+                              }
+                            });
+                            setDialogState(() {});
+                          },
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          backgroundColor: Colors.grey[100],
+                          showCheckmark: false,
+                        );
+                      }).toList(),
+                    )
+                  : const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        'No preferred companies set. Please update your profile.',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                const SizedBox(height: 16),
+                // State filter (autocomplete search)
+                const Text('State', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                _buildAutocompleteSearch(
+                  value: _selectedState,
+                  hintText: 'Search and select state...',
+                  items: _states,
                   onChanged: (value) {
                     setState(() {
-                      _selectedZone = value!;
+                      _selectedState = value;
+                      _selectedDistrict = null;
+                      _districts = value != null ? _stateDistrictMap[value]! : [];
+                      _filteredDistricts = List.from(_districts);
+                      _districtSearchController.clear();
                     });
                     setDialogState(() {});
                   },
+                  searchController: _stateSearchController,
                 ),
                 const SizedBox(height: 16),
-                
-                // District filter
-                DropdownButtonFormField<String>(
-                  value: _selectedDistrict,
-                  decoration: const InputDecoration(
-                    labelText: 'District',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _districts.map((district) {
-                    return DropdownMenuItem(value: district, child: Text(district));
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedDistrict = value!;
-                    });
-                    setDialogState(() {});
-                  },
-                ),
+                // District filter (autocomplete search, state-dependent)
+                const Text('District', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                _selectedState != null
+                  ? _buildAutocompleteSearch(
+                      value: _selectedDistrict,
+                      hintText: 'Search and select district...',
+                      items: _districts,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedDistrict = value;
+                        });
+                        setDialogState(() {});
+                      },
+                      searchController: _districtSearchController,
+                    )
+                  : _buildAutocompleteSearch(
+                      value: null,
+                      hintText: 'Select State First',
+                      items: [],
+                      onChanged: (value) {},
+                      searchController: _districtSearchController,
+                      enabled: false,
+                    ),
               ],
             ),
           ),
@@ -924,8 +1029,16 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
             TextButton(
               onPressed: () {
                 setState(() {
-                  _selectedZone = 'All Zones';
-                  _selectedDistrict = 'All Districts';
+                  _selectedCompanies.clear();
+                  _selectedState = null;
+                  _selectedDistrict = null;
+                  _districts = [];
+                  _filteredStates = List.from(_states);
+                  _filteredDistricts = [];
+                  _stateSearchController.clear();
+                  _districtSearchController.clear();
+                  // Reset to user's preferred companies
+                  _selectedCompanies = List.from(_userPreferredCompanies);
                 });
                 _applyFilters();
                 Navigator.pop(context);
@@ -942,6 +1055,92 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAutocompleteSearch({
+    required String? value,
+    required String hintText,
+    required List<String> items,
+    required Function(String?) onChanged,
+    required TextEditingController searchController,
+    bool enabled = true,
+  }) {
+    return Autocomplete<String>(
+      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+        // Sync the controller with our search controller
+        if (textEditingController.text != searchController.text) {
+          textEditingController.text = searchController.text;
+          textEditingController.selection = TextSelection.fromPosition(
+            TextPosition(offset: searchController.text.length),
+          );
+        }
+        
+        return TextField(
+          controller: textEditingController,
+          focusNode: focusNode,
+          enabled: enabled,
+          decoration: InputDecoration(
+            hintText: hintText,
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: value != null ? IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                searchController.clear();
+                textEditingController.clear();
+                onChanged(null);
+              },
+            ) : null,
+            border: const OutlineInputBorder(),
+            filled: true,
+            fillColor: enabled ? Colors.white : Colors.grey.shade100,
+          ),
+          onChanged: (text) {
+            searchController.text = text;
+          },
+        );
+      },
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return items;
+        }
+        return items.where((item) => 
+          item.toLowerCase().contains(textEditingValue.text.toLowerCase())
+        ).toList();
+      },
+      onSelected: (String selection) {
+        searchController.text = selection;
+        onChanged(selection);
+      },
+      displayStringForOption: (String option) => option,
+      optionsViewBuilder: (context, onSelected, options) {
+        return Material(
+          elevation: 4.0,
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: options.length,
+              itemBuilder: (BuildContext context, int index) {
+                final String option = options.elementAt(index);
+                final bool isSelected = value == option;
+                return ListTile(
+                  title: Text(option),
+                  selected: isSelected,
+                  selectedTileColor: const Color(0xFF35C2C1).withOpacity(0.1),
+                  onTap: () {
+                    onSelected(option);
+                  },
+                  trailing: isSelected ? const Icon(
+                    Icons.check,
+                    color: Color(0xFF35C2C1),
+                  ) : null,
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 

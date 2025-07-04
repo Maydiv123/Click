@@ -489,6 +489,7 @@ class _NearestPetrolPumpsScreenState extends State<NearestPetrolPumpsScreen> {
           }
         },
         showFloatingActionButton: true,
+        floatingActionButtonTooltip: 'Refresh',
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {

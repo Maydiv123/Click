@@ -361,91 +361,64 @@ class _CameraScreenState extends State<CameraScreen> {
     double lastLineBottomY;
     double logoHeight = 0;
     try {
-      final brandingPainter = TextPainter(
-        text: TextSpan(text: 'Click', style: TextStyle(
-          color: Colors.teal.shade900,
-          fontSize: imageWidth * 0.035,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.5,
-        )),
-        textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
-      )..layout(maxWidth: imageWidth - 2 * leftMargin);
-      logoHeight = (brandingPainter.height * 1.2).clamp(20.0, 40.0); // 120% of text height, min 20px, max 40px
+      // Calculate logo height based on image width
+      logoHeight = (imageWidth * 0.08).clamp(30.0, 60.0); // 8% of image width, min 30px, max 60px
     } catch (_) {
-      logoHeight = 30.0; // fallback
+      logoHeight = 40.0; // fallback
     }
     lastLineBottomY = imageHeight - logoHeight - leftMargin;
 
     // Calculate the starting Y so the last line is at lastLineBottomY
     double startY = lastLineBottomY - totalWatermarkHeight + watermarkPainters.last.height;
 
-    // Draw each watermark line from top to bottom
+    // Draw each watermark line from top to bottom in the 70% area after the logo
+    final infoStartX = leftMargin + (imageWidth * 0.3) + (imageWidth * 0.02); // Logo width + small spacing
+    final infoWidth = imageWidth * 0.7 - (2 * leftMargin); // 70% width minus margins
+    
     double y = startY;
     for (int i = 0; i < watermarkPainters.length; i++) {
-      watermarkPainters[i].paint(canvas, Offset(leftMargin, y));
+      // Recalculate text width for the 70% area
+      final textPainter = TextPainter(
+        text: watermarkPainters[i].text,
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout(maxWidth: infoWidth);
+      
+      textPainter.paint(canvas, Offset(infoStartX, y));
       y += watermarkPainters[i].height;
       if (i < watermarkPainters.length - 1) {
         y += lineSpacings[i];
       }
     }
 
-    // Add app branding 'Click' with logo at the bottom right of the image
-    final brandingText = 'Click';
-    final brandingStyle = TextStyle(
-      color: Colors.teal.shade900,
-      fontSize: imageWidth * 0.035,
-      fontWeight: FontWeight.bold,
-      letterSpacing: 1.5,
-    );
-    final brandingPainter = TextPainter(
-      text: TextSpan(text: brandingText, style: brandingStyle),
-      textDirection: ui.TextDirection.ltr,
-      maxLines: 1,
-    )..layout(maxWidth: imageWidth - 2 * leftMargin);
-    
-    // Load and draw small branding logo beside the text
-    double logoWidth = 0;
+    // Add branding logo at the bottom of the image
     try {
       final brandingImageData = await rootBundle.load('assets/images/Branding.png');
       final brandingImage = await decodeImageFromList(brandingImageData.buffer.asUint8List());
       
-      // Calculate logo dimensions (proportional to text height with minimum size)
-      logoWidth = logoHeight; // Make the logo square
+      // Calculate logo dimensions (30% of image width)
+      final logoWidth = imageWidth * 0.3; // 30% of image width
       
-      // Ensure logo doesn't get too wide
-      if (logoWidth > logoHeight * 2) {
-        logoWidth = logoHeight * 2;
-      }
+      // Position logo at bottom left, vertically centered in the 30% area
+      final logoX = leftMargin;
+      final logoY = imageHeight - logoHeight - leftMargin;
       
-      // Calculate spacing based on image size
-      final spacing = (imageWidth * 0.01).clamp(4.0, 12.0); // 1% of image width, min 4px, max 12px
+      // Calculate the center of the 30% area for vertical centering
+      final logoAreaHeight = imageHeight - (2 * leftMargin); // Available height for logo
+      final centeredLogoY = leftMargin + (logoAreaHeight - logoHeight) / 2; // Vertically centered
       
-      // Position logo and text together at bottom right
-      final totalWidth = logoWidth + spacing + brandingPainter.width; // logo + spacing + text
-      final startX = imageWidth - totalWidth - leftMargin;
-      final startY = imageHeight - logoHeight - leftMargin;
-      
-      // Draw logo with better quality
+      // Draw logo with better quality, vertically centered
       canvas.drawImageRect(
         brandingImage,
         Rect.fromLTWH(0, 0, brandingImage.width.toDouble(), brandingImage.height.toDouble()),
-        Rect.fromLTWH(startX, startY, logoWidth, logoHeight),
+        Rect.fromLTWH(logoX, centeredLogoY, logoWidth, logoHeight),
         Paint()..filterQuality = ui.FilterQuality.high,
       );
-      
-      // Draw text beside logo with perfect vertical centering
-      final textY = startY + (logoHeight - brandingPainter.height) / 2;
-      brandingPainter.paint(canvas, Offset(startX + logoWidth + spacing, textY));
       
       debugPrint('Branding logo drawn successfully: ${logoWidth}x${logoHeight}px');
       
     } catch (e) {
       debugPrint('Error loading branding logo for watermark: $e');
-      // Fallback to just text if logo fails to load
-      final brandingX = imageWidth - brandingPainter.width - leftMargin;
-      final brandingY = imageHeight - brandingPainter.height - leftMargin;
-      brandingPainter.paint(canvas, Offset(brandingX, brandingY));
     }
 
     // Convert the canvas to an image
@@ -521,23 +494,18 @@ class _CameraScreenState extends State<CameraScreen> {
           name: "click_${DateTime.now().millisecondsSinceEpoch}"
         );
         
-        if (mounted) {
-          // Clear any existing snackbars first
-          ScaffoldMessenger.of(context).clearSnackBars();
-          
+        // Only show snackbar for failures, not success
+        if (mounted && !result['isSuccess']) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['isSuccess'] ? 'Photo saved to gallery' : 'Failed to save photo'),
-              backgroundColor: result['isSuccess'] ? Colors.green : Colors.red,
-              duration: const Duration(seconds: 1),
+              content: const Text('Failed to save photo to gallery'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
             ),
           );
         }
       } catch (e) {
         if (mounted) {
-          // Clear any existing snackbars first
-          ScaffoldMessenger.of(context).clearSnackBars();
-          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to save photo: ${e.toString()}'),

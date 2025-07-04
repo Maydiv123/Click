@@ -102,19 +102,16 @@ Pincode: ${location.pincode}
               ),
             ),
           ),
-          // Petrol Pump Icon
+          // Company Logo
           Container(
             margin: const EdgeInsets.all(8),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF35C2C1).withOpacity(0.1),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[200]!),
             ),
-            child: const Icon(
-              Icons.local_gas_station,
-              color: Color(0xFF35C2C1),
-              size: 24,
-            ),
+            child: _getCompanyLogo(location.company),
           ),
         ],
       ),
@@ -206,6 +203,8 @@ Pincode: ${location.pincode}
     required IconData icon,
     required Widget child,
   }) {
+    final pumpImagePath = _getCompanyPumpImage(location.company);
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -219,36 +218,55 @@ Pincode: ${location.pincode}
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
+          // Faded background image for Location Details section
+          if (title == 'Location Details' && pumpImagePath != null)
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Opacity(
+                  opacity: 0.2, // Very light opacity
+                  child: Image.asset(
+                    pumpImagePath,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+          // Content
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF35C2C1).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  icon,
-                  color: const Color(0xFF35C2C1),
-                  size: 24,
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF35C2C1).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      icon,
+                      color: const Color(0xFF35C2C1),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              const SizedBox(height: 20),
+              child,
             ],
           ),
-          const SizedBox(height: 20),
-          child,
         ],
       ),
     );
@@ -264,10 +282,10 @@ Pincode: ${location.pincode}
             width: 120,
             child: Text(
               label,
-              style: TextStyle(
-                color: Colors.grey[600],
+              style: const TextStyle(
+                color: Colors.black87,
                 fontSize: 15,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -292,8 +310,8 @@ Pincode: ${location.pincode}
       children: [
         Text(
           'Address',
-          style: TextStyle(
-            color: Colors.grey[600],
+          style: const TextStyle(
+            color: Colors.black87,
             fontSize: 15,
             fontWeight: FontWeight.bold,
           ),
@@ -340,5 +358,58 @@ Pincode: ${location.pincode}
         ),
       ],
     );
+  }
+
+  String? _getCompanyPumpImage(String company) {
+    switch (company.toUpperCase()) {
+      case 'BPCL':
+        return 'assets/images/BPCL_pump.jpg';
+      case 'HPCL':
+        return 'assets/images/HPCL_pump.jpg';
+      case 'IOCL':
+        return 'assets/images/IOCL_pump.jpg';
+      default:
+        return null;
+    }
+  }
+
+  Widget _getCompanyLogo(String company) {
+    switch (company.toUpperCase()) {
+      case 'BPCL':
+        return Image.asset(
+          'assets/images/BPCL_logo.png',
+          width: 24,
+          height: 24,
+          fit: BoxFit.contain,
+        );
+      case 'HPCL':
+        return Image.asset(
+          'assets/images/HPCL_logo.png',
+          width: 24,
+          height: 24,
+          fit: BoxFit.contain,
+        );
+      case 'IOCL':
+        return Image.asset(
+          'assets/images/IOCL_logo.png',
+          width: 24,
+          height: 24,
+          fit: BoxFit.contain,
+        );
+      default:
+        return Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Icon(
+            Icons.local_gas_station,
+            color: Colors.grey,
+            size: 16,
+          ),
+        );
+    }
   }
 } 

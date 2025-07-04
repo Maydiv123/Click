@@ -81,6 +81,10 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   String _mobileGuidance = '';
   String _sapCodeGuidance = '';
   
+  // Pincode validation state
+  bool _isPincodeValidated = false;
+  bool _isPincodeFound = false;
+  
   @override
   void initState() {
     super.initState();
@@ -141,9 +145,27 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     super.dispose();
   }
   
+  // Method to check if pincode is in valid format
+  bool _isPincodeValid() {
+    final pincode = _pincodeController.text.trim();
+    return pincode.length == 6 && RegExp(r'^[0-9]{6}$').hasMatch(pincode);
+  }
+
+  // Method to check if form fields should be enabled
+  bool _areFieldsEnabled() {
+    return _isPincodeValidated && _isPincodeFound;
+  }
+
   // Listener for pincode changes
   void _onPincodeChanged() {
     final pincode = _pincodeController.text.trim();
+    
+    // Reset validation state when pincode changes
+    setState(() {
+      _isPincodeValidated = false;
+      _isPincodeFound = false;
+    });
+    
     if (pincode.length == 6) {
       // Only trigger lookup when a complete 6-digit pincode is entered
       _fetchDistrictFromPincode(pincode);
@@ -162,7 +184,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       } else if (pincode.length > 6) {
         _pincodeGuidance = 'Pincode should be exactly 6 digits';
       } else {
-        _pincodeGuidance = '✓ Valid pincode format';
+        _pincodeGuidance = '✓ Valid pincode format - Validating...';
       }
     });
   }
@@ -364,6 +386,8 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
     try {
       setState(() {
         _isLoading = true;
+        _isPincodeValidated = true;
+        _isPincodeFound = false;
       });
       
       print('DEBUG: Fetching district for pincode: $pincode');
@@ -389,6 +413,8 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
             // Set the district in the controller
             setState(() {
               _districtController.text = district;
+              _isPincodeFound = true;
+              _pincodeGuidance = '✓ Valid pincode - District found: $district';
             });
             
             // Now fetch petrol pump based on district and coordinates if available
@@ -406,6 +432,10 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
             }
           } else {
             print('DEBUG: No post offices found for pincode $pincode');
+            setState(() {
+              _isPincodeFound = false;
+              _pincodeGuidance = '❌ Pincode not found';
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('No district found for pincode $pincode'),
@@ -415,6 +445,10 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           }
         } else {
           print('DEBUG: Invalid pincode or pincode not found: $pincode');
+          setState(() {
+            _isPincodeFound = false;
+            _pincodeGuidance = '❌ Invalid pincode';
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Invalid pincode or pincode not found: $pincode'),
@@ -424,6 +458,10 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
         }
       } else {
         print('DEBUG: Error fetching district information: ${response.statusCode}');
+        setState(() {
+          _isPincodeFound = false;
+          _pincodeGuidance = '❌ Error validating pincode';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error fetching district information: ${response.statusCode}'),
@@ -433,6 +471,10 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
       }
     } catch (e) {
       print('ERROR in _fetchDistrictFromPincode: $e');
+      setState(() {
+        _isPincodeFound = false;
+        _pincodeGuidance = '❌ Error validating pincode';
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error fetching district information: $e'),
@@ -846,6 +888,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           longitude: double.parse(_longitudeController.text),
           status: 'pending',
           createdAt: DateTime.now(),
+          id: '', // Will be set by Firestore when document is created
           bannerImageUrl: bannerImageUrl,
           boardImageUrl: boardImageUrl,
           billSlipImageUrl: billSlipImageUrl,
@@ -1189,6 +1232,43 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                             ),
                           const SizedBox(height: 16),
                           
+                          // District field (read-only, auto-filled from pincode)
+                          TextFormField(
+                            controller: _districtController,
+                            enabled: false, // Always disabled as it's auto-filled
+                            decoration: InputDecoration(
+                              labelText: 'District *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: Colors.grey[300]!),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: Colors.grey[300]!),
+                              ),
+                              disabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: Colors.grey[400]!),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[50],
+                              hintText: 'Will be auto-filled from pincode',
+                              hintStyle: TextStyle(color: Colors.grey[500]),
+                              labelStyle: TextStyle(color: Colors.grey[700]),
+                            ),
+                            style: TextStyle(
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'District is required (auto-filled from pincode)';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
                           // Coordinates section
                           Row(
                             children: [
@@ -1201,6 +1281,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                       Expanded(
                                         child: TextFormField(
                                           controller: _latitudeController,
+                                          enabled: _areFieldsEnabled(),
                                           decoration: InputDecoration(
                                             labelText: 'Latitude *',
                                             border: OutlineInputBorder(
@@ -1259,6 +1340,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                       Expanded(
                                         child: TextFormField(
                                           controller: _longitudeController,
+                                          enabled: _areFieldsEnabled(),
                                           decoration: InputDecoration(
                                             labelText: 'Longitude *',
                                             border: OutlineInputBorder(
@@ -1315,7 +1397,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(
-                              onPressed: _isGettingLocation ? null : _getCurrentLocation,
+                              onPressed: (_isGettingLocation || !_areFieldsEnabled()) ? null : _getCurrentLocation,
                               icon: const Icon(Icons.my_location),
                               label: _isGettingLocation
                                   ? const Row(
@@ -1335,7 +1417,9 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                     )
                                   : const Text('Get Current Location'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF35C2C1),
+                                backgroundColor: _areFieldsEnabled() 
+                                    ? const Color(0xFF35C2C1) 
+                                    : Colors.grey,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
@@ -1352,6 +1436,30 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                 style: const TextStyle(
                                   color: Colors.red,
                                   fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          if (!_isPincodeValid() && _pincodeController.text.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                '⚠️ Please enter a valid 6-digit pincode to enable location detection',
+                                style: const TextStyle(
+                                  color: Colors.orange,
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          if (!_areFieldsEnabled() && _isPincodeValidated)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                '⚠️ All form fields are disabled until a valid pincode is found',
+                                style: const TextStyle(
+                                  color: Colors.orange,
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
                             ),
@@ -1394,30 +1502,10 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           ),
                           const SizedBox(height: 12),
                           
-                          // District field
-                          TextFormField(
-                            controller: _districtController,
-                            decoration: InputDecoration(
-                              labelText: 'District *',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey[100],
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter district';
-                              }
-                              return null;
-                            },
-                            onChanged: (_) => _updateProgress(),
-                          ),
-                          const SizedBox(height: 16),
-                          
                           // Regional Office field
                           TextFormField(
                             controller: _regionalOfficeController,
+                            enabled: _areFieldsEnabled(),
                             decoration: InputDecoration(
                               labelText: 'Regional Office *',
                               border: OutlineInputBorder(
@@ -1439,6 +1527,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Sales Area field
                           TextFormField(
                             controller: _salesAreaController,
+                            enabled: _areFieldsEnabled(),
                             decoration: InputDecoration(
                               labelText: 'Sales Area *',
                               border: OutlineInputBorder(
@@ -1460,6 +1549,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Zone field
                           TextFormField(
                             controller: _zoneController,
+                            enabled: _areFieldsEnabled(),
                             decoration: InputDecoration(
                               labelText: 'Zone *',
                               border: OutlineInputBorder(
@@ -1481,6 +1571,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // CO/CL/DO field
                           TextFormField(
                             controller: _coClDoController,
+                            enabled: _areFieldsEnabled(),
                             decoration: InputDecoration(
                               labelText: 'CO/CL/DO *',
                               border: OutlineInputBorder(
@@ -1526,6 +1617,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // SAP Code field (optional)
                           TextFormField(
                             controller: _sapCodeController,
+                            enabled: _areFieldsEnabled(),
                             decoration: InputDecoration(
                               labelText: 'SAP Code (Optional)',
                               border: OutlineInputBorder(
@@ -1574,6 +1666,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Customer Name field
                           TextFormField(
                             controller: _customerNameController,
+                            enabled: _areFieldsEnabled(),
                             decoration: InputDecoration(
                               labelText: 'Petrol Pump Name *',
                               border: OutlineInputBorder(
@@ -1597,6 +1690,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Address Line 1 field
                           TextFormField(
                             controller: _addressLine1Controller,
+                            enabled: _areFieldsEnabled(),
                             decoration: InputDecoration(
                               labelText: 'Address Line 1 *',
                               border: OutlineInputBorder(
@@ -1616,6 +1710,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Address Line 2 field (optional)
                           TextFormField(
                             controller: _addressLine2Controller,
+                            enabled: _areFieldsEnabled(),
                             decoration: InputDecoration(
                               labelText: 'Address Line 2 (Optional)',
                               border: OutlineInputBorder(
@@ -1631,6 +1726,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Dealer Name field
                           TextFormField(
                             controller: _dealerNameController,
+                            enabled: _areFieldsEnabled(),
                             decoration: InputDecoration(
                               labelText: 'Dealer Name *',
                               border: OutlineInputBorder(
@@ -1650,6 +1746,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Contact Details field (10-digit mobile number)
                           TextFormField(
                             controller: _contactDetailsController,
+                            enabled: _areFieldsEnabled(),
                             decoration: InputDecoration(
                               labelText: 'Mobile Number *',
                               hintText: 'Enter 10-digit mobile number',

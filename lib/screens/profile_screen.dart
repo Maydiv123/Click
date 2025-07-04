@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:country_picker/country_picker.dart';
 import '../widgets/profile_completion_indicator.dart';
 import '../widgets/bottom_navigation_bar_widget.dart';
 import '../widgets/app_drawer.dart';
@@ -25,6 +27,152 @@ class _ProfileScreenState extends State<ProfileScreen> {
   
   Map<String, dynamic> _userData = {};
   bool _isLoading = true;
+
+  // Validation regex patterns
+  final RegExp _nameRegex = RegExp(r'^[a-zA-Z\s]+$');
+  final RegExp _phoneRegex = RegExp(r'^[0-9]+$');
+  final RegExp _aadharRegex = RegExp(r'^[0-9]+$');
+
+  // Country code variables
+  String _selectedCountryCode = '+91';
+  String _selectedCountryFlag = '🇮🇳';
+
+  // Date picker function
+  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+    // Try to parse the current text as a date
+    DateTime? initialDate;
+    String currentText = controller.text;
+    
+    if (currentText.isNotEmpty && RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(currentText)) {
+      try {
+        final parts = currentText.split('/');
+        final day = int.parse(parts[0]);
+        final month = int.parse(parts[1]);
+        final year = int.parse(parts[2]);
+        
+        initialDate = DateTime(year, month, day);
+        final currentDate = DateTime.now();
+        
+        // Check if the date is valid and not in the future
+        if (initialDate.isAfter(currentDate) || year < 1900 || year > currentDate.year) {
+          initialDate = DateTime.now().subtract(const Duration(days: 6570)); // Default to 18 years ago
+        }
+      } catch (e) {
+        initialDate = DateTime.now().subtract(const Duration(days: 6570)); // Default to 18 years ago
+      }
+    } else {
+      initialDate = DateTime.now().subtract(const Duration(days: 6570)); // Default to 18 years ago
+    }
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF35C2C1),
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      controller.text = "${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}";
+    }
+  }
+
+  // Validate and set date from manual input
+  void _validateAndSetDate(TextEditingController controller) {
+    String text = controller.text;
+    if (text.isNotEmpty && RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(text)) {
+      try {
+        final parts = text.split('/');
+        final day = int.parse(parts[0]);
+        final month = int.parse(parts[1]);
+        final year = int.parse(parts[2]);
+        
+        final enteredDate = DateTime(year, month, day);
+        final currentDate = DateTime.now();
+        
+        if (enteredDate.isAfter(currentDate)) {
+          // Show warning for future date
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Date of birth cannot be in the future'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          controller.clear();
+        } else if (year < 1900 || year > currentDate.year) {
+          // Show warning for invalid year
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Please enter a valid year between 1900 and current year'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          controller.clear();
+        }
+      } catch (e) {
+        // Show warning for invalid date
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Invalid date format. Please use DD/MM/YYYY'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        controller.clear();
+      }
+    }
+  }
+
+  void _showCountryPicker() {
+    showCountryPicker(
+      context: context,
+      showPhoneCode: true,
+      showSearch: true,
+      searchAutofocus: true,
+      countryListTheme: CountryListThemeData(
+        flagSize: 25,
+        backgroundColor: Colors.white,
+        textStyle: const TextStyle(fontSize: 16, color: Colors.black),
+        bottomSheetHeight: 500,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20.0),
+          topRight: Radius.circular(20.0),
+        ),
+        searchTextStyle: const TextStyle(fontSize: 16, color: Colors.black),
+        inputDecoration: InputDecoration(
+          labelText: 'Search',
+          hintText: 'Start typing to search',
+          prefixIcon: const Icon(Icons.search),
+          border: OutlineInputBorder(
+            borderSide: BorderSide(
+              color: const Color(0xFF8C98A8).withOpacity(0.2),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: const Color(0xFF35C2C1).withOpacity(0.3)),
+          ),
+        ),
+      ),
+      onSelect: (Country country) {
+        setState(() {
+          _selectedCountryCode = '+${country.phoneCode}';
+          _selectedCountryFlag = country.flagEmoji;
+        });
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -63,7 +211,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final TextEditingController dobController = TextEditingController(text: userData['dob'] ?? '');
     final TextEditingController addressController = TextEditingController(text: userData['address'] ?? '');
     final TextEditingController aadharController = TextEditingController(text: userData['aadharNo'] ?? '');
-    final TextEditingController mobileController = TextEditingController(text: userData['mobile'] ?? '');
+    
+    // Extract phone number and country code from stored mobile
+    String storedMobile = userData['mobile'] ?? '';
+    String phoneNumber = '';
+    String countryCode = '+91';
+    String countryFlag = '🇮🇳';
+    
+    if (storedMobile.isNotEmpty) {
+      if (storedMobile.startsWith('+91')) {
+        countryCode = '+91';
+        countryFlag = '🇮🇳';
+        phoneNumber = storedMobile.substring(3); // Remove +91
+      } else if (storedMobile.startsWith('+')) {
+        // Handle other country codes
+        int plusIndex = storedMobile.indexOf('+');
+        int spaceIndex = storedMobile.indexOf(' ', plusIndex);
+        if (spaceIndex != -1) {
+          countryCode = storedMobile.substring(plusIndex, spaceIndex);
+          phoneNumber = storedMobile.substring(spaceIndex + 1);
+        } else {
+          // Try to extract country code (assuming 2-3 digits after +)
+          for (int i = 1; i <= 3; i++) {
+            if (storedMobile.length > i) {
+              String potentialCode = storedMobile.substring(0, i + 1);
+              if (potentialCode.startsWith('+')) {
+                countryCode = potentialCode;
+                phoneNumber = storedMobile.substring(i + 1);
+                break;
+              }
+            }
+          }
+        }
+      } else {
+        // No country code, assume it's just the phone number
+        phoneNumber = storedMobile;
+      }
+    }
+    
+    final TextEditingController mobileController = TextEditingController(text: phoneNumber);
     
     // Convert to Set to remove duplicates, then back to List
     List<String> oilCompanies = userData['preferredCompanies'] != null 
@@ -80,6 +266,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            // Set the country code and flag for this modal
+            _selectedCountryCode = countryCode;
+            _selectedCountryFlag = countryFlag;
+            
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -107,6 +297,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: firstNameController,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                        ],
+                        textCapitalization: TextCapitalization.words,
                         decoration: InputDecoration(
                           labelText: 'First Name',
                           filled: true,
@@ -117,11 +311,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         ),
-                        validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'First name is required';
+                          }
+                          if (!_nameRegex.hasMatch(value)) {
+                            return 'First name can only contain letters';
+                          }
+                          if (value.length < 2) {
+                            return 'First name must be at least 2 characters';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: lastNameController,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                        ],
+                        textCapitalization: TextCapitalization.words,
                         decoration: InputDecoration(
                           labelText: 'Last Name',
                           filled: true,
@@ -132,21 +341,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         ),
-                        validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Last name is required';
+                          }
+                          if (!_nameRegex.hasMatch(value)) {
+                            return 'Last name can only contain letters';
+                          }
+                          if (value.length < 2) {
+                            return 'Last name must be at least 2 characters';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
-                        controller: dobController,
-                        decoration: InputDecoration(
-                          labelText: 'Date of Birth',
-                          filled: true,
-                          fillColor: Colors.grey[100],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                      GestureDetector(
+                        onTap: () => _selectDate(context, dobController),
+                        child: TextFormField(
+                          controller: dobController,
+                          readOnly: true,
+                              decoration: InputDecoration(
+                              labelText: 'Date of Birth (DD/MM/YYYY)',
+                              filled: true,
+                            fillColor: Colors.grey[100],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            suffixIcon: IconButton(
+                              icon: Icon(Icons.calendar_today, size: 18, color: Colors.grey[600]),
+                              onPressed: () => _selectDate(context, dobController),
+                            ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          suffixIcon: Icon(Icons.calendar_today, size: 18, color: Colors.grey[600]),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Date of birth is required';
+                            }
+                            return null;
+                          },
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -162,12 +395,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Address is required';
+                          }
+                          if (value.trim().length < 10) {
+                            return 'Address must be at least 10 characters long';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: aadharController,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                          LengthLimitingTextInputFormatter(14), // 12 digits + 2 spaces
+                          TextInputFormatter.withFunction((oldValue, newValue) {
+                            final text = newValue.text.replaceAll(' ', '');
+                            if (text.length <= 12) {
+                              String formatted = '';
+                              for (int i = 0; i < text.length; i++) {
+                                if (i > 0 && i % 4 == 0) {
+                                  formatted += ' ';
+                                }
+                                formatted += text[i];
+                              }
+                              return TextEditingValue(
+                                text: formatted,
+                                selection: TextSelection.collapsed(offset: formatted.length),
+                              );
+                            }
+                            return oldValue;
+                          }),
+                        ],
+                        keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Aadhar No',
+                          labelText: 'Aadhar No (XXXX XXXX XXXX)',
                           filled: true,
                           fillColor: Colors.grey[100],
                           border: OutlineInputBorder(
@@ -176,20 +440,113 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         ),
+                        validator: (value) {
+                          if (value != null && value.isNotEmpty) {
+                            final digitsOnly = value.replaceAll(' ', '');
+                            if (!_aadharRegex.hasMatch(digitsOnly)) {
+                              return 'Aadhar number can only contain digits';
+                            }
+                            if (digitsOnly.length != 12) {
+                              return 'Aadhar number must be exactly 12 digits';
+                            }
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
-                        controller: mobileController,
-                        decoration: InputDecoration(
-                          labelText: 'Mobile No',
-                          filled: true,
-                          fillColor: Colors.grey[100],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                      // Mobile Number with Country Code
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Mobile Number',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        ),
+                          const SizedBox(height: 10),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                // Country Code Selector
+                                GestureDetector(
+                                  onTap: _showCountryPicker,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    alignment: Alignment.center,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _selectedCountryFlag,
+                                          style: const TextStyle(fontSize: 18),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _selectedCountryCode,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Icon(
+                                          Icons.keyboard_arrow_down,
+                                          color: Colors.grey[600],
+                                          size: 20,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                // Phone Number Input
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: mobileController,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                                      LengthLimitingTextInputFormatter(_selectedCountryCode == '+91' ? 10 : 15),
+                                    ],
+                                    keyboardType: TextInputType.phone,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Enter mobile number',
+                                      border: InputBorder.none,
+                                      filled: false,
+                                      contentPadding: EdgeInsets.only(left: 4, right: 16, top: 16, bottom: 16),
+                                      errorStyle: TextStyle(color: Colors.red, fontSize: 12),
+                                      counterText: "",
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Mobile number is required';
+                                      }
+                                      if (!_phoneRegex.hasMatch(value)) {
+                                        return 'Mobile number can only contain digits';
+                                      }
+                                      if (_selectedCountryCode == '+91') {
+                                        if (value.length != 10) return 'Indian phone number must be exactly 10 digits';
+                                        if (!value.startsWith(RegExp(r'[6-9]'))) {
+                                          return 'Mobile number should start with 6, 7, 8, or 9';
+                                        }
+                                      } else {
+                                        if (value.length < 6) return 'Phone number must be at least 6 digits';
+                                        if (value.length > 15) return 'Phone number is too long';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       const Text('Preferred Oil Companies', style: TextStyle(fontWeight: FontWeight.w500)),
@@ -203,7 +560,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             onTap: () {
                               setModalState(() {
                                 if (isSelected) {
-                                  oilCompanies.remove(company);
+                                  // Check if this is the last selected company
+                                  if (oilCompanies.length > 1) {
+                                    oilCompanies.remove(company);
+                                  } else {
+                                    // Show warning when trying to deselect the last company
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('⚠️ At least one oil company must be selected'),
+                                        backgroundColor: Colors.orange,
+                                        duration: Duration(seconds: 3),
+                                      ),
+                                    );
+                                  }
                                 } else {
                                   oilCompanies.add(company);
                                 }
@@ -232,6 +601,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: ElevatedButton(
                           onPressed: () async {
                             if (_formKey.currentState!.validate()) {
+                              // Validate that at least one oil company is selected
+                              if (oilCompanies.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('⚠️ Please select at least one oil company'),
+                                    backgroundColor: Colors.orange,
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                                return;
+                              }
+                              
                               final userId = await _authService.getCurrentUserId();
                               if (userId == null) return;
                               final data = {
@@ -240,7 +621,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 'dob': dobController.text.trim(),
                                 'address': addressController.text.trim(),
                                 'aadharNo': aadharController.text.trim(),
-                                'mobile': mobileController.text.trim(),
+                                'mobile': _selectedCountryCode + mobileController.text.trim(),
                                 'preferredCompanies': oilCompanies,
                               };
                               await _authService.updateUserProfile(userId, data);
@@ -284,14 +665,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   double _calculateProfileCompletion(Map<String, dynamic> userData) {
-    int totalFields = 6;
+    int totalFields = 5; // Removed Aadhar from required fields
     int completedFields = 0;
     if (userData['firstName'] != null && userData['firstName'].toString().isNotEmpty) completedFields++;
     if (userData['lastName'] != null && userData['lastName'].toString().isNotEmpty) completedFields++;
     if (userData['mobile'] != null && userData['mobile'].toString().isNotEmpty) completedFields++;
     if (userData['dob'] != null && userData['dob'].toString().isNotEmpty) completedFields++;
     if (userData['address'] != null && userData['address'].toString().isNotEmpty) completedFields++;
-    if (userData['aadharNo'] != null && userData['aadharNo'].toString().isNotEmpty) completedFields++;
     return (completedFields / totalFields) * 100;
   }
 
@@ -660,32 +1040,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
 
-                // Account actions
-                _buildSectionCard(
-                  title: 'Account Actions',
-                  icon: Icons.manage_accounts,
-                  children: [
-                    Center(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.logout, color: Colors.white),
-                        label: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                // Logout button
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Center(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.logout, color: Colors.white),
+                      label: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        onPressed: () async {
-                          final shouldLogout = await LogoutConfirmationDialog.show(context);
-                          if (shouldLogout) {
-                            _signOut();
-                          }
-                        },
                       ),
+                      onPressed: () async {
+                        final shouldLogout = await LogoutConfirmationDialog.show(context);
+                        if (shouldLogout) {
+                          _signOut();
+                        }
+                      },
                     ),
-                  ],
+                  ),
                 ),
                 
                 const SizedBox(height: 24),

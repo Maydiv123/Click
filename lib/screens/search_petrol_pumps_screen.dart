@@ -9,6 +9,8 @@ import '../widgets/app_drawer.dart';
 import 'petrol_pump_details_screen.dart';
 import 'openstreet_map_screen.dart';
 import 'nearest_petrol_pumps_screen.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 
 class SearchPetrolPumpsScreen extends StatefulWidget {
   const SearchPetrolPumpsScreen({Key? key}) : super(key: key);
@@ -21,19 +23,27 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final MapService _mapService = MapService();
   final CustomAuthService _authService = CustomAuthService();
-  String _selectedZone = 'All Zones';
-  String _selectedDistrict = 'All Districts';
-  List<String> _zones = ['All Zones'];
-  List<String> _districts = ['All Districts'];
-  
+  // Remove zone
+  // String _selectedZone = 'All Zones';
+  String? _selectedState;
+  String? _selectedDistrict;
+  List<String> _states = [];
+  List<String> _districts = [];
+  Map<String, List<String>> _stateDistrictMap = {};
   // Preferred companies filter
   List<String> _userPreferredCompanies = [];
+  List<String> _selectedCompanies = [];
+  TextEditingController _stateSearchController = TextEditingController();
+  TextEditingController _districtSearchController = TextEditingController();
+  List<String> _filteredStates = [];
+  List<String> _filteredDistricts = [];
 
   @override
   void initState() {
     super.initState();
     _loadFilterOptions();
     _loadUserPreferredCompanies();
+    _loadStateDistrictData();
   }
 
   @override
@@ -46,14 +56,8 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
   }
 
   Future<void> _loadFilterOptions() async {
-    final locations = await _mapService.getMapLocations().first;
-    final zones = locations.map((loc) => loc.zone).toSet().toList();
-    final districts = locations.map((loc) => loc.district).toSet().toList();
-    
-    setState(() {
-      _zones = ['All Zones', ...zones];
-      _districts = ['All Districts', ...districts];
-    });
+    // This method is no longer needed since we're using state/district from JSON
+    // and companies are hardcoded. Keeping it for potential future use.
   }
 
   Future<void> _loadUserPreferredCompanies() async {
@@ -63,6 +67,8 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
         final preferredCompanies = List<String>.from(userData['preferredCompanies'] as List);
         setState(() {
           _userPreferredCompanies = preferredCompanies;
+          // Initialize selected companies with user's preferred companies
+          _selectedCompanies = List.from(preferredCompanies);
         });
       }
     } catch (e) {
@@ -78,12 +84,26 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
         if (!listEquals(preferredCompanies, _userPreferredCompanies)) {
           setState(() {
             _userPreferredCompanies = preferredCompanies;
+            // Update selected companies if they were using the old preferred companies
+            if (listEquals(_selectedCompanies, _userPreferredCompanies)) {
+              _selectedCompanies = List.from(preferredCompanies);
+            }
           });
         }
       }
     } catch (e) {
       print('Error refreshing user data: $e');
     }
+  }
+
+  Future<void> _loadStateDistrictData() async {
+    final String jsonString = await rootBundle.loadString('assets/json/statewise_districts.json');
+    final Map<String, dynamic> jsonData = json.decode(jsonString);
+    setState(() {
+      _stateDistrictMap = jsonData.map((k, v) => MapEntry(k, List<String>.from(v)));
+      _states = _stateDistrictMap.keys.toList();
+      _filteredStates = List.from(_states);
+    });
   }
 
   @override
@@ -106,69 +126,40 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
       ),
       body: Column(
         children: [
+          // Search bar
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.grey[100],
+            child: Row(
               children: [
-                // Search Bar
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-            child: TextField(
-              controller: _searchController,
-                    style: const TextStyle(color: Colors.black),
-              decoration: InputDecoration(
-                      hintText: 'Search by name, location, or address',
-                      hintStyle: TextStyle(color: Colors.grey[600]),
-                      prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 15),
-              ),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search petrol pumps...',
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    ),
                     onChanged: (value) {
                       setState(() {});
                     },
                   ),
                 ),
-                const SizedBox(height: 16),
-                // Filter Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildFilterChip(
-                        label: _selectedZone,
-                        onTap: () => _showFilterDialog(
-                          title: 'Select Zone',
-                          items: _zones,
-                          onSelect: (value) {
-                            setState(() => _selectedZone = value);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(
-                        label: _selectedDistrict,
-                        onTap: () => _showFilterDialog(
-                          title: 'Select District',
-                          items: _districts,
-                          onSelect: (value) {
-                            setState(() => _selectedDistrict = value);
-                          },
-                        ),
-                      ),
-                    ],
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.filter_list),
+                    onPressed: _showFilterDialog,
                   ),
                 ),
               ],
@@ -203,19 +194,37 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
                       location.location.toLowerCase().contains(searchQuery) ||
                       location.addressLine1.toLowerCase().contains(searchQuery);
 
-                  final matchesZone = _selectedZone == 'All Zones' ||
-                      location.zone == _selectedZone;
-
-                  final matchesDistrict = _selectedDistrict == 'All Districts' ||
-                      location.district == _selectedDistrict;
-
-                  // Check preferred companies if user has any
+                  // Preferred companies filter
                   bool matchesPreferredCompanies = true;
-                  if (_userPreferredCompanies.isNotEmpty) {
+                  if (_selectedCompanies.isNotEmpty) {
+                    // If user has manually selected companies in filter, use those
+                    matchesPreferredCompanies = _selectedCompanies.contains(location.company);
+                  } else if (_userPreferredCompanies.isNotEmpty) {
+                    // If no manual selection, use user's preferred companies
                     matchesPreferredCompanies = _userPreferredCompanies.contains(location.company);
                   }
 
-                  return matchesSearch && matchesZone && matchesDistrict && matchesPreferredCompanies;
+                  // State filter - check if location's district belongs to selected state
+                  bool matchesState = true;
+                  if (_selectedState != null && _selectedState!.isNotEmpty) {
+                    // Get districts for the selected state
+                    final stateDistricts = _stateDistrictMap[_selectedState!] ?? [];
+                    // Check if location's district is in the state's district list
+                    matchesState = location.district.isNotEmpty &&
+                        stateDistricts.any((stateDistrict) => 
+                            location.district.toLowerCase().contains(stateDistrict.toLowerCase()) ||
+                            stateDistrict.toLowerCase().contains(location.district.toLowerCase())
+                        );
+                  }
+
+                  // District filter - direct match
+                  bool matchesDistrict = true;
+                  if (_selectedDistrict != null && _selectedDistrict!.isNotEmpty) {
+                    matchesDistrict = location.district.toLowerCase().contains(_selectedDistrict!.toLowerCase()) ||
+                                    _selectedDistrict!.toLowerCase().contains(location.district.toLowerCase());
+                  }
+
+                  return matchesSearch && matchesPreferredCompanies && matchesState && matchesDistrict;
                 }).toList();
 
                 if (filteredLocations.isEmpty) {
@@ -394,72 +403,137 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
     );
   }
 
-  Widget _buildFilterChip({
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey[300]!),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.grey[800],
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.arrow_drop_down,
-              color: Colors.grey[600],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  void _showFilterDialog({
-    required String title,
-    required List<String> items,
-    required Function(String) onSelect,
-  }) {
+
+  void _showFilterDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text(
-          title,
-          style: const TextStyle(color: Colors.black),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return ListTile(
-                title: Text(
-                  item,
-                  style: const TextStyle(color: Colors.black),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Filter Options'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Preferred Companies (multi-select chips)
+                const Text('Preferred Companies', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                _userPreferredCompanies.isNotEmpty
+                  ? Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _userPreferredCompanies.map((company) {
+                        final isSelected = _selectedCompanies.contains(company);
+                                                return ChoiceChip(
+                          label: Text(company),
+                          selected: isSelected,
+                          selectedColor: const Color(0xFF35C2C1),
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedCompanies.add(company);
+                              } else {
+                                // Prevent deselecting the last company
+                                if (_selectedCompanies.length > 1) {
+                                  _selectedCompanies.remove(company);
+                                }
+                                // No warning message - silently prevent deselection
+                              }
+                            });
+                            setDialogState(() {});
+                          },
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          backgroundColor: Colors.grey[100],
+                          showCheckmark: false,
+                        );
+                      }).toList(),
+                    )
+                  : const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        'No preferred companies set. Please update your profile.',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                const SizedBox(height: 16),
+                // State filter (autocomplete search)
+                const Text('State', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                _buildAutocompleteSearch(
+                  value: _selectedState,
+                  hintText: 'Search and select state...',
+                  items: _states,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedState = value;
+                      _selectedDistrict = null;
+                      _districts = value != null ? _stateDistrictMap[value]! : [];
+                      _filteredDistricts = List.from(_districts);
+                      _districtSearchController.clear();
+                    });
+                    setDialogState(() {});
+                  },
+                  searchController: _stateSearchController,
                 ),
-                onTap: () {
-                  onSelect(item);
-                  Navigator.pop(context);
-                },
-              );
-            },
+                const SizedBox(height: 16),
+                // District filter (autocomplete search, state-dependent)
+                const Text('District', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                _selectedState != null
+                  ? _buildAutocompleteSearch(
+                      value: _selectedDistrict,
+                      hintText: 'Search and select district...',
+                      items: _districts,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedDistrict = value;
+                        });
+                        setDialogState(() {});
+                      },
+                      searchController: _districtSearchController,
+                    )
+                  : _buildAutocompleteSearch(
+                      value: null,
+                      hintText: 'Select State First',
+                      items: [],
+                      onChanged: (value) {},
+                      searchController: _districtSearchController,
+                      enabled: false,
+                    ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedCompanies.clear();
+                  _selectedState = null;
+                  _selectedDistrict = null;
+                  _districts = [];
+                  _filteredStates = List.from(_states);
+                  _filteredDistricts = [];
+                  _stateSearchController.clear();
+                  _districtSearchController.clear();
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('Clear All'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Apply'),
+            ),
+          ],
         ),
       ),
     );
@@ -468,7 +542,95 @@ class _SearchPetrolPumpsScreenState extends State<SearchPetrolPumpsScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _stateSearchController.dispose();
+    _districtSearchController.dispose();
     super.dispose();
+  }
+
+  Widget _buildAutocompleteSearch({
+    required String? value,
+    required String hintText,
+    required List<String> items,
+    required Function(String?) onChanged,
+    required TextEditingController searchController,
+    bool enabled = true,
+  }) {
+    return Autocomplete<String>(
+      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+        // Sync the controller with our search controller
+        if (textEditingController.text != searchController.text) {
+          textEditingController.text = searchController.text;
+          textEditingController.selection = TextSelection.fromPosition(
+            TextPosition(offset: searchController.text.length),
+          );
+        }
+        
+        return TextField(
+          controller: textEditingController,
+          focusNode: focusNode,
+          enabled: enabled,
+          decoration: InputDecoration(
+            hintText: hintText,
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: value != null ? IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                searchController.clear();
+                textEditingController.clear();
+                onChanged(null);
+              },
+            ) : null,
+            border: const OutlineInputBorder(),
+            filled: true,
+            fillColor: enabled ? Colors.white : Colors.grey.shade100,
+          ),
+          onChanged: (text) {
+            searchController.text = text;
+          },
+        );
+      },
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return items;
+        }
+        return items.where((item) => 
+          item.toLowerCase().contains(textEditingValue.text.toLowerCase())
+        ).toList();
+      },
+      onSelected: (String selection) {
+        searchController.text = selection;
+        onChanged(selection);
+      },
+      displayStringForOption: (String option) => option,
+      optionsViewBuilder: (context, onSelected, options) {
+        return Material(
+          elevation: 4.0,
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: options.length,
+              itemBuilder: (BuildContext context, int index) {
+                final String option = options.elementAt(index);
+                final bool isSelected = value == option;
+                return ListTile(
+                  title: Text(option),
+                  selected: isSelected,
+                  selectedTileColor: const Color(0xFF35C2C1).withOpacity(0.1),
+                  onTap: () {
+                    onSelected(option);
+                  },
+                  trailing: isSelected ? const Icon(
+                    Icons.check,
+                    color: Color(0xFF35C2C1),
+                  ) : null,
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _getCompanyLogo(String company) {

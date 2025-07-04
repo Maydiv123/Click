@@ -14,6 +14,7 @@ import '../screens/join_team_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/team_details_screen.dart';
 import '../screens/nearest_petrol_pumps_screen.dart';
+import '../screens/petrol_pump_requests_screen.dart';
 import 'modern_app_features.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -386,6 +387,19 @@ class AppDrawer extends StatelessWidget {
                           MaterialPageRoute(builder: (context) => const NearestPetrolPumpsScreen()),
                         );
                       },
+                    ),
+                    
+                    _buildDrawerItem(
+                      icon: Icons.assignment,
+                      title: 'My Requests',
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const PetrolPumpRequestsScreen()),
+                        );
+                      },
+                      isActive: currentScreen == 'requests',
                     ),
                     
                     const Divider(height: 24),

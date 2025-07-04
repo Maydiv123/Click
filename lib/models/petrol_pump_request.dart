@@ -15,15 +15,19 @@ class PetrolPumpRequest {
   final String contactDetails;
   final double latitude;
   final double longitude;
-  final String status;  // 'pending', 'approved', 'rejected'
+  final String status;  // 'pending', 'approved', 'rejected', 'verified'
   final DateTime createdAt;
+  final DateTime? updatedAt;
   final String? requestedByUserId;
+  final String? adminFeedback;
+  final String id;
   final String? bannerImageUrl;
   final String? boardImageUrl;
   final String? billSlipImageUrl;
   final String? governmentDocImageUrl;
   final String regionalOffice;
   final String company;
+  final String? rejectionReason;
 
   PetrolPumpRequest({
     required this.zone,
@@ -42,13 +46,17 @@ class PetrolPumpRequest {
     required this.longitude,
     required this.status,
     required this.createdAt,
+    this.updatedAt,
     this.requestedByUserId,
+    this.adminFeedback,
+    required this.id,
     this.bannerImageUrl,
     this.boardImageUrl,
     this.billSlipImageUrl,
     this.governmentDocImageUrl,
     required this.regionalOffice,
     required this.company,
+    this.rejectionReason,
   });
 
   // Convert to Map for Firestore
@@ -70,18 +78,21 @@ class PetrolPumpRequest {
       'longitude': longitude,
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'requestedByUserId': requestedByUserId,
+      'adminFeedback': adminFeedback,
       'bannerImageUrl': bannerImageUrl,
       'boardImageUrl': boardImageUrl,
       'billSlipImageUrl': billSlipImageUrl,
       'governmentDocImageUrl': governmentDocImageUrl,
       'regionalOffice': regionalOffice,
       'company': company,
+      'rejectionReason': rejectionReason,
     };
   }
 
   // Create from Firestore document
-  factory PetrolPumpRequest.fromMap(Map<String, dynamic> map) {
+  factory PetrolPumpRequest.fromMap(Map<String, dynamic> map, String documentId) {
     return PetrolPumpRequest(
       zone: map['zone'] ?? '',
       salesArea: map['salesArea'] ?? '',
@@ -99,13 +110,17 @@ class PetrolPumpRequest {
       longitude: map['longitude'] ?? 0.0,
       status: map['status'] ?? 'pending',
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
       requestedByUserId: map['requestedByUserId'],
+      adminFeedback: map['adminFeedback'],
+      id: documentId,
       bannerImageUrl: map['bannerImageUrl'],
       boardImageUrl: map['boardImageUrl'],
       billSlipImageUrl: map['billSlipImageUrl'],
       governmentDocImageUrl: map['governmentDocImageUrl'],
       regionalOffice: map['regionalOffice'] ?? '',
       company: map['company'] ?? '',
+      rejectionReason: map['rejectionReason'],
     );
   }
 

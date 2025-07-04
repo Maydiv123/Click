@@ -41,7 +41,7 @@ class PetrolPumpRequestService {
         .collection(_collection)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => PetrolPumpRequest.fromMap(doc.data()))
+            .map((doc) => PetrolPumpRequest.fromMap(doc.data(), doc.id))
             .toList());
   }
 
@@ -52,7 +52,7 @@ class PetrolPumpRequestService {
         .where('status', isEqualTo: status)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => PetrolPumpRequest.fromMap(doc.data()))
+            .map((doc) => PetrolPumpRequest.fromMap(doc.data(), doc.id))
             .toList());
   }
 
@@ -63,8 +63,59 @@ class PetrolPumpRequestService {
         .where('requestedByUserId', isEqualTo: userId)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => PetrolPumpRequest.fromMap(doc.data()))
+            .map((doc) => PetrolPumpRequest.fromMap(doc.data(), doc.id))
             .toList());
+  }
+
+  // Get petrol pump requests by user ID (Future version)
+  Future<List<PetrolPumpRequest>> getUserRequests(String userId) async {
+    try {
+      print('DEBUG: Getting requests for user: $userId');
+      print('DEBUG: Collection name: $_collection');
+      
+      // First, let's check if the collection exists by trying to get all documents
+      final allDocs = await _firestore.collection(_collection).limit(1).get();
+      print('DEBUG: Collection exists, total documents: ${allDocs.docs.length}');
+      
+      final querySnapshot = await _firestore
+          .collection(_collection)
+          .where('requestedByUserId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      print('DEBUG: Query returned ${querySnapshot.docs.length} documents for user $userId');
+      
+      final requests = querySnapshot.docs
+          .map((doc) {
+            print('DEBUG: Processing document ${doc.id}');
+            print('DEBUG: Document data: ${doc.data()}');
+            return PetrolPumpRequest.fromMap(doc.data(), doc.id);
+          })
+          .toList();
+      
+      print('DEBUG: Successfully created ${requests.length} PetrolPumpRequest objects');
+      return requests;
+    } catch (e) {
+      print('DEBUG: Error in getUserRequests: $e');
+      
+      // If the error is related to the field not existing, let's try a different approach
+      if (e.toString().contains('requestedByUserId')) {
+        print('DEBUG: Trying alternative approach - checking all documents');
+        try {
+          final allDocs = await _firestore.collection(_collection).get();
+          print('DEBUG: Found ${allDocs.docs.length} total documents in collection');
+          
+          // Check what fields exist in the documents
+          for (final doc in allDocs.docs.take(3)) {
+            print('DEBUG: Document ${doc.id} fields: ${doc.data().keys.toList()}');
+          }
+        } catch (e2) {
+          print('DEBUG: Error checking all documents: $e2');
+        }
+      }
+      
+      throw Exception('Failed to get user requests: $e');
+    }
   }
 
   // Update petrol pump request status
@@ -146,7 +197,7 @@ class PetrolPumpRequestService {
     try {
       final doc = await _firestore.collection(_collection).doc(requestId).get();
       if (doc.exists) {
-        return PetrolPumpRequest.fromMap(doc.data()!);
+        return PetrolPumpRequest.fromMap(doc.data()!, doc.id);
       }
       return null;
     } catch (e) {

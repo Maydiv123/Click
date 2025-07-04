@@ -30,20 +30,47 @@ class CustomBottomNavigationBar extends StatelessWidget {
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
       notchMargin: 8,
-      child: Container(
-        height: 60,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: SizedBox(
+        height: 76, // Increased height to fit label
+        child: Stack(
+          alignment: Alignment.bottomCenter,
           children: [
-            _buildNavItem(0, Icons.home_outlined, 'Home'),
-            _buildNavItem(1, Icons.map_outlined, 'Map'),
-            if (showFloatingActionButton) 
-              const SizedBox(width: 40) // Space for FAB
-            else
-              const SizedBox(width: 0),
-            _buildNavItem(3, Icons.search, 'Search'),
-            _buildNavItem(4, Icons.person_outline, 'Profile'),
+            Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildNavItem(0, Icons.home_outlined, 'Home'),
+                  _buildNavItem(1, Icons.map_outlined, 'Map'),
+                  if (showFloatingActionButton)
+                    const SizedBox(width: 40) // Space for FAB
+                  else
+                    const SizedBox(width: 0),
+                  _buildNavItem(3, Icons.search, 'Search'),
+                  _buildNavItem(4, Icons.person_outline, 'Profile'),
+                ],
+              ),
+            ),
+            if (showFloatingActionButton)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      floatingActionButtonTooltip ?? 'Camera',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -157,6 +184,7 @@ class ScaffoldWithBottomNav extends StatelessWidget {
         currentIndex: currentIndex,
         onTap: (index) => _handleNavigation(context, index),
         showFloatingActionButton: showFAB,
+        floatingActionButtonTooltip: floatingActionButtonTooltip,
       ),
     );
   }
