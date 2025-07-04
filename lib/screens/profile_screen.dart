@@ -220,6 +220,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String searchQuery = '';
     List<String> filteredProfessions = List.from(_professions);
     
+    print('Opening profession dialog with current profession: $currentProfession');
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -269,6 +271,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: TextStyle(color: Colors.grey),
                       ),
                       onTap: () {
+                        print('Clear selection tapped');
                         Navigator.of(context).pop();
                         onProfessionSelected(null);
                       },
@@ -301,6 +304,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? const Icon(Icons.check, color: Color(0xFF35C2C1))
                                 : null,
                             onTap: () {
+                              print('Profession selected: $profession');
                               Navigator.of(context).pop();
                               onProfessionSelected(profession);
                             },
@@ -448,6 +452,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     // Initialize profession
     String? currentProfession = userData['profession'];
+    String? selectedProfession = currentProfession; // Persist across modal rebuilds
     
     // Convert to Set to remove duplicates, then back to List
     List<String> oilCompanies = userData['preferredCompanies'] != null 
@@ -467,9 +472,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Set the country code and flag for this modal
             _selectedCountryCode = countryCode;
             _selectedCountryFlag = countryFlag;
-            // Initialize profession
-            _selectedProfession = currentProfession;
-            
+            // Do NOT re-initialize selectedProfession here!
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -751,10 +754,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 10),
                           GestureDetector(
                             onTap: () {
-                              _showProfessionDialog(_selectedProfession, (String? profession) {
+                              print('Profession field tapped');
+                              print('Current selectedProfession: $selectedProfession');
+                              _showProfessionDialog(selectedProfession, (String? profession) {
+                                print('Profession callback called with: $profession');
                                 setModalState(() {
-                                  _selectedProfession = profession;
+                                  selectedProfession = profession;
+                                  print('selectedProfession updated to: $selectedProfession');
                                 });
+                                // Force rebuild to ensure UI updates
+                                setModalState(() {});
                               });
                             },
                             child: Container(
@@ -769,9 +778,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      _selectedProfession ?? 'Select your profession',
+                                      selectedProfession ?? 'Select your profession',
                                       style: TextStyle(
-                                        color: _selectedProfession != null ? Colors.black : Colors.grey[600],
+                                        color: selectedProfession != null ? Colors.black : Colors.grey[600],
                                         fontSize: 16,
                                       ),
                                     ),
@@ -859,17 +868,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 'address': addressController.text.trim(),
                                 'aadharNo': aadharController.text.trim(),
                                 'mobile': _selectedCountryCode + mobileController.text.trim(),
-                                'profession': _selectedProfession,
+                                'profession': selectedProfession,
                                 'preferredCompanies': oilCompanies,
                               };
+                              
+                              print('Saving profile data: $data');
                               await _authService.updateUserProfile(userId, data);
                               
                               // Refresh user data immediately
                               final updatedUserData = await _authService.getCurrentUserData();
+                              print('Updated user data: $updatedUserData');
+                              print('Updated profession: ${updatedUserData['profession']}');
                               if (mounted) {
                                 setState(() {
                                   _userData = updatedUserData;
                                 });
+                                // Force rebuild of the entire profile page
+                                setState(() {});
+                                // Force refresh of the database stream
+                                _loadUserData();
                               }
                               
                               Navigator.pop(context);
@@ -928,6 +945,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         SnackBar(content: Text('Error signing out: ${e.toString()}')),
       );
     }
+  }
+
+  // Helper to display N/A for empty/null
+  String displayOrNA(dynamic value) {
+    if (value == null) return 'N/A';
+    if (value is String && value.trim().isEmpty) return 'N/A';
+    return value.toString();
   }
 
   @override
@@ -1146,13 +1170,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title: 'Personal Information',
                   icon: Icons.person,
                   children: [
-                    _buildInfoItem('Date of Birth', userData["dob"] ?? 'Not provided', Icons.cake),
+                    _buildInfoItem('Date of Birth', displayOrNA(userData["dob"]), Icons.cake),
                     const Divider(height: 24),
-                    _buildInfoItem('Address', userData["address"] ?? 'Not provided', Icons.location_on),
+                    _buildInfoItem('Address', displayOrNA(userData["address"]), Icons.location_on),
                     const Divider(height: 24),
-                    _buildInfoItem('Profession', userData["profession"] ?? 'Not provided', Icons.work),
+                    _buildInfoItem('Profession', displayOrNA(userData["profession"]), Icons.work),
                     const Divider(height: 24),
-                    _buildInfoItem('Aadhar No', userData["aadharNo"] ?? 'Not provided', Icons.badge),
+                    _buildInfoItem('Aadhar No', displayOrNA(userData["aadharNo"]), Icons.badge),
                   ],
                 ),
 

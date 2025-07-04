@@ -876,10 +876,13 @@ class _CameraScreenState extends State<CameraScreen> {
                                     ),
                                 ],
                               )
-                            : const Icon(
-                                Icons.photo_library,
-                                color: Colors.white,
-                                size: 24,
+                            : const Opacity(
+                                opacity: 0.5,
+                                child: Icon(
+                                  Icons.photo_library,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
                               ),
                         ),
                       ),
@@ -943,10 +946,13 @@ class _CameraScreenState extends State<CameraScreen> {
                             color: Colors.black.withOpacity(0.3),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
-                            _isTorchOn ? Icons.flash_on : Icons.flash_off,
-                            color: _isTorchOn ? const Color(0xFFFFD700) : Colors.white,
-                            size: 24,
+                          child: Opacity(
+                            opacity: 0.5,
+                            child: Icon(
+                              _isTorchOn ? Icons.flash_on : Icons.flash_off,
+                              color: _isTorchOn ? const Color(0xFFFFD700) : Colors.white,
+                              size: 24,
+                            ),
                           ),
                         ),
                       ),
