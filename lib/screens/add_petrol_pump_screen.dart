@@ -159,18 +159,33 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   // Listener for pincode changes
   void _onPincodeChanged() {
     final pincode = _pincodeController.text.trim();
-    
-    // Reset validation state when pincode changes
+
+    // Clear all fields except pincode
+    _zoneController.clear();
+    _salesAreaController.clear();
+    _coClDoController.clear();
+    _districtController.clear();
+    _sapCodeController.clear();
+    _customerNameController.clear();
+    _locationController.clear();
+    _addressLine1Controller.clear();
+    _addressLine2Controller.clear();
+    _dealerNameController.clear();
+    _contactDetailsController.clear();
+    _latitudeController.clear();
+    _longitudeController.clear();
+    _regionalOfficeController.clear();
+    // Optionally clear images and other state if needed
     setState(() {
       _isPincodeValidated = false;
       _isPincodeFound = false;
     });
-    
+
     if (pincode.length == 6) {
       // Only trigger lookup when a complete 6-digit pincode is entered
       _fetchDistrictFromPincode(pincode);
     }
-    
+
     // Real-time validation guidance
     setState(() {
       if (pincode.isEmpty) {

@@ -273,6 +273,7 @@ Pincode: ${location.pincode}
   }
 
   Widget _buildInfoRow(String label, String value) {
+    final displayValue = (value.trim().isEmpty) ? 'N/A' : value;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -291,7 +292,7 @@ Pincode: ${location.pincode}
           ),
           Expanded(
             child: Text(
-              value,
+              displayValue,
               style: const TextStyle(
                 color: Colors.black,
                 fontSize: 15,
@@ -328,7 +329,7 @@ Pincode: ${location.pincode}
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                location.addressLine1,
+                (location.addressLine1.trim().isEmpty) ? 'N/A' : location.addressLine1,
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: 15,
@@ -337,7 +338,7 @@ Pincode: ${location.pincode}
               if (location.addressLine2.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
-                  location.addressLine2,
+                  (location.addressLine2.trim().isEmpty) ? 'N/A' : location.addressLine2,
                   style: const TextStyle(
                     color: Colors.black,
                     fontSize: 15,
@@ -346,7 +347,7 @@ Pincode: ${location.pincode}
               ],
               const SizedBox(height: 4),
               Text(
-                'Pincode: ${location.pincode}',
+                'Pincode: ' + (location.pincode.trim().isEmpty ? 'N/A' : location.pincode),
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: 15,

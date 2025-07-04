@@ -355,70 +355,42 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     }
 
-    // Calculate the Y position for the last line to align with branding/logo
-    // The branding/logo is drawn at: imageHeight - logoHeight - leftMargin
-    // We'll use the same margin for the last line
-    double lastLineBottomY;
-    double logoHeight = 0;
+    // Set logo size to match text block height
+    final logoSize = totalWatermarkHeight;
+    final logoMargin = imageWidth * 0.03; // same as leftMargin
+    final gap = imageWidth * 0.02; // gap between logo and text
+    final bottomMargin = logoMargin;
+    final yBase = imageHeight - bottomMargin - logoSize;
+
+    // Draw logo (square, vertically centered with text block)
     try {
-      // Calculate logo height based on image width
-      logoHeight = (imageWidth * 0.08).clamp(30.0, 60.0); // 8% of image width, min 30px, max 60px
-    } catch (_) {
-      logoHeight = 40.0; // fallback
+      final brandingImageData = await rootBundle.load('assets/images/Branding.png');
+      final brandingImage = await decodeImageFromList(brandingImageData.buffer.asUint8List());
+      canvas.drawImageRect(
+        brandingImage,
+        Rect.fromLTWH(0, 0, brandingImage.width.toDouble(), brandingImage.height.toDouble()),
+        Rect.fromLTWH(logoMargin, yBase, logoSize, logoSize),
+        Paint()..filterQuality = ui.FilterQuality.high,
+      );
+    } catch (e) {
+      debugPrint('Error loading branding logo for watermark: $e');
     }
-    lastLineBottomY = imageHeight - logoHeight - leftMargin;
 
-    // Calculate the starting Y so the last line is at lastLineBottomY
-    double startY = lastLineBottomY - totalWatermarkHeight + watermarkPainters.last.height;
-
-    // Draw each watermark line from top to bottom in the 70% area after the logo
-    final infoStartX = leftMargin + (imageWidth * 0.3) + (imageWidth * 0.02); // Logo width + small spacing
-    final infoWidth = imageWidth * 0.7 - (2 * leftMargin); // 70% width minus margins
-    
-    double y = startY;
+    // Draw text block to the right of the logo
+    double y = yBase;
+    final infoStartX = logoMargin + logoSize + gap;
+    final infoWidth = imageWidth - infoStartX - logoMargin;
     for (int i = 0; i < watermarkPainters.length; i++) {
-      // Recalculate text width for the 70% area
       final textPainter = TextPainter(
         text: watermarkPainters[i].text,
         textDirection: ui.TextDirection.ltr,
         maxLines: 1,
       )..layout(maxWidth: infoWidth);
-      
       textPainter.paint(canvas, Offset(infoStartX, y));
       y += watermarkPainters[i].height;
       if (i < watermarkPainters.length - 1) {
         y += lineSpacings[i];
       }
-    }
-
-    // Add branding logo at the bottom of the image
-    try {
-      final brandingImageData = await rootBundle.load('assets/images/Branding.png');
-      final brandingImage = await decodeImageFromList(brandingImageData.buffer.asUint8List());
-      
-      // Calculate logo dimensions (30% of image width)
-      final logoWidth = imageWidth * 0.3; // 30% of image width
-      
-      // Position logo at bottom left, vertically centered in the 30% area
-      final logoX = leftMargin;
-      final logoY = imageHeight - logoHeight - leftMargin;
-      
-      // Calculate the center of the 30% area for vertical centering
-      final logoAreaHeight = imageHeight - (2 * leftMargin); // Available height for logo
-      final centeredLogoY = leftMargin + (logoAreaHeight - logoHeight) / 2; // Vertically centered
-      
-      // Draw logo with better quality, vertically centered
-      canvas.drawImageRect(
-        brandingImage,
-        Rect.fromLTWH(0, 0, brandingImage.width.toDouble(), brandingImage.height.toDouble()),
-        Rect.fromLTWH(logoX, centeredLogoY, logoWidth, logoHeight),
-        Paint()..filterQuality = ui.FilterQuality.high,
-      );
-      
-      debugPrint('Branding logo drawn successfully: ${logoWidth}x${logoHeight}px');
-      
-    } catch (e) {
-      debugPrint('Error loading branding logo for watermark: $e');
     }
 
     // Convert the canvas to an image

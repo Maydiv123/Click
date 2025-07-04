@@ -37,6 +37,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _selectedCountryCode = '+91';
   String _selectedCountryFlag = '🇮🇳';
 
+  // Profession variables
+  String? _selectedProfession;
+  final List<String> _professions = [
+    'Plumber',
+    'Electrician', 
+    'Supervisor',
+    'Field boy',
+    'Officer',
+    'Site engineer',
+    'Co-worker',
+    'Mason',
+    'Welder',
+    'Carpenter',
+  ];
+  List<String> _filteredProfessions = [];
+  final TextEditingController _professionSearchController = TextEditingController();
+
   // Date picker function
   Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
     // Try to parse the current text as a date
@@ -135,6 +152,178 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _showCompanySelectionDialog(String company, bool isSelected, Function() onConfirm) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(
+                isSelected ? Icons.remove_circle : Icons.add_circle,
+                color: isSelected ? Colors.orange : const Color(0xFF35C2C1),
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isSelected ? 'Remove Company' : 'Add Company',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            isSelected 
+                ? 'Are you sure you want to remove $company from your preferred companies?'
+                : 'You selected $company. Add it to your preferred companies?',
+            style: const TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                onConfirm();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSelected ? Colors.orange : const Color(0xFF35C2C1),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text(
+                'OK',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showProfessionDialog(String? currentProfession, Function(String?) onProfessionSelected) {
+    String searchQuery = '';
+    List<String> filteredProfessions = List.from(_professions);
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text(
+                'Select Profession',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Search TextField
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search professions...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                      ),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          searchQuery = value.toLowerCase();
+                          filteredProfessions = _professions
+                              .where((profession) => 
+                                  profession.toLowerCase().contains(searchQuery))
+                              .toList();
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Clear selection option
+                    ListTile(
+                      leading: const Icon(Icons.clear, color: Colors.grey),
+                      title: const Text(
+                        'Clear selection',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        onProfessionSelected(null);
+                      },
+                    ),
+                    
+                    const Divider(),
+                    
+                    // Filtered professions list
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filteredProfessions.length,
+                        itemBuilder: (context, index) {
+                          final profession = filteredProfessions[index];
+                          final isSelected = currentProfession == profession;
+                          
+                          return ListTile(
+                            leading: Icon(
+                              Icons.work,
+                              color: isSelected ? const Color(0xFF35C2C1) : Colors.grey,
+                            ),
+                            title: Text(
+                              profession,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? const Color(0xFF35C2C1) : Colors.black,
+                              ),
+                            ),
+                            trailing: isSelected 
+                                ? const Icon(Icons.check, color: Color(0xFF35C2C1))
+                                : null,
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              onProfessionSelected(profession);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showCountryPicker() {
     showCountryPicker(
       context: context,
@@ -178,6 +367,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _professionSearchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -251,6 +446,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     final TextEditingController mobileController = TextEditingController(text: phoneNumber);
     
+    // Initialize profession
+    String? currentProfession = userData['profession'];
+    
     // Convert to Set to remove duplicates, then back to List
     List<String> oilCompanies = userData['preferredCompanies'] != null 
         ? List<String>.from(Set<String>.from(userData['preferredCompanies'] as List))
@@ -269,6 +467,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Set the country code and flag for this modal
             _selectedCountryCode = countryCode;
             _selectedCountryFlag = countryFlag;
+            // Initialize profession
+            _selectedProfession = currentProfession;
             
             return Padding(
               padding: EdgeInsets.only(
@@ -374,12 +574,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               onPressed: () => _selectDate(context, dobController),
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Date of birth is required';
-                            }
-                            return null;
-                          },
+                          // Removed validator to make it optional
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -395,15 +590,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Address is required';
-                          }
-                          if (value.trim().length < 10) {
-                            return 'Address must be at least 10 characters long';
-                          }
-                          return null;
-                        },
+                        // Removed validator to make it optional
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -549,6 +736,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
+                      // Profession Field
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Profession',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          GestureDetector(
+                            onTap: () {
+                              _showProfessionDialog(_selectedProfession, (String? profession) {
+                                setModalState(() {
+                                  _selectedProfession = profession;
+                                });
+                              });
+                            },
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _selectedProfession ?? 'Select your profession',
+                                      style: TextStyle(
+                                        color: _selectedProfession != null ? Colors.black : Colors.grey[600],
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       const Text('Preferred Oil Companies', style: TextStyle(fontWeight: FontWeight.w500)),
                       const SizedBox(height: 8),
                       Wrap(
@@ -558,25 +793,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           final isSelected = oilCompanies.contains(company);
                           return GestureDetector(
                             onTap: () {
-                              setModalState(() {
-                                if (isSelected) {
-                                  // Check if this is the last selected company
-                                  if (oilCompanies.length > 1) {
-                                    oilCompanies.remove(company);
-                                  } else {
-                                    // Show warning when trying to deselect the last company
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('⚠️ At least one oil company must be selected'),
-                                        backgroundColor: Colors.orange,
-                                        duration: Duration(seconds: 3),
-                                      ),
-                                    );
-                                  }
+                              if (isSelected) {
+                                // Check if this is the last selected company
+                                if (oilCompanies.length > 1) {
+                                  _showCompanySelectionDialog(company, true, () {
+                                    setModalState(() {
+                                      oilCompanies.remove(company);
+                                    });
+                                  });
                                 } else {
-                                  oilCompanies.add(company);
+                                  // Show warning when trying to deselect the last company
+                                  _showCompanySelectionDialog(company, true, () {
+                                    // Don't remove the last company
+                                  });
                                 }
-                              });
+                              } else {
+                                _showCompanySelectionDialog(company, false, () {
+                                  setModalState(() {
+                                    oilCompanies.add(company);
+                                  });
+                                });
+                              }
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -622,6 +859,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 'address': addressController.text.trim(),
                                 'aadharNo': aadharController.text.trim(),
                                 'mobile': _selectedCountryCode + mobileController.text.trim(),
+                                'profession': _selectedProfession,
                                 'preferredCompanies': oilCompanies,
                               };
                               await _authService.updateUserProfile(userId, data);
@@ -911,6 +1149,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildInfoItem('Date of Birth', userData["dob"] ?? 'Not provided', Icons.cake),
                     const Divider(height: 24),
                     _buildInfoItem('Address', userData["address"] ?? 'Not provided', Icons.location_on),
+                    const Divider(height: 24),
+                    _buildInfoItem('Profession', userData["profession"] ?? 'Not provided', Icons.work),
                     const Divider(height: 24),
                     _buildInfoItem('Aadhar No', userData["aadharNo"] ?? 'Not provided', Icons.badge),
                   ],

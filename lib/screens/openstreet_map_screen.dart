@@ -35,6 +35,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
   Position? _currentPosition;
   bool _isLoading = true;
   bool _showCurrentLocation = false;
+  bool _hasShownSlider = false; // Track if slider has been shown at least once
   
   // Remove zone filter
   String? _selectedState;
@@ -134,6 +135,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
         _currentPosition = position;
         _showCurrentLocation = true;
         _isLoading = false;
+        _hasShownSlider = true; // Mark that slider should be shown
       });
 
       if (mounted) {
@@ -614,6 +616,12 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                           if (_currentPosition != null) {
                             _moveToLocation(latlong.LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
                           } else {
+                            // Ensure slider remains visible during location fetch
+                            if (!_hasShownSlider) {
+                              setState(() {
+                                _hasShownSlider = true;
+                              });
+                            }
                             _getCurrentLocation();
                           }
                         },
@@ -643,8 +651,8 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
               ),
               child: Column(
                 children: [
-                  // Always show the radius slider if current position is available
-                  if (_currentPosition != null) ...[
+                  // Always show the radius slider if current position is available or if it was shown before
+                  if (_currentPosition != null || _hasShownSlider) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: Row(
@@ -763,11 +771,19 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-                  setState(() {
-          _isLoading = true;
-          _useRadiusFilter = false;
-          _radiusInKm = 0.0;
-        });
+          setState(() {
+            _isLoading = true;
+            // Don't reset radius to 0 - maintain user's last setting or use default
+            if (_radiusInKm == 0.0) {
+              _radiusInKm = 5.0; // Default to 5km if no radius was set
+              _useRadiusFilter = true;
+            }
+            // Keep the current radius value instead of resetting to 0
+            // Preserve the slider visibility flag
+            if (!_hasShownSlider) {
+              _hasShownSlider = true;
+            }
+          });
           _loadMapLocations();
           _getCurrentLocation();
         },

@@ -702,7 +702,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                       child: TextFormField(
                         controller: _teamCodeController,
                         decoration: InputDecoration(
-                          labelText: 'Team Code',
+                          labelText: 'Enter your team code',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.grey[300]!),
