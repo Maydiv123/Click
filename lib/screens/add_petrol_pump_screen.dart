@@ -550,8 +550,7 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
           _salesAreaController.text = nearestPump.salesArea;
           _zoneController.text = nearestPump.zone;
           _regionalOfficeController.text = nearestPump.regionalOffice; // Use regionalOffice directly
-          _coClDoController.text = nearestPump.coClDo; // Auto-fill CO/CL/DO field
-          
+          // _coClDoController.text = nearestPump.coClDo; // Removed auto-fill for CO/CL/DO
           // Note: The following fields are intentionally NOT auto-filled:
           // - customerName
           // - dealerName
@@ -1581,28 +1580,6 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                             },
                             onChanged: (_) => _updateProgress(),
                           ),
-                          const SizedBox(height: 16),
-                          
-                          // CO/CL/DO field
-                          TextFormField(
-                            controller: _coClDoController,
-                            enabled: _areFieldsEnabled(),
-                            decoration: InputDecoration(
-                              labelText: 'CO/CL/DO *',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey[100],
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter CO/CL/DO';
-                              }
-                              return null;
-                            },
-                            onChanged: (_) => _updateProgress(),
-                          ),
                         ],
                       ),
                     ),
@@ -1809,6 +1786,39 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                 ),
                               ),
                             ),
+                          const SizedBox(height: 16),
+                          
+                          // CO/CL/DO field
+                          DropdownButtonFormField<String>(
+                            value: _coClDoController.text.isNotEmpty ? _coClDoController.text : null,
+                            items: const [
+                              DropdownMenuItem(value: 'CO', child: Text('CO')),
+                              DropdownMenuItem(value: 'CL', child: Text('CL')),
+                              DropdownMenuItem(value: 'DO', child: Text('DO')),
+                            ],
+                            onChanged: _areFieldsEnabled()
+                                ? (value) {
+                                    setState(() {
+                                      _coClDoController.text = value ?? '';
+                                    });
+                                    _updateProgress();
+                                  }
+                                : null,
+                            decoration: InputDecoration(
+                              labelText: 'CO/CL/DO *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please select CO/CL/DO';
+                              }
+                              return null;
+                            },
+                          ),
                         ],
                       ),
                     ),

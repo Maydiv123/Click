@@ -486,56 +486,88 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
       ),
       // Bottom action bar is now conditional
       bottomNavigationBar: _isSelectionMode
-        ? Container(
-            height: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                // Share Button
-                TextButton.icon(
-                  onPressed: _selectedImages.isNotEmpty ? _shareSelectedImages : null,
-                  icon: const Icon(Icons.share),
-                  label: const Text('Share'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF35C2C1),
+        ? SafeArea(
+            child: Container(
+              height: 100, // Increased height for better visibility
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 15,
+                    offset: const Offset(0, -3),
                   ),
-                ),
-                // Delete Button
-                TextButton.icon(
-                  onPressed: _selectedImages.isNotEmpty ? _deleteSelectedImages : null,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Delete'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  // Share Button
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      child: ElevatedButton.icon(
+                        onPressed: _selectedImages.isNotEmpty ? _shareSelectedImages : null,
+                        icon: const Icon(Icons.share, size: 20),
+                        label: const Text(
+                          'Share',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF35C2C1),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  // Delete Button
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      child: ElevatedButton.icon(
+                        onPressed: _selectedImages.isNotEmpty ? _deleteSelectedImages : null,
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        label: const Text(
+                          'Delete',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           )
         : _images.isEmpty
-            ? Container(
-                padding: const EdgeInsets.all(16),
-                child: ElevatedButton.icon(
-                  onPressed: _goBackToCamera,
-                  icon: const Icon(Icons.add_a_photo),
-                  label: const Text('Take More Photos'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF35C2C1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+            ? SafeArea(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  child: ElevatedButton.icon(
+                    onPressed: _goBackToCamera,
+                    icon: const Icon(Icons.add_a_photo),
+                    label: const Text('Take More Photos'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF35C2C1),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),

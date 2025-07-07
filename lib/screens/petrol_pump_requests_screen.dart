@@ -426,26 +426,26 @@ class _PetrolPumpRequestsScreenState extends State<PetrolPumpRequestsScreen> {
                         },
                       ),
                     ),
-      bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: 0, // Home index
-        onTap: (index) {
-          switch (index) {
-            case 0: // Home
-              Navigator.pushReplacementNamed(context, '/home');
-              break;
-            case 1: // Map
-              Navigator.pushReplacementNamed(context, '/map');
-              break;
-            case 3: // Search
-              Navigator.pushReplacementNamed(context, '/search');
-              break;
-            case 4: // Profile
-              Navigator.pushReplacementNamed(context, '/profile');
-              break;
-          }
-        },
-        showFloatingActionButton: false,
-      ),
+      // bottomNavigationBar: CustomBottomNavigationBar(
+      //   currentIndex: 0, // Home index
+      //   onTap: (index) {
+      //     switch (index) {
+      //       case 0: // Home
+      //         Navigator.pushReplacementNamed(context, '/home');
+      //         break;
+      //       case 1: // Map
+      //         Navigator.pushReplacementNamed(context, '/map');
+      //         break;
+      //       case 3: // Search
+      //         Navigator.pushReplacementNamed(context, '/search');
+      //         break;
+      //       case 4: // Profile
+      //         Navigator.pushReplacementNamed(context, '/profile');
+      //         break;
+      //     }
+      //   },
+      //   showFloatingActionButton: false,
+      // ),
     );
   }
 

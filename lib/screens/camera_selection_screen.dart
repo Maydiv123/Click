@@ -16,6 +16,9 @@ class CameraSelectionScreen extends StatefulWidget {
 
 class _CameraSelectionScreenState extends State<CameraSelectionScreen> {
   String? _selectedOption;
+  final ScrollController _scrollController = ScrollController();
+  bool _showLeftArrow = false;
+  bool _showRightArrow = false;
 
   final List<Map<String, dynamic>> _options = [
     {
@@ -37,6 +40,36 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen> {
       'color': Colors.green,
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    // Check initial scroll state
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateArrowVisibility();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    _updateArrowVisibility();
+  }
+
+  void _updateArrowVisibility() {
+    if (!_scrollController.hasClients) return;
+    
+    setState(() {
+      _showLeftArrow = _scrollController.offset > 0;
+      _showRightArrow = _scrollController.offset < _scrollController.position.maxScrollExtent;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,88 +167,155 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen> {
             
             // Selection options
             Expanded(
-              child: ListView.separated(
-                itemCount: _options.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final option = _options[index];
-                  final isSelected = _selectedOption == option['title'];
-                  
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedOption = option['title'] as String;
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: isSelected 
-                            ? option['color'].withOpacity(0.1)
-                            : Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected 
-                              ? option['color']
-                              : Colors.grey[300]!,
-                          width: isSelected ? 2 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
+              child: Stack(
+                children: [
+                  ListView.separated(
+                    controller: _scrollController,
+                    itemCount: _options.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final option = _options[index];
+                      final isSelected = _selectedOption == option['title'];
+                      
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedOption = option['title'] as String;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: isSelected 
+                                ? option['color'].withOpacity(0.1)
+                                : Colors.grey[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
                               color: isSelected 
                                   ? option['color']
-                                  : Colors.grey[300],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              option['icon'] as IconData,
-                              color: isSelected 
-                                  ? Colors.white
-                                  : Colors.grey[600],
-                              size: 24,
+                                  : Colors.grey[300]!,
+                              width: isSelected ? 2 : 1,
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  option['title'] as String,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected 
-                                        ? option['color']
-                                        : Colors.black87,
-                                  ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isSelected 
+                                      ? option['color']
+                                      : Colors.grey[300],
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  option['description'] as String,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
+                                child: Icon(
+                                  option['icon'] as IconData,
+                                  color: isSelected 
+                                      ? Colors.white
+                                      : Colors.grey[600],
+                                  size: 24,
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      option['title'] as String,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: isSelected 
+                                            ? option['color']
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      option['description'] as String,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                Icon(
+                                  Icons.check_circle,
+                                  color: option['color'],
+                                  size: 24,
+                                ),
+                            ],
                           ),
-                          if (isSelected)
-                            Icon(
-                              Icons.check_circle,
-                              color: option['color'],
-                              size: 24,
+                        ),
+                      );
+                    },
+                  ),
+                  // Left arrow indicator
+                  if (_showLeftArrow)
+                    Positioned(
+                      left: 8,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back_ios,
+                              color: Colors.white,
+                              size: 20,
                             ),
-                        ],
+                            onPressed: () {
+                              _scrollController.animateTo(
+                                _scrollController.offset - 200,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                },
+                  // Right arrow indicator
+                  if (_showRightArrow)
+                    Positioned(
+                      right: 8,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.arrow_forward_ios,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              _scrollController.animateTo(
+                                _scrollController.offset + 200,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             

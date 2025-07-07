@@ -221,9 +221,9 @@ class _CameraScreenState extends State<CameraScreen> {
     final userName = '${_userData['firstName'] ?? ''} ${_userData['lastName'] ?? ''}'.trim();
     final teamName = _userData['teamName'] ?? '';
 
-    // Prepare text styles with better visibility (dark orange text with black outline)
+    // Prepare text styles with better visibility (white text with black shadow)
     final titleStyle = TextStyle(
-      color: Colors.deepOrange.shade800,
+      color: Colors.white,
       fontSize: imageWidth * 0.04,
       fontWeight: FontWeight.bold,
       shadows: [
@@ -235,7 +235,7 @@ class _CameraScreenState extends State<CameraScreen> {
       ],
     );
     final subtitleStyle = TextStyle(
-      color: Colors.deepOrange.shade800,
+      color: Colors.white,
       fontSize: imageWidth * 0.035,
       fontWeight: FontWeight.w600,
       shadows: [
@@ -247,7 +247,7 @@ class _CameraScreenState extends State<CameraScreen> {
       ],
     );
     final detailStyle = TextStyle(
-      color: Colors.deepOrange.shade800,
+      color: Colors.white,
       fontSize: imageWidth * 0.03,
       fontWeight: FontWeight.w500,
       shadows: [
@@ -259,7 +259,7 @@ class _CameraScreenState extends State<CameraScreen> {
       ],
     );
     final smallStyle = TextStyle(
-      color: Colors.deepOrange.shade800,
+      color: Colors.white,
       fontSize: imageWidth * 0.025,
       fontWeight: FontWeight.w400,
       shadows: [
@@ -376,10 +376,25 @@ class _CameraScreenState extends State<CameraScreen> {
       debugPrint('Error loading branding logo for watermark: $e');
     }
 
-    // Draw text block to the right of the logo
-    double y = yBase;
+    // Declare infoStartX and infoWidth before using them
     final infoStartX = logoMargin + logoSize + gap;
     final infoWidth = imageWidth - infoStartX - logoMargin;
+
+    // Draw background shade behind watermark text block
+    final double backgroundHeight = totalWatermarkHeight + 16;
+    final double backgroundWidth = infoWidth + 16;
+    final double backgroundX = infoStartX - 8;
+    final double backgroundY = yBase - 8;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(backgroundX, backgroundY, backgroundWidth, backgroundHeight),
+        Radius.circular(12),
+      ),
+      Paint()..color = Colors.black.withOpacity(0.45),
+    );
+
+    // Draw text block to the right of the logo
+    double y = yBase;
     for (int i = 0; i < watermarkPainters.length; i++) {
       final textPainter = TextPainter(
         text: watermarkPainters[i].text,
