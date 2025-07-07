@@ -370,7 +370,9 @@ class _CameraScreenState extends State<CameraScreen> {
         brandingImage,
         Rect.fromLTWH(0, 0, brandingImage.width.toDouble(), brandingImage.height.toDouble()),
         Rect.fromLTWH(logoMargin, yBase, logoSize, logoSize),
-        Paint()..filterQuality = ui.FilterQuality.high,
+        Paint()
+          ..filterQuality = ui.FilterQuality.high
+          ..color = Colors.white.withOpacity(0.4), // Reduce logo opacity to 60%
       );
     } catch (e) {
       debugPrint('Error loading branding logo for watermark: $e');
