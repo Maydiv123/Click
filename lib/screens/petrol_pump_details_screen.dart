@@ -319,6 +319,7 @@ Pincode: ${location.pincode}
         ),
         const SizedBox(height: 8),
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: const Color(0xFFF8F9FA),

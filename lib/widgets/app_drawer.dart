@@ -402,77 +402,77 @@ class AppDrawer extends StatelessWidget {
                       isActive: currentScreen == 'requests',
                     ),
                     
-                    const Divider(height: 24),
+                    // const Divider(height: 24),
                     
                     // Other Options
-                    const Padding(
-                      padding: EdgeInsets.only(left: 16, bottom: 8),
-                      child: Text(
-                        'COMING SOON',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ),
+                    // const Padding(
+                    //   padding: EdgeInsets.only(left: 16, bottom: 8),
+                    //   child: Text(
+                    //     'COMING SOON',
+                    //     style: TextStyle(
+                    //       color: Colors.grey,
+                    //       fontSize: 12,
+                    //       fontWeight: FontWeight.bold,
+                    //       letterSpacing: 1.2,
+                    //     ),
+                    //   ),
+                    // ),
                     
-                    _buildDrawerItem(
-                      icon: Icons.chat_bubble_outline,
-                      title: 'Team Chat',
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Team Chat will be available in the next update!'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                    ),
+                    // _buildDrawerItem(
+                    //   icon: Icons.chat_bubble_outline,
+                    //   title: 'Team Chat',
+                    //   onTap: () {
+                    //     Navigator.pop(context);
+                    //     ScaffoldMessenger.of(context).showSnackBar(
+                    //       const SnackBar(
+                    //         content: Text('Team Chat will be available in the next update!'),
+                    //         duration: Duration(seconds: 2),
+                    //       ),
+                    //     );
+                    //   },
+                    // ),
                     
-                    _buildDrawerItem(
-                      icon: Icons.local_offer_outlined,
-                      title: 'Special Offers',
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Special Offers will be available in the next update!'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                    ),
+                    // _buildDrawerItem(
+                    //   icon: Icons.local_offer_outlined,
+                    //   title: 'Special Offers',
+                    //   onTap: () {
+                    //     Navigator.pop(context);
+                    //     ScaffoldMessenger.of(context).showSnackBar(
+                    //       const SnackBar(
+                    //         content: Text('Special Offers will be available in the next update!'),
+                    //         duration: Duration(seconds: 2),
+                    //       ),
+                    //     );
+                    //   },
+                    // ),
                     
-                    _buildDrawerItem(
-                      icon: Icons.support_agent,
-                      title: 'Support',
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Support features will be available in the next update!'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                    ),
+                    // _buildDrawerItem(
+                    //   icon: Icons.support_agent,
+                    //   title: 'Support',
+                    //   onTap: () {
+                    //     Navigator.pop(context);
+                    //     ScaffoldMessenger.of(context).showSnackBar(
+                    //       const SnackBar(
+                    //         content: Text('Support features will be available in the next update!'),
+                    //         duration: Duration(seconds: 2),
+                    //       ),
+                    //     );
+                    //   },
+                    // ),
                     
-                    _buildDrawerItem(
-                      icon: Icons.settings,
-                      title: 'Settings',
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Settings will be available in the next update!'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                    ),
+                    // _buildDrawerItem(
+                    //   icon: Icons.settings,
+                    //   title: 'Settings',
+                    //   onTap: () {
+                    //     Navigator.pop(context);
+                    //     ScaffoldMessenger.of(context).showSnackBar(
+                    //       const SnackBar(
+                    //         content: Text('Settings will be available in the next update!'),
+                    //         duration: Duration(seconds: 2),
+                    //       ),
+                    //     );
+                    //   },
+                    // ),
                   ],
                 ),
               ),

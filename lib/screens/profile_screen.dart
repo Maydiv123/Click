@@ -216,6 +216,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showLastCompanyWarningDialog(String company) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Cannot Remove',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'At least one oil company must be selected. You cannot remove $company as it is the only selected company.',
+            style: const TextStyle(fontSize: 16),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showProfessionDialog(String? currentProfession, Function(String?) onProfessionSelected) {
     String searchQuery = '';
     List<String> filteredProfessions = List.from(_professions);
@@ -227,19 +276,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text(
-                'Select Profession',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              content: SizedBox(
-                width: double.maxFinite,
+              child: Container(
+                constraints: const BoxConstraints(
+                  maxHeight: 500,
+                  minHeight: 300,
+                ),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Select Profession',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
                     // Search TextField
                     TextField(
                       decoration: InputDecoration(
@@ -250,6 +319,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         filled: true,
                         fillColor: Colors.grey[100],
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
                       onChanged: (value) {
                         setDialogState(() {
@@ -264,23 +334,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 16),
                     
                     // Clear selection option
-                    ListTile(
-                      leading: const Icon(Icons.clear, color: Colors.grey),
-                      title: const Text(
-                        'Clear selection',
-                        style: TextStyle(color: Colors.grey),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      onTap: () {
-                        print('Clear selection tapped');
-                        Navigator.of(context).pop();
-                        onProfessionSelected(null);
-                      },
+                      child: ListTile(
+                        leading: const Icon(Icons.clear, color: Colors.grey),
+                        title: const Text(
+                          'Clear selection',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        onTap: () {
+                          print('Clear selection tapped');
+                          Navigator.of(context).pop();
+                          onProfessionSelected(null);
+                        },
+                      ),
                     ),
                     
-                    const Divider(),
+                    const Divider(height: 24),
                     
                     // Filtered professions list
-                    Flexible(
+                    Expanded(
                       child: ListView.builder(
                         shrinkWrap: true,
                         itemCount: filteredProfessions.length,
@@ -288,26 +364,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           final profession = filteredProfessions[index];
                           final isSelected = currentProfession == profession;
                           
-                          return ListTile(
-                            leading: Icon(
-                              Icons.work,
-                              color: isSelected ? const Color(0xFF35C2C1) : Colors.grey,
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFF35C2C1).withOpacity(0.1) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            title: Text(
-                              profession,
-                              style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? const Color(0xFF35C2C1) : Colors.black,
+                            child: ListTile(
+                              leading: Icon(
+                                Icons.work,
+                                color: isSelected ? const Color(0xFF35C2C1) : Colors.grey,
                               ),
+                              title: Text(
+                                profession,
+                                style: TextStyle(
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? const Color(0xFF35C2C1) : Colors.black,
+                                ),
+                              ),
+                              trailing: isSelected 
+                                  ? const Icon(Icons.check, color: Color(0xFF35C2C1))
+                                  : null,
+                              onTap: () {
+                                print('Profession selected: $profession');
+                                Navigator.of(context).pop();
+                                onProfessionSelected(profession);
+                              },
                             ),
-                            trailing: isSelected 
-                                ? const Icon(Icons.check, color: Color(0xFF35C2C1))
-                                : null,
-                            onTap: () {
-                              print('Profession selected: $profession');
-                              Navigator.of(context).pop();
-                              onProfessionSelected(profession);
-                            },
                           );
                         },
                       ),
@@ -315,12 +398,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-              ],
             );
           },
         );
@@ -473,7 +550,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _selectedCountryCode = countryCode;
             _selectedCountryFlag = countryFlag;
             // Do NOT re-initialize selectedProfession here!
-            return Padding(
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+                minHeight: MediaQuery.of(context).size.height * 0.5,
+              ),
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
                 left: 20,
@@ -762,12 +843,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   selectedProfession = profession;
                                   print('selectedProfession updated to: $selectedProfession');
                                 });
-                                // Force rebuild to ensure UI updates
-                                setModalState(() {});
+                                // Add a small delay to ensure proper UI update
+                                Future.delayed(const Duration(milliseconds: 100), () {
+                                  if (mounted) {
+                                    setModalState(() {});
+                                  }
+                                });
                               });
                             },
                             child: Container(
                               width: double.infinity,
+                              height: 56, // Fixed height to prevent layout shifts
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                               decoration: BoxDecoration(
                                 color: Colors.grey[100],
@@ -783,6 +869,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         color: selectedProfession != null ? Colors.black : Colors.grey[600],
                                         fontSize: 16,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
@@ -812,9 +899,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   });
                                 } else {
                                   // Show warning when trying to deselect the last company
-                                  _showCompanySelectionDialog(company, true, () {
-                                    // Don't remove the last company
-                                  });
+                                  _showLastCompanyWarningDialog(company);
                                 }
                               } else {
                                 _showCompanySelectionDialog(company, false, () {
