@@ -402,6 +402,50 @@ class AppDrawer extends StatelessWidget {
                       isActive: currentScreen == 'requests',
                     ),
                     
+                    // Logout Button - moved from bottom to here
+                    const SizedBox(height: 16),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          // Show logout confirmation dialog
+                          final shouldLogout = await LogoutConfirmationDialog.show(context);
+                          
+                          if (shouldLogout) {
+                            try {
+                              final authService = CustomAuthService();
+                              await authService.signOut();
+                              if (context.mounted) {
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                                  (route) => false,
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error signing out: ${e.toString()}')),
+                                );
+                              }
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.logout, size: 18),
+                        label: const Text('Logout'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.withOpacity(0.1),
+                          foregroundColor: Colors.red,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: Colors.red.withOpacity(0.3)),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    
                     // const Divider(height: 24),
                     
                     // Other Options
@@ -477,48 +521,48 @@ class AppDrawer extends StatelessWidget {
                 ),
               ),
               // Logout Button
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    // Show logout confirmation dialog
-                    final shouldLogout = await LogoutConfirmationDialog.show(context);
-                    
-                    if (shouldLogout) {
-                      try {
-                        final authService = CustomAuthService();
-                        await authService.signOut();
-                        if (context.mounted) {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(builder: (context) => const LoginScreen()),
-                            (route) => false,
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error signing out: ${e.toString()}')),
-                          );
-                        }
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.logout, size: 18),
-                  label: const Text('Logout'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.withOpacity(0.1),
-                    foregroundColor: Colors.red,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: Colors.red.withOpacity(0.3)),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
+              // Container(
+              //   width: double.infinity,
+              //   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              //   child: ElevatedButton.icon(
+              //     onPressed: () async {
+              //       // Show logout confirmation dialog
+              //       final shouldLogout = await LogoutConfirmationDialog.show(context);
+              
+              //       if (shouldLogout) {
+              //         try {
+              //           final authService = CustomAuthService();
+              //           await authService.signOut();
+              //           if (context.mounted) {
+              //             Navigator.pushAndRemoveUntil(
+              //               context,
+              //               MaterialPageRoute(builder: (context) => const LoginScreen()),
+              //               (route) => false,
+              //             );
+              //           }
+              //         } catch (e) {
+              //           if (context.mounted) {
+              //             ScaffoldMessenger.of(context).showSnackBar(
+              //               SnackBar(content: Text('Error signing out: ${e.toString()}')),
+              //             );
+              //           }
+              //         }
+              //       }
+              //     },
+              //     icon: const Icon(Icons.logout, size: 18),
+              //     label: const Text('Logout'),
+              //     style: ElevatedButton.styleFrom(
+              //       backgroundColor: Colors.red.withOpacity(0.1),
+              //       foregroundColor: Colors.red,
+              //       elevation: 0,
+              //       shape: RoundedRectangleBorder(
+              //         borderRadius: BorderRadius.circular(8),
+              //         side: BorderSide(color: Colors.red.withOpacity(0.3)),
+              //       ),
+              //       padding: const EdgeInsets.symmetric(vertical: 12),
+              //     ),
+              //   ),
+              // ),
             ],
           ),
         );

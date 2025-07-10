@@ -268,6 +268,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showProfessionDialog(String? currentProfession, Function(String?) onProfessionSelected) {
     String searchQuery = '';
     List<String> filteredProfessions = List.from(_professions);
+    String? tempSelectedProfession = currentProfession; // Temporary selection
     
     print('Opening profession dialog with current profession: $currentProfession');
     
@@ -347,8 +348,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         onTap: () {
                           print('Clear selection tapped');
-                          Navigator.of(context).pop();
-                          onProfessionSelected(null);
+                          setDialogState(() {
+                            tempSelectedProfession = null;
+                          });
                         },
                       ),
                     ),
@@ -362,7 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         itemCount: filteredProfessions.length,
                         itemBuilder: (context, index) {
                           final profession = filteredProfessions[index];
-                          final isSelected = currentProfession == profession;
+                          final isSelected = tempSelectedProfession == profession;
                           
                           return Container(
                             margin: const EdgeInsets.only(bottom: 4),
@@ -387,13 +389,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   : null,
                               onTap: () {
                                 print('Profession selected: $profession');
-                                Navigator.of(context).pop();
-                                onProfessionSelected(profession);
+                                setDialogState(() {
+                                  tempSelectedProfession = profession;
+                                });
                               },
                             ),
                           );
                         },
                       ),
+                    ),
+                    
+                    // Apply and Cancel buttons
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(color: Colors.grey[300]!),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              print('Apply button tapped with profession: $tempSelectedProfession');
+                              Navigator.of(context).pop();
+                              onProfessionSelected(tempSelectedProfession);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF35C2C1),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Apply',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1414,7 +1469,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 50),
               ],
             ),
           );

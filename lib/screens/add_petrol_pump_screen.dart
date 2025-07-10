@@ -85,6 +85,9 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
   bool _isPincodeValidated = false;
   bool _isPincodeFound = false;
   
+  // Auto-filled fields edit state
+  bool _autoFilledFieldsEditable = false;
+  
   @override
   void initState() {
     super.initState();
@@ -1504,14 +1507,36 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              if (_isLoading)
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                              Row(
+                                children: [
+                                  if (_isLoading)
+                                    const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    onPressed: _areFieldsEnabled() ? () {
+                                      setState(() {
+                                        _autoFilledFieldsEditable = !_autoFilledFieldsEditable;
+                                      });
+                                    } : null,
+                                    icon: Icon(
+                                      _autoFilledFieldsEditable ? Icons.check : Icons.edit,
+                                      color: _areFieldsEnabled() 
+                                          ? (_autoFilledFieldsEditable ? Colors.green : const Color(0xFF35C2C1))
+                                          : Colors.grey,
+                                      size: 20,
+                                    ),
+                                    tooltip: _autoFilledFieldsEditable 
+                                        ? 'Save changes' 
+                                        : 'Edit auto-filled fields',
                                   ),
-                                ),
+                                ],
+                              ),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -1519,14 +1544,21 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Regional Office field
                           TextFormField(
                             controller: _regionalOfficeController,
-                            enabled: _areFieldsEnabled(),
+                            enabled: _areFieldsEnabled() && _autoFilledFieldsEditable,
                             decoration: InputDecoration(
                               labelText: 'Regional Office *',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               filled: true,
-                              fillColor: Colors.grey[100],
+                              fillColor: _autoFilledFieldsEditable ? Colors.white : Colors.grey[100],
+                              suffixIcon: _autoFilledFieldsEditable 
+                                  ? Icon(
+                                      Icons.edit,
+                                      color: Colors.grey[600],
+                                      size: 16,
+                                    )
+                                  : null,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -1541,14 +1573,21 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Sales Area field
                           TextFormField(
                             controller: _salesAreaController,
-                            enabled: _areFieldsEnabled(),
+                            enabled: _areFieldsEnabled() && _autoFilledFieldsEditable,
                             decoration: InputDecoration(
                               labelText: 'Sales Area *',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               filled: true,
-                              fillColor: Colors.grey[100],
+                              fillColor: _autoFilledFieldsEditable ? Colors.white : Colors.grey[100],
+                              suffixIcon: _autoFilledFieldsEditable 
+                                  ? Icon(
+                                      Icons.edit,
+                                      color: Colors.grey[600],
+                                      size: 16,
+                                    )
+                                  : null,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -1563,14 +1602,21 @@ class _AddPetrolPumpScreenState extends State<AddPetrolPumpScreen> {
                           // Zone field
                           TextFormField(
                             controller: _zoneController,
-                            enabled: _areFieldsEnabled(),
+                            enabled: _areFieldsEnabled() && _autoFilledFieldsEditable,
                             decoration: InputDecoration(
                               labelText: 'Zone *',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               filled: true,
-                              fillColor: Colors.grey[100],
+                              fillColor: _autoFilledFieldsEditable ? Colors.white : Colors.grey[100],
+                              suffixIcon: _autoFilledFieldsEditable 
+                                  ? Icon(
+                                      Icons.edit,
+                                      color: Colors.grey[600],
+                                      size: 16,
+                                    )
+                                  : null,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {

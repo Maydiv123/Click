@@ -45,6 +45,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   String? _passwordMatchError;
   String? _errorMessage;
   String? _userTypeError;
+  String? _companySelectionError;
 
   // Country code variables
   String _selectedCountryCode = '+91';
@@ -240,24 +241,70 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       _userTypeError = null;
       _passwordMatchError = null;
       _errorMessage = null;
+      _companySelectionError = null;
     });
+
+    // Collect all validation errors
+    List<String> validationErrors = [];
 
     // Validate user type selection
     if (_selectedUserType.isEmpty) {
-      setState(() {
-        _userTypeError = 'Please select your user type';
-      });
-      return;
+      validationErrors.add('Please select your user type');
     }
 
-    if (!_formKey.currentState!.validate()) return;
-    if (_passwordMatchError != null) return;
+    // Validate company selection
+    if (!_ioclChecked && !_hpclChecked && !_bpclChecked) {
+      validationErrors.add('Please select at least one company');
+    }
+
+    // Validate form fields
+    if (!_formKey.currentState!.validate()) {
+      // Form validation will show individual field errors
+      // We don't need to add them to our list since they're shown inline
+    }
+
+    // Validate password match
+    if (_passwordMatchError != null) {
+      validationErrors.add(_passwordMatchError!);
+    }
 
     // Validate MPIN format
     if (!_mpinRegex.hasMatch(_passwordController.text)) {
+      validationErrors.add('MPIN must be exactly 6 digits');
+    }
+
+    // If there are any validation errors, show them all and return
+    if (validationErrors.isNotEmpty) {
       setState(() {
-        _errorMessage = 'MPIN must be exactly 6 digits';
+        _userTypeError = validationErrors.contains('Please select your user type') ? 'Please select your user type' : null;
+        _companySelectionError = validationErrors.contains('Please select at least one company') ? 'Please select at least one company' : null;
+        _passwordMatchError = validationErrors.contains('MPINs do not match') ? 'MPINs do not match' : null;
+        _errorMessage = validationErrors.contains('MPIN must be exactly 6 digits') ? 'MPIN must be exactly 6 digits' : null;
       });
+      
+      // Show all validation errors in a snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Please fix the following errors:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...validationErrors.map((error) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text('• $error'),
+              )),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
 
@@ -635,7 +682,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         
                         // Oil Company Selection
                         const Text(
-                          'Select Your Company',
+                          'Select Your Company *',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -665,6 +712,17 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                             ],
                           ),
                         ),
+                        if (_companySelectionError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              _companySelectionError!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 20),
                         
                         // Password Field
@@ -737,7 +795,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _register,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.teal,
+                              backgroundColor: const Color(0xFF010269),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -773,7 +831,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                               child: const Text(
                                 'Login',
                                 style: TextStyle(
-                                  color: Colors.teal,
+                                  color: Color(0xFF010269),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

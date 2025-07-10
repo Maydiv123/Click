@@ -93,6 +93,36 @@ class PetrolPumpRequest {
 
   // Create from Firestore document
   factory PetrolPumpRequest.fromMap(Map<String, dynamic> map, String documentId) {
+    // Handle updatedAt field which can be Timestamp, string, or null
+    DateTime? parseUpdatedAt(dynamic value) {
+      if (value == null) return null;
+      if (value is Timestamp) return value.toDate();
+      if (value is String) {
+        try {
+          return DateTime.parse(value);
+        } catch (e) {
+          print('Error parsing updatedAt string: $value');
+          return null;
+        }
+      }
+      return null;
+    }
+
+    // Handle createdAt field which can be Timestamp, string, or null
+    DateTime parseCreatedAt(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is String) {
+        try {
+          return DateTime.parse(value);
+        } catch (e) {
+          print('Error parsing createdAt string: $value');
+          return DateTime.now();
+        }
+      }
+      return DateTime.now();
+    }
+
     return PetrolPumpRequest(
       zone: map['zone'] ?? '',
       salesArea: map['salesArea'] ?? '',
@@ -109,8 +139,8 @@ class PetrolPumpRequest {
       latitude: (map['latitude'] ?? 0.0).toDouble(),
       longitude: map['longitude'] ?? 0.0,
       status: map['status'] ?? 'pending',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
+      createdAt: parseCreatedAt(map['createdAt']),
+      updatedAt: parseUpdatedAt(map['updatedAt']),
       requestedByUserId: map['requestedByUserId'],
       adminFeedback: map['adminFeedback'],
       id: documentId,

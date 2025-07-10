@@ -323,7 +323,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           onPressed: _isLoading ? null : _login,
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 56),
-                            backgroundColor: Colors.black,
+                            backgroundColor: const Color(0xFF010269),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -354,7 +354,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF35C2C1),
+                                  color: const Color(0xFF010269),
                                 ),
                               ),
                             ),

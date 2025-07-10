@@ -317,8 +317,8 @@ class _CameraScreenState extends State<CameraScreen> {
     // Fourth line: zone, salesArea, district
     final locationParts = <String>[];
     if (zone.isNotEmpty) locationParts.add(zone);
-    if (salesArea.isNotEmpty) locationParts.add(salesArea);
-    if (district.isNotEmpty) locationParts.add(district);
+    if (salesArea.isNotEmpty) locationParts.add('Sale Area: $salesArea');
+    if (district.isNotEmpty) locationParts.add('District: $district');
     if (locationParts.isNotEmpty) {
       final fourthLineText = locationParts.join(', ');
       final fourthLinePainter = TextPainter(

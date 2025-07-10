@@ -57,7 +57,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
           Positioned.fill(
             child: Image.asset(
               'assets/images/background.png',
-              fit: BoxFit.cover,
+              fit: BoxFit.fill,
             ),
           ),
           // Content
@@ -70,24 +70,24 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Image.asset(
-                          'assets/images/Branding.png',
-                          height: 150,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Text(
-                          'Click By Cube',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
+                      // FadeTransition(
+                      //   opacity: _fadeAnimation,
+                      //   child: Image.asset(
+                      //     'assets/images/Branding.png',
+                      //     height: 80,
+                      //   ),
+                      // ),
+                      const SizedBox(height: 130),
+                      // FadeTransition(
+                      //   opacity: _fadeAnimation,
+                      //   child: Text(
+                      //     'Click By Cube',
+                      //     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      //       fontWeight: FontWeight.bold,
+                      //       color: Colors.black,
+                      //     ),
+                      //   ),
+                      // ),
                       const SizedBox(height: 48),
                       SlideTransition(
                         position: _slideAnimation,
@@ -102,7 +102,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                               },
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size(double.infinity, 56),
-                                backgroundColor: Colors.black,
+                                backgroundColor: const Color(0xFF010269),
                                 foregroundColor: Colors.white,
                               ),
                               child: const Text(
@@ -120,14 +120,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                               },
                               style: OutlinedButton.styleFrom(
                                 minimumSize: const Size(double.infinity, 56),
-                                side: BorderSide(color: Colors.black),
+                                side: const BorderSide(color: Color(0xFF010269)),
                               ),
-                              child: Text(
+                              child: const Text(
                                 'Register',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black,
+                                  color: Color(0xFF010269),
                                 ),
                               ),
                             ),
