@@ -271,11 +271,14 @@ class _CameraScreenState extends State<CameraScreen> {
       ],
     );
 
-    // Declare infoStartX and infoWidth before using them
-    final infoStartX = logoMargin + logoSize + gap;
-    final infoWidth = imageWidth - infoStartX - logoMargin;
+    // Declare logoMargin and gap first
+    final logoMargin = imageWidth * 0.03;
+    final gap = imageWidth * 0.02;
+    // Use a temporary infoWidth for initial layout (logoSize not known yet, use 0)
+    final tempInfoStartX = logoMargin + 0 + gap;
+    final tempInfoWidth = imageWidth - tempInfoStartX - logoMargin;
 
-    // Layout and draw text with optimized spacing
+    // Layout and draw text with optimized spacing using tempInfoWidth
     final List<TextPainter> watermarkPainters = [];
     final List<double> lineSpacings = [];
 
@@ -285,7 +288,7 @@ class _CameraScreenState extends State<CameraScreen> {
       textDirection: ui.TextDirection.ltr,
       maxLines: null, // Allow multi-line
       textAlign: TextAlign.left,
-    )..layout(maxWidth: infoWidth);
+    )..layout(maxWidth: tempInfoWidth);
     watermarkPainters.add(firstLinePainter);
     lineSpacings.add(6);
 
@@ -301,7 +304,7 @@ class _CameraScreenState extends State<CameraScreen> {
       textDirection: ui.TextDirection.ltr,
       maxLines: null, // Allow multi-line
       textAlign: TextAlign.left,
-    )..layout(maxWidth: infoWidth);
+    )..layout(maxWidth: tempInfoWidth);
     watermarkPainters.add(secondLinePainter);
     lineSpacings.add(6);
 
@@ -313,7 +316,7 @@ class _CameraScreenState extends State<CameraScreen> {
         textDirection: ui.TextDirection.ltr,
         maxLines: null, // Allow multi-line
         textAlign: TextAlign.left,
-      )..layout(maxWidth: infoWidth);
+      )..layout(maxWidth: tempInfoWidth);
       watermarkPainters.add(thirdLinePainter);
       lineSpacings.add(6);
     }
@@ -330,7 +333,7 @@ class _CameraScreenState extends State<CameraScreen> {
         textDirection: ui.TextDirection.ltr,
         maxLines: null, // Allow multi-line
         textAlign: TextAlign.left,
-      )..layout(maxWidth: infoWidth);
+      )..layout(maxWidth: tempInfoWidth);
       watermarkPainters.add(fourthLinePainter);
       lineSpacings.add(6);
     }
@@ -346,7 +349,7 @@ class _CameraScreenState extends State<CameraScreen> {
         textDirection: ui.TextDirection.ltr,
         maxLines: null, // Allow multi-line
         textAlign: TextAlign.left,
-      )..layout(maxWidth: infoWidth);
+      )..layout(maxWidth: tempInfoWidth);
       watermarkPainters.add(fifthLinePainter);
       // Extra spacing before branding
       lineSpacings.add(8);
@@ -361,10 +364,28 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     }
 
-    // Set logo size to match text block height (minimum size for logo)
+    // Now that we know the height, calculate logoSize, infoStartX, and infoWidth
     final logoSize = totalWatermarkHeight;
-    final logoMargin = imageWidth * 0.03; // same as leftMargin
-    final gap = imageWidth * 0.02; // gap between logo and text
+    final infoStartX = logoMargin + logoSize + gap;
+    final infoWidth = imageWidth - infoStartX - logoMargin;
+
+    // Re-layout watermarkPainters with the final infoWidth
+    for (final painter in watermarkPainters) {
+      painter.layout(maxWidth: infoWidth);
+    }
+    // Recalculate totalWatermarkHeight with the final layout
+    totalWatermarkHeight = 0;
+    for (int i = 0; i < watermarkPainters.length; i++) {
+      totalWatermarkHeight += watermarkPainters[i].height;
+      if (i < watermarkPainters.length - 1) {
+        totalWatermarkHeight += lineSpacings[i];
+      }
+    }
+
+    // Set logo size to match text block height (minimum size for logo)
+    // final logoSize = totalWatermarkHeight; // This line is now redundant
+    // final logoMargin = imageWidth * 0.03; // same as leftMargin
+    // final gap = imageWidth * 0.02; // gap between logo and text
     final bottomMargin = logoMargin;
     // The bottom of the watermark block is always at imageHeight - bottomMargin
     // So the top (yBase) moves up as the watermark grows
@@ -387,8 +408,8 @@ class _CameraScreenState extends State<CameraScreen> {
     }
 
     // Declare infoStartX and infoWidth before using them
-    final infoStartX = logoMargin + logoSize + gap;
-    final infoWidth = imageWidth - infoStartX - logoMargin;
+    // final infoStartX = logoMargin + logoSize + gap; // This line is now redundant
+    // final infoWidth = imageWidth - infoStartX - logoMargin; // This line is now redundant
 
     // Draw background shade behind watermark text block
     final double backgroundPadding = 16;
