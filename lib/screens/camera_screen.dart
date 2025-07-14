@@ -282,7 +282,8 @@ class _CameraScreenState extends State<CameraScreen> {
     final firstLinePainter = TextPainter(
       text: TextSpan(text: widget.photoType, style: titleStyle),
       textDirection: ui.TextDirection.ltr,
-      maxLines: 1,
+      maxLines: null, // Allow multi-line
+      textAlign: TextAlign.left,
     )..layout(maxWidth: maxTextWidth);
     watermarkPainters.add(firstLinePainter);
     lineSpacings.add(6);
@@ -297,7 +298,8 @@ class _CameraScreenState extends State<CameraScreen> {
     final secondLinePainter = TextPainter(
       text: TextSpan(text: secondLineText, style: subtitleStyle),
       textDirection: ui.TextDirection.ltr,
-      maxLines: 1,
+      maxLines: null, // Allow multi-line
+      textAlign: TextAlign.left,
     )..layout(maxWidth: maxTextWidth);
     watermarkPainters.add(secondLinePainter);
     lineSpacings.add(6);
@@ -308,7 +310,8 @@ class _CameraScreenState extends State<CameraScreen> {
       final thirdLinePainter = TextPainter(
         text: TextSpan(text: thirdLineText, style: subtitleStyle),
         textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
+        maxLines: null, // Allow multi-line
+        textAlign: TextAlign.left,
       )..layout(maxWidth: maxTextWidth);
       watermarkPainters.add(thirdLinePainter);
       lineSpacings.add(6);
@@ -324,7 +327,8 @@ class _CameraScreenState extends State<CameraScreen> {
       final fourthLinePainter = TextPainter(
         text: TextSpan(text: fourthLineText, style: detailStyle),
         textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
+        maxLines: null, // Allow multi-line
+        textAlign: TextAlign.left,
       )..layout(maxWidth: maxTextWidth);
       watermarkPainters.add(fourthLinePainter);
       lineSpacings.add(6);
@@ -339,7 +343,8 @@ class _CameraScreenState extends State<CameraScreen> {
       final fifthLinePainter = TextPainter(
         text: TextSpan(text: fifthLineText, style: detailStyle),
         textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
+        maxLines: null, // Allow multi-line
+        textAlign: TextAlign.left,
       )..layout(maxWidth: maxTextWidth);
       watermarkPainters.add(fifthLinePainter);
       // Extra spacing before branding
@@ -401,10 +406,11 @@ class _CameraScreenState extends State<CameraScreen> {
       final textPainter = TextPainter(
         text: watermarkPainters[i].text,
         textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
+        maxLines: null, // Allow multi-line
+        textAlign: TextAlign.left,
       )..layout(maxWidth: infoWidth);
       textPainter.paint(canvas, Offset(infoStartX, y));
-      y += watermarkPainters[i].height;
+      y += textPainter.height;
       if (i < watermarkPainters.length - 1) {
         y += lineSpacings[i];
       }
