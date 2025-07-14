@@ -360,21 +360,23 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     }
 
-    // Set logo size to match text block height
+    // Set logo size to match text block height (minimum size for logo)
     final logoSize = totalWatermarkHeight;
     final logoMargin = imageWidth * 0.03; // same as leftMargin
     final gap = imageWidth * 0.02; // gap between logo and text
     final bottomMargin = logoMargin;
-    final yBase = imageHeight - bottomMargin - logoSize;
+    // The bottom of the watermark block is always at imageHeight - bottomMargin
+    // So the top (yBase) moves up as the watermark grows
+    final yBase = imageHeight - bottomMargin - totalWatermarkHeight;
 
-    // Draw logo (square, vertically centered with text block)
+    // Draw logo (square, vertically aligned so its bottom is at imageHeight - bottomMargin)
     try {
       final brandingImageData = await rootBundle.load('assets/images/Branding.png');
       final brandingImage = await decodeImageFromList(brandingImageData.buffer.asUint8List());
       canvas.drawImageRect(
         brandingImage,
         Rect.fromLTWH(0, 0, brandingImage.width.toDouble(), brandingImage.height.toDouble()),
-        Rect.fromLTWH(logoMargin, yBase, logoSize, logoSize),
+        Rect.fromLTWH(logoMargin, imageHeight - bottomMargin - logoSize, logoSize, logoSize),
         Paint()
           ..filterQuality = ui.FilterQuality.high
           ..color = Colors.white.withOpacity(0.4), // Reduce logo opacity to 60%
@@ -388,10 +390,12 @@ class _CameraScreenState extends State<CameraScreen> {
     final infoWidth = imageWidth - infoStartX - logoMargin;
 
     // Draw background shade behind watermark text block
-    final double backgroundHeight = totalWatermarkHeight + 16;
-    final double backgroundWidth = infoWidth + 16;
-    final double backgroundX = infoStartX - 8;
-    final double backgroundY = yBase - 8;
+    final double backgroundPadding = 16;
+    final double backgroundHeight = totalWatermarkHeight + backgroundPadding;
+    final double backgroundWidth = infoWidth + backgroundPadding;
+    final double backgroundX = infoStartX - backgroundPadding / 2;
+    // The background's bottom should also be fixed at imageHeight - bottomMargin
+    final double backgroundY = imageHeight - bottomMargin - backgroundHeight;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(backgroundX, backgroundY, backgroundWidth, backgroundHeight),
@@ -401,7 +405,7 @@ class _CameraScreenState extends State<CameraScreen> {
     );
 
     // Draw text block to the right of the logo
-    double y = yBase;
+    double y = imageHeight - bottomMargin - totalWatermarkHeight;
     for (int i = 0; i < watermarkPainters.length; i++) {
       final textPainter = TextPainter(
         text: watermarkPainters[i].text,
