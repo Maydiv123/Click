@@ -271,10 +271,11 @@ class _CameraScreenState extends State<CameraScreen> {
       ],
     );
 
+    // Declare infoStartX and infoWidth before using them
+    final infoStartX = logoMargin + logoSize + gap;
+    final infoWidth = imageWidth - infoStartX - logoMargin;
+
     // Layout and draw text with optimized spacing
-    final leftMargin = imageWidth * 0.03; // 3% margin from left
-    final rightMargin = imageWidth * 0.03; // 3% margin from right
-    final maxTextWidth = imageWidth - leftMargin - rightMargin;
     final List<TextPainter> watermarkPainters = [];
     final List<double> lineSpacings = [];
 
@@ -284,7 +285,7 @@ class _CameraScreenState extends State<CameraScreen> {
       textDirection: ui.TextDirection.ltr,
       maxLines: null, // Allow multi-line
       textAlign: TextAlign.left,
-    )..layout(maxWidth: maxTextWidth);
+    )..layout(maxWidth: infoWidth);
     watermarkPainters.add(firstLinePainter);
     lineSpacings.add(6);
 
@@ -300,7 +301,7 @@ class _CameraScreenState extends State<CameraScreen> {
       textDirection: ui.TextDirection.ltr,
       maxLines: null, // Allow multi-line
       textAlign: TextAlign.left,
-    )..layout(maxWidth: maxTextWidth);
+    )..layout(maxWidth: infoWidth);
     watermarkPainters.add(secondLinePainter);
     lineSpacings.add(6);
 
@@ -312,7 +313,7 @@ class _CameraScreenState extends State<CameraScreen> {
         textDirection: ui.TextDirection.ltr,
         maxLines: null, // Allow multi-line
         textAlign: TextAlign.left,
-      )..layout(maxWidth: maxTextWidth);
+      )..layout(maxWidth: infoWidth);
       watermarkPainters.add(thirdLinePainter);
       lineSpacings.add(6);
     }
@@ -329,7 +330,7 @@ class _CameraScreenState extends State<CameraScreen> {
         textDirection: ui.TextDirection.ltr,
         maxLines: null, // Allow multi-line
         textAlign: TextAlign.left,
-      )..layout(maxWidth: maxTextWidth);
+      )..layout(maxWidth: infoWidth);
       watermarkPainters.add(fourthLinePainter);
       lineSpacings.add(6);
     }
@@ -345,7 +346,7 @@ class _CameraScreenState extends State<CameraScreen> {
         textDirection: ui.TextDirection.ltr,
         maxLines: null, // Allow multi-line
         textAlign: TextAlign.left,
-      )..layout(maxWidth: maxTextWidth);
+      )..layout(maxWidth: infoWidth);
       watermarkPainters.add(fifthLinePainter);
       // Extra spacing before branding
       lineSpacings.add(8);
