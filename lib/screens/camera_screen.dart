@@ -382,7 +382,7 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     }
     // Add bottom padding equal to left padding (logoMargin)
-    totalWatermarkHeight += logoMargin;
+    // totalWatermarkHeight += logoMargin;
 
     // Set logo size to match text block height (minimum size for logo)
     // final logoSize = totalWatermarkHeight; // This line is now redundant
