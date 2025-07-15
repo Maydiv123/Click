@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/user_service.dart';
 import '../services/custom_auth_service.dart';
@@ -266,11 +267,21 @@ class _TeamDetailsScreenState extends State<TeamDetailsScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 InkWell(
-                                  onTap: () {
-                                    // TODO: Copy to clipboard
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Team code copied to clipboard')),
-                                    );
+                                  // onTap: () async {
+                                  //   await Clipboard.setData(ClipboardData(text: widget.teamCode));
+                                  //   if (mounted) {
+                                  //     ScaffoldMessenger.of(context).showSnackBar(
+                                  //       const SnackBar(content: Text('Team code copied to clipboard')),
+                                  //     );
+                                  //   }
+                                  // },
+                                  onTap: () async {
+                                    await Clipboard.setData(ClipboardData(text: widget.teamCode));
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Team code copied to clipboard'))
+                                      );
+                                    }
                                   },
                                   child: const Icon(Icons.copy, color: Colors.white, size: 16),
                                 ),

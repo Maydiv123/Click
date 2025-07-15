@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/custom_auth_service.dart';
 
@@ -485,10 +486,13 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                       ],
                     ),
                     IconButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Team code copied to clipboard!')),
-                        );
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: teamCode));
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Team code copied to clipboard!')),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.copy, color: Colors.white),
                     ),

@@ -1361,10 +1361,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             child: IconButton(
                               icon: const Icon(Icons.copy, size: 20, color: Color(0xFF35C2C1)),
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Team code copied to clipboard!'))
-                                );
+                              onPressed: () async {
+                                await Clipboard.setData(ClipboardData(text: userData["teamCode"] ?? ''));
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Team code copied to clipboard!'))
+                                  );
+                                }
                               },
                             ),
                           ),

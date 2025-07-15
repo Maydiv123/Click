@@ -222,46 +222,10 @@ class _CameraScreenState extends State<CameraScreen> {
     final teamName = _userData['teamName'] ?? '';
 
     // Prepare text styles with better visibility (white text with black shadow)
-    final titleStyle = TextStyle(
-      color: Colors.white,
-      fontSize: imageWidth * 0.04,
-      fontWeight: FontWeight.bold,
-      shadows: [
-        Shadow(
-          offset: const Offset(1, 1),
-          blurRadius: 2,
-          color: Colors.black.withOpacity(0.8),
-        ),
-      ],
-    );
-    final subtitleStyle = TextStyle(
-      color: Colors.white,
-      fontSize: imageWidth * 0.035,
-      fontWeight: FontWeight.w600,
-      shadows: [
-        Shadow(
-          offset: const Offset(1, 1),
-          blurRadius: 2,
-          color: Colors.black.withOpacity(0.8),
-        ),
-      ],
-    );
-    final detailStyle = TextStyle(
+    final watermarkStyle = TextStyle(
       color: Colors.white,
       fontSize: imageWidth * 0.03,
       fontWeight: FontWeight.w500,
-      shadows: [
-        Shadow(
-          offset: const Offset(1, 1),
-          blurRadius: 2,
-          color: Colors.black.withOpacity(0.8),
-        ),
-      ],
-    );
-    final smallStyle = TextStyle(
-      color: Colors.white,
-      fontSize: imageWidth * 0.025,
-      fontWeight: FontWeight.w400,
       shadows: [
         Shadow(
           offset: const Offset(1, 1),
@@ -282,37 +246,50 @@ class _CameraScreenState extends State<CameraScreen> {
     final List<TextPainter> watermarkPainters = [];
     final List<double> lineSpacings = [];
 
-    // First line: Before/Working/After
+    // First line: Before/Working/After on left, SAP code on right
     final firstLinePainter = TextPainter(
-      text: TextSpan(text: widget.photoType, style: titleStyle),
+      text: TextSpan(
+        children: [
+          TextSpan(text: widget.photoType, style: watermarkStyle),
+          if (sapCode.isNotEmpty) 
+            TextSpan(
+              text: 'SAP - $sapCode', 
+              style: watermarkStyle,
+            ),
+        ],
+      ),
       textDirection: ui.TextDirection.ltr,
       maxLines: null, // Allow multi-line
-      textAlign: TextAlign.left,
+      textAlign: TextAlign.spaceBetween,
     )..layout(maxWidth: tempInfoWidth);
     watermarkPainters.add(firstLinePainter);
     lineSpacings.add(6);
 
-    // Second line: Company date and time
+    // Second line: Company-Regional Office Date/Time
     final secondLineParts = <String>[];
     if (company.isNotEmpty) {
       secondLineParts.add(company);
     }
-    secondLineParts.add(dateTimeStr);
-    final secondLineText = secondLineParts.join(', ');
-    final secondLinePainter = TextPainter(
-      text: TextSpan(text: secondLineText, style: subtitleStyle),
-      textDirection: ui.TextDirection.ltr,
-      maxLines: null, // Allow multi-line
-      textAlign: TextAlign.left,
-    )..layout(maxWidth: tempInfoWidth);
-    watermarkPainters.add(secondLinePainter);
-    lineSpacings.add(6);
+    if (widget.location?.regionalOffice?.isNotEmpty == true) {
+      secondLineParts.add(widget.location!.regionalOffice!);
+    }
+    if (secondLineParts.isNotEmpty) {
+      secondLineParts.add(dateTimeStr);
+      final secondLineText = secondLineParts.join('-');
+      final secondLinePainter = TextPainter(
+        text: TextSpan(text: secondLineText, style: watermarkStyle),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: null, // Allow multi-line
+        textAlign: TextAlign.left,
+      )..layout(maxWidth: tempInfoWidth);
+      watermarkPainters.add(secondLinePainter);
+      lineSpacings.add(6);
+    }
 
-    // Third line: customerName - sapCode
-    if (customerName.isNotEmpty || sapCode.isNotEmpty) {
-      final thirdLineText = sapCode.isNotEmpty ? '$customerName - $sapCode' : customerName;
+    // Third line: customerName only
+    if (customerName.isNotEmpty) {
       final thirdLinePainter = TextPainter(
-        text: TextSpan(text: thirdLineText, style: subtitleStyle),
+        text: TextSpan(text: customerName, style: watermarkStyle),
         textDirection: ui.TextDirection.ltr,
         maxLines: null, // Allow multi-line
         textAlign: TextAlign.left,
@@ -321,15 +298,14 @@ class _CameraScreenState extends State<CameraScreen> {
       lineSpacings.add(6);
     }
 
-    // Fourth line: zone, salesArea, district
+    // Fourth line: salesArea, district
     final locationParts = <String>[];
-    if (zone.isNotEmpty) locationParts.add('Regional Office: $zone');
-    if (salesArea.isNotEmpty) locationParts.add('Sales Area: $salesArea');
-    if (district.isNotEmpty) locationParts.add('District: $district');
+    if (salesArea.isNotEmpty) locationParts.add('SA: $salesArea');
+    if (district.isNotEmpty) locationParts.add('Dist: $district');
     if (locationParts.isNotEmpty) {
       final fourthLineText = locationParts.join(', ');
       final fourthLinePainter = TextPainter(
-        text: TextSpan(text: fourthLineText, style: detailStyle),
+        text: TextSpan(text: fourthLineText, style: watermarkStyle),
         textDirection: ui.TextDirection.ltr,
         maxLines: null, // Allow multi-line
         textAlign: TextAlign.left,
@@ -338,19 +314,99 @@ class _CameraScreenState extends State<CameraScreen> {
       lineSpacings.add(6);
     }
 
-    // Fifth line: userName, teamName (if available) - CAPITALIZED
+    // Fifth line: first word of userName, teamName (if available) - CAPITALIZED with truncation
     final userParts = <String>[];
-    if (userName.isNotEmpty) userParts.add(userName.toUpperCase());
-    if (teamName.isNotEmpty) userParts.add(teamName.toUpperCase());
+    if (userName.isNotEmpty) {
+      final firstName = userName.split(' ').first.toUpperCase();
+      userParts.add(firstName);
+    }
+    if (teamName.isNotEmpty) {
+      userParts.add(teamName.toUpperCase());
+    }
     if (userParts.isNotEmpty) {
       final fifthLineText = userParts.join(', ');
       final fifthLinePainter = TextPainter(
-        text: TextSpan(text: fifthLineText, style: detailStyle),
+        text: TextSpan(text: fifthLineText, style: watermarkStyle),
         textDirection: ui.TextDirection.ltr,
-        maxLines: null, // Allow multi-line
+        maxLines: 1, // Force single line
         textAlign: TextAlign.left,
       )..layout(maxWidth: tempInfoWidth);
-      watermarkPainters.add(fifthLinePainter);
+      
+      // Check if text was truncated and add ellipsis if needed
+      String displayText = fifthLineText;
+      if (fifthLinePainter.didExceedMaxLines) {
+        // Find the last comma and truncate the team name part
+        final lastCommaIndex = fifthLineText.lastIndexOf(',');
+        if (lastCommaIndex > 0) {
+          final beforeComma = fifthLineText.substring(0, lastCommaIndex + 1); // Include the comma
+          final teamNamePart = fifthLineText.substring(lastCommaIndex + 1).trim();
+          
+          // Create a test painter to find where to truncate the team name
+          final testPainter = TextPainter(
+            text: TextSpan(text: teamNamePart, style: watermarkStyle),
+            textDirection: ui.TextDirection.ltr,
+            maxLines: 1,
+            textAlign: TextAlign.left,
+          )..layout(maxWidth: tempInfoWidth - 50); // Leave some space for ellipsis
+          
+          if (testPainter.didExceedMaxLines) {
+            // Find the character position where it exceeds, accounting for "..." space
+            int truncateIndex = teamNamePart.length;
+            for (int i = teamNamePart.length - 1; i >= 0; i--) {
+              final testText = teamNamePart.substring(0, i) + '...';
+              final testPainter2 = TextPainter(
+                text: TextSpan(text: testText, style: watermarkStyle),
+                textDirection: ui.TextDirection.ltr,
+                maxLines: 1,
+                textAlign: TextAlign.left,
+              )..layout(maxWidth: tempInfoWidth - 50);
+              
+              if (!testPainter2.didExceedMaxLines) {
+                truncateIndex = i;
+                break;
+              }
+            }
+            
+            // Final verification: test the complete line with ellipsis
+            final finalTestText = '$beforeComma ${teamNamePart.substring(0, truncateIndex)}...';
+            final finalTestPainter = TextPainter(
+              text: TextSpan(text: finalTestText, style: watermarkStyle),
+              textDirection: ui.TextDirection.ltr,
+              maxLines: 1,
+              textAlign: TextAlign.left,
+            )..layout(maxWidth: tempInfoWidth);
+            
+            if (!finalTestPainter.didExceedMaxLines) {
+              displayText = finalTestText;
+            } else {
+              // If still exceeds, truncate more aggressively
+              for (int i = truncateIndex - 1; i >= 0; i--) {
+                final aggressiveTestText = '$beforeComma ${teamNamePart.substring(0, i)}...';
+                final aggressiveTestPainter = TextPainter(
+                  text: TextSpan(text: aggressiveTestText, style: watermarkStyle),
+                  textDirection: ui.TextDirection.ltr,
+                  maxLines: 1,
+                  textAlign: TextAlign.left,
+                )..layout(maxWidth: tempInfoWidth);
+                
+                if (!aggressiveTestPainter.didExceedMaxLines) {
+                  displayText = aggressiveTestText;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      final finalFifthLinePainter = TextPainter(
+        text: TextSpan(text: displayText, style: watermarkStyle),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+        textAlign: TextAlign.left,
+      )..layout(maxWidth: tempInfoWidth);
+      
+      watermarkPainters.add(finalFifthLinePainter);
       // Extra spacing before branding
       lineSpacings.add(8);
     }
