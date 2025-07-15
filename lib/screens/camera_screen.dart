@@ -247,32 +247,14 @@ class _CameraScreenState extends State<CameraScreen> {
     final List<double> lineSpacings = [];
 
     // First line: Before/Working/After on left, SAP code on right
+    final firstLineText = '${widget.photoType}${sapCode.isNotEmpty ? '    SAP - $sapCode' : ''}';
     final firstLinePainter = TextPainter(
-      text: TextSpan(text: widget.photoType, style: watermarkStyle),
+      text: TextSpan(text: firstLineText, style: watermarkStyle),
       textDirection: ui.TextDirection.ltr,
       maxLines: null, // Allow multi-line
       textAlign: TextAlign.left,
     )..layout(maxWidth: tempInfoWidth);
-    
-    final sapCodePainter = sapCode.isNotEmpty ? (TextPainter(
-      text: TextSpan(text: 'SAP - $sapCode', style: watermarkStyle),
-      textDirection: ui.TextDirection.ltr,
-      maxLines: null, // Allow multi-line
-      textAlign: TextAlign.right,
-    )..layout(maxWidth: tempInfoWidth)) : null;
-    
-    // Create a combined painter that represents the full line height
-    final combinedHeight = sapCodePainter != null 
-        ? firstLinePainter.height > sapCodePainter.height 
-            ? firstLinePainter.height 
-            : sapCodePainter.height
-        : firstLinePainter.height;
-    
-    // Store the painters and their positions for later drawing
     watermarkPainters.add(firstLinePainter);
-    if (sapCodePainter != null) {
-      watermarkPainters.add(sapCodePainter);
-    }
     lineSpacings.add(6);
 
     // Second line: Company-Regional Office Date/Time
@@ -496,33 +478,13 @@ class _CameraScreenState extends State<CameraScreen> {
 
     // Draw text block to the right of the logo
     double y = imageHeight - bottomMargin - totalWatermarkHeight;
-    int painterIndex = 0;
-    
     for (int i = 0; i < watermarkPainters.length; i++) {
       final textPainter = watermarkPainters[i];
-      
-      // Special handling for first line (Before + SAP code)
-      if (i == 0 && painterIndex < watermarkPainters.length - 1) {
-        // Draw the first part (Before/Working/After) on the left
-        textPainter.paint(canvas, Offset(infoStartX, y));
-        
-        // Draw the SAP code on the right if it exists
-        if (painterIndex + 1 < watermarkPainters.length) {
-          final sapCodePainter = watermarkPainters[i + 1];
-          final sapCodeX = infoStartX + infoWidth - sapCodePainter.width;
-          sapCodePainter.paint(canvas, Offset(sapCodeX, y));
-          painterIndex++; // Skip the SAP code painter in next iteration
-        }
-      } else {
-        // Normal drawing for other lines
-        textPainter.paint(canvas, Offset(infoStartX, y));
-      }
-      
+      textPainter.paint(canvas, Offset(infoStartX, y));
       y += textPainter.height;
       if (i < watermarkPainters.length - 1) {
         y += lineSpacings[i];
       }
-      painterIndex++;
     }
 
     // Convert the canvas to an image
