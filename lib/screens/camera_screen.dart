@@ -267,7 +267,7 @@ class _CameraScreenState extends State<CameraScreen> {
     }
     if (secondLineParts.isNotEmpty) {
       secondLineParts.add(dateTimeStr);
-      final secondLineText = secondLineParts.join('-');
+      final secondLineText = secondLineParts.join('-').replaceAll('-$dateTimeStr', ' $dateTimeStr');
       final secondLinePainter = TextPainter(
         text: TextSpan(text: secondLineText, style: watermarkStyle),
         textDirection: ui.TextDirection.ltr,
@@ -740,20 +740,46 @@ class _CameraScreenState extends State<CameraScreen> {
     }
 
     final size = MediaQuery.of(context).size;
-    // calculate scale to fill screen
-    var scale = size.aspectRatio * _controller!.value.aspectRatio;
-
-    // to prevent scaling down, make sure scale is > 1
-    if (scale < 1) scale = 1 / scale;
+    final orientation = MediaQuery.of(context).orientation;
+    
+    // Get camera preview size
+    final previewSize = _controller!.value.previewSize;
+    
+    if (previewSize == null) {
+      // Fallback if preview size is not available
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: const Center(
+          child: Text(
+            'Camera preview not available',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+    
+    // Calculate the aspect ratio of the camera preview
+    final previewAspectRatio = previewSize.width / previewSize.height;
+    
+    // Debug information
+    debugPrint('Screen size: ${size.width} x ${size.height}');
+    debugPrint('Preview size: ${previewSize.width} x ${previewSize.height}');
+    debugPrint('Preview aspect ratio: $previewAspectRatio');
+    debugPrint('Screen aspect ratio: ${size.width / size.height}');
+    debugPrint('Orientation: $orientation');
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Transform.scale(
-            scale: scale,
-            child: Center(
-              child: CameraPreview(_controller!),
+          SizedBox.expand(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: previewSize.width,
+                height: previewSize.height,
+                child: CameraPreview(_controller!),
+              ),
             ),
           ),
 
