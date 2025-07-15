@@ -758,28 +758,36 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
     
-    // Calculate the aspect ratio of the camera preview
-    final previewAspectRatio = previewSize.width / previewSize.height;
+    // Calculate proper scaling for camera preview
+    // This ensures the camera preview fills the screen without distortion
+    double scale;
     
-    // Debug information
-    debugPrint('Screen size: ${size.width} x ${size.height}');
-    debugPrint('Preview size: ${previewSize.width} x ${previewSize.height}');
-    debugPrint('Preview aspect ratio: $previewAspectRatio');
-    debugPrint('Screen aspect ratio: ${size.width / size.height}');
-    debugPrint('Orientation: $orientation');
+    if (orientation == Orientation.portrait) {
+      // In portrait mode, use the original working logic
+      scale = size.aspectRatio * _controller!.value.aspectRatio;
+      if (scale < 1) scale = 1 / scale;
+    } else {
+      // In landscape mode, use the new logic that prevents zoom
+      final previewAspectRatio = previewSize.width / previewSize.height;
+      final screenAspectRatio = size.width / size.height;
+      
+      if (previewAspectRatio > screenAspectRatio) {
+        // Preview is wider than screen - scale to fit height
+        scale = size.height / previewSize.width;
+      } else {
+        // Preview is taller than screen - scale to fit width
+        scale = size.width / previewSize.height;
+      }
+    }
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          SizedBox.expand(
-            child: FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: previewSize.width,
-                height: previewSize.height,
-                child: CameraPreview(_controller!),
-              ),
+          Transform.scale(
+            scale: scale,
+            child: Center(
+              child: CameraPreview(_controller!),
             ),
           ),
 
