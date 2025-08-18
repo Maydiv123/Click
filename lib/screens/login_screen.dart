@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:country_picker/country_picker.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
@@ -27,9 +26,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _isLoading = false;
   String? _errorMessage;
 
-  // Country code variables
-  String _selectedCountryCode = '+91';
-  String _selectedCountryFlag = '🇮🇳';
+  // Country code variables - Fixed to India only
+  final String _selectedCountryCode = '+91';
+  final String _selectedCountryFlag = '🇮🇳';
 
   final CustomAuthService _authService = CustomAuthService();
 
@@ -119,45 +118,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
   }
 
-  void _showCountryPicker() {
-    showCountryPicker(
-      context: context,
-      showPhoneCode: true,
-      showSearch: true,
-      searchAutofocus: true,
-      countryListTheme: CountryListThemeData(
-        flagSize: 25,
-        backgroundColor: Colors.white,
-        textStyle: const TextStyle(fontSize: 16, color: Colors.black),
-        bottomSheetHeight: 500,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20.0),
-          topRight: Radius.circular(20.0),
-        ),
-        searchTextStyle: const TextStyle(fontSize: 16, color: Colors.black),
-        inputDecoration: InputDecoration(
-          labelText: 'Search',
-          hintText: 'Start typing to search',
-          prefixIcon: const Icon(Icons.search),
-          border: OutlineInputBorder(
-            borderSide: BorderSide(
-              color: const Color(0xFF8C98A8).withOpacity(0.2),
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.teal.shade300),
-          ),
-        ),
-      ),
-      onSelect: (Country country) {
-        setState(() {
-          _selectedCountryCode = '+${country.phoneCode}';
-          _selectedCountryFlag = country.flagEmoji;
-        });
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -186,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black),
                 ),
                 const SizedBox(height: 40),
-                // Mobile Number with Country Picker
+                // Mobile Number with Country Code (Fixed to India)
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
@@ -194,45 +154,37 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   ),
                   child: Row(
                     children: [
-                      GestureDetector(
-                        onTap: _showCountryPicker,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          alignment: Alignment.center,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _selectedCountryFlag,
-                                style: const TextStyle(fontSize: 18),
+                      // Static Country Code Display (India only)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _selectedCountryFlag,
+                              style: const TextStyle(fontSize: 18),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _selectedCountryCode,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _selectedCountryCode,
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(width: 2),
-                              Icon(
-                                Icons.keyboard_arrow_down,
-                                color: Colors.grey[600],
-                                size: 20,
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                       Expanded(
                         child: TextFormField(
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
-                          maxLength: _selectedCountryCode == '+91' ? 10 : 15,
+                          maxLength: 10,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(_selectedCountryCode == '+91' ? 10 : 15),
+                            LengthLimitingTextInputFormatter(10),
                           ],
                           decoration: const InputDecoration(
                             hintText: 'Enter your Mobile Number',
@@ -243,12 +195,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) return 'Please enter your phone number';
-                            if (_selectedCountryCode == '+91') {
-                              if (value.length != 10) return 'Indian phone number must be exactly 10 digits';
-                            } else {
-                              if (value.length < 6) return 'Phone number must be at least 6 digits';
-                              if (value.length > 15) return 'Phone number is too long';
-                            }
+                            if (value.length != 10) return 'Indian phone number must be exactly 10 digits';
                             return null;
                           },
                         ),
@@ -260,8 +207,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(6),
+                    FilteringTextInputFormatter.allow(RegExp(r'^[0-9]+$')),
+                  ],
                   decoration: InputDecoration(
-                    hintText: 'Enter your password',
+                    hintText: 'Enter your 6 digit PIN',
                     hintStyle: TextStyle(color: Colors.grey[600]),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -283,8 +235,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Please enter your password';
-                    if (value.length < 6) return 'Password must be at least 6 characters';
+                    if (value == null || value.isEmpty) return 'Please enter your MPIN';
+                    if (value.length < 6) return 'MPIN must be at least 6 characters';
+                    // if (!RegExp(r'^[0-9]+$').hasMatch(value)) return 'MPIN must contain only numbers';
                     return null;
                   },
                 ),

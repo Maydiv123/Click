@@ -15,6 +15,40 @@ class CustomAuthService {
   static const String _userFirstNameKey = 'userFirstName';
   static const String _userLastNameKey = 'userLastName';
 
+  // Check if phone number already exists
+  Future<Map<String, dynamic>> checkPhoneNumberExists(String mobile) async {
+    try {
+      final existingUser = await _userDataCollection
+          .where('mobile', isEqualTo: mobile)
+          .get();
+
+      if (existingUser.docs.isNotEmpty) {
+        final userData = existingUser.docs.first.data() as Map<String, dynamic>;
+        return {
+          'exists': true,
+          'message': 'A user with this mobile number is already registered',
+          'userData': {
+            'firstName': userData['firstName'] ?? '',
+            'lastName': userData['lastName'] ?? '',
+            'userType': userData['userType'] ?? '',
+            'createdAt': userData['createdAt'],
+          }
+        };
+      }
+
+      return {
+        'exists': false,
+        'message': 'Phone number is available'
+      };
+    } catch (e) {
+      return {
+        'exists': false,
+        'message': 'Error checking phone number: ${e.toString()}',
+        'error': true
+      };
+    }
+  }
+
   // Register a new user
   Future<Map<String, dynamic>> registerUser({
     required String firstName,
@@ -27,15 +61,42 @@ class CustomAuthService {
     List<String>? preferredCompanies,
   }) async {
     try {
-      // Check if user already exists
+      // Enhanced check if user already exists with better error details
       final existingUser = await _userDataCollection
           .where('mobile', isEqualTo: mobile)
           .get();
 
       if (existingUser.docs.isNotEmpty) {
+        final userData = existingUser.docs.first.data() as Map<String, dynamic>;
+        final existingFirstName = userData['firstName'] ?? '';
+        final existingLastName = userData['lastName'] ?? '';
+        final existingUserType = userData['userType'] ?? '';
+        final createdAt = userData['createdAt'];
+        
+        String errorMessage = 'A user with this mobile number (+${mobile.substring(0, 2)} ${mobile.substring(2, 7)} ${mobile.substring(7)}) is already registered';
+        
+        if (existingFirstName.isNotEmpty) {
+          errorMessage += ' under the name "$existingFirstName $existingLastName"';
+        }
+        
+        if (existingUserType.isNotEmpty) {
+          errorMessage += ' as a $existingUserType';
+        }
+        
+        if (createdAt != null) {
+          errorMessage += '. If this is you, please try logging in instead.';
+        }
+        
         return {
           'success': false,
-          'message': 'User with this mobile number already exists'
+          'message': errorMessage,
+          'errorCode': 'PHONE_ALREADY_EXISTS',
+          'existingUser': {
+            'firstName': existingFirstName,
+            'lastName': existingLastName,
+            'userType': existingUserType,
+            'createdAt': createdAt,
+          }
         };
       }
 

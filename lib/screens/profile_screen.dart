@@ -535,6 +535,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // Helper method to sort preferred companies in the specified order: HPCL, IOCL, BPCL
+  List<String> _getSortedPreferredCompanies(List<dynamic> companies) {
+    if (companies.isEmpty) return [];
+    
+    // Define the desired order
+    final List<String> desiredOrder = ['HPCL', 'IOCL', 'BPCL'];
+    
+    // Create a map to store companies with their priority
+    Map<String, int> companyPriority = {};
+    for (int i = 0; i < desiredOrder.length; i++) {
+      companyPriority[desiredOrder[i]] = i;
+    }
+    
+    // Filter and convert to String list, handling any null or invalid values
+    List<String> validCompanies = companies
+        .where((company) => company != null && company.toString().isNotEmpty)
+        .map((company) => company.toString())
+        .toList();
+    
+    if (validCompanies.isEmpty) return [];
+    
+    // Sort the companies based on the desired order
+    validCompanies.sort((a, b) {
+      int priorityA = companyPriority[a] ?? 999; // High priority for unknown companies
+      int priorityB = companyPriority[b] ?? 999;
+      return priorityA.compareTo(priorityB);
+    });
+    
+    return validCompanies;
+  }
+
   void _showEditProfileModal(Map<String, dynamic> userData) {
     final _formKey = GlobalKey<FormState>();
     final TextEditingController firstNameController = TextEditingController(text: userData['firstName'] ?? '');
@@ -940,7 +971,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: ['IOCL', 'HPCL', 'BPCL'].map((company) {
+                        children: ['HPCL', 'IOCL', 'BPCL'].map((company) {
                           final isSelected = oilCompanies.contains(company);
                           return GestureDetector(
                             onTap: () {
@@ -1109,21 +1140,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Settings will be available in the next update!'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: StreamBuilder<Map<String, dynamic>>(
         stream: _databaseService.getUserData(),
@@ -1234,19 +1250,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           letterSpacing: 0.3,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withOpacity(0.3)),
-                        ),
-                        child: Text(
-                          userData['userType']?.toString().replaceAll('UserType.', '') ?? 'User',
-                          style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12, fontWeight: FontWeight.w500),
-                        ),
-                      ),
+                      // const SizedBox(height: 8),
+                      // Container(
+                      //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      //   decoration: BoxDecoration(
+                      //     color: Colors.white.withOpacity(0.2),
+                      //     borderRadius: BorderRadius.circular(20),
+                      //     border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      //   ),
+                      //   child: Text(
+                      //     userData['userType']?.toString().replaceAll('UserType.', '') ?? 'User',
+                      //     style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12, fontWeight: FontWeight.w500),
+                      //   ),
+                      // ),
                       const SizedBox(height: 20),
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -1392,7 +1408,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Wrap(
                         spacing: 10,
                         runSpacing: 10,
-                        children: (userData["preferredCompanies"] as List).map<Widget>((company) {
+                        children: _getSortedPreferredCompanies(userData["preferredCompanies"] as List).map<Widget>((company) {
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(

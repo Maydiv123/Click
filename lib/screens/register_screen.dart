@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome package
-import 'package:country_picker/country_picker.dart'; // Import country picker
 import 'login_screen.dart'; // Import Login screen for navigation
 import '../services/custom_auth_service.dart';
 import 'home_screen.dart';
 import 'package:flutter/services.dart';
+import 'dart:async'; // Import for Timer
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -46,11 +46,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   String? _errorMessage;
   String? _userTypeError;
   String? _companySelectionError;
+  String? _phoneValidationMessage;
+  bool _isCheckingPhone = false;
+  bool _phoneNumberExists = false;
 
-  // Country code variables
-  String _selectedCountryCode = '+91';
-  String _selectedCountryName = 'India';
-  String _selectedCountryFlag = '🇮🇳';
+  // Country code variables - Fixed to India only
+  final String _selectedCountryCode = '+91';
+  final String _selectedCountryName = 'India';
+  final String _selectedCountryFlag = '🇮🇳';
 
   // Input formatters for validation
   final RegExp _nameRegex = RegExp(r'^[a-zA-Z\s]+$');
@@ -59,6 +62,75 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
 
   // Get full phone number with country code
   String get _fullPhoneNumber => '$_selectedCountryCode${_mobileController.text}';
+
+  // Check if phone number already exists
+  Future<void> _checkPhoneNumberExists() async {
+    if (_mobileController.text.length != 10) {
+      setState(() {
+        _phoneValidationMessage = null;
+        _phoneNumberExists = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingPhone = true;
+      _phoneValidationMessage = null;
+    });
+
+    try {
+      final result = await _authService.checkPhoneNumberExists(_fullPhoneNumber);
+      
+      if (mounted) {
+        setState(() {
+          _isCheckingPhone = false;
+          if (result['exists'] == true) {
+            _phoneValidationMessage = result['message'];
+            _phoneNumberExists = true;
+          } else {
+            _phoneValidationMessage = null;
+            _phoneNumberExists = false;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCheckingPhone = false;
+          _phoneValidationMessage = 'Error checking phone number';
+        });
+      }
+    }
+  }
+
+  // Debounced phone number validation
+  Timer? _phoneValidationTimer;
+  void _onPhoneNumberChanged(String value) {
+    // Cancel previous timer
+    _phoneValidationTimer?.cancel();
+    
+    // Clear previous validation message
+    setState(() {
+      _phoneValidationMessage = null;
+      _phoneNumberExists = false;
+    });
+    
+    // Set new timer for validation after user stops typing
+    _phoneValidationTimer = Timer(const Duration(milliseconds: 800), () {
+      if (value.length == 10) {
+        _checkPhoneNumberExists();
+      }
+    });
+  }
+
+  // Clear phone validation when user starts typing
+  void _onPhoneNumberEditingComplete() {
+    if (_mobileController.text.length == 10) {
+      _checkPhoneNumberExists();
+    }
+  }
+
+
 
   @override
   void initState() {
@@ -91,6 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   @override
   void dispose() {
     _controller.dispose();
+    _phoneValidationTimer?.cancel();
     _firstNameController.dispose();
     _lastNameController.dispose();
     _mobileController.dispose();
@@ -242,6 +315,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       _passwordMatchError = null;
       _errorMessage = null;
       _companySelectionError = null;
+      _phoneValidationMessage = null;
     });
 
     // Collect all validation errors
@@ -273,6 +347,11 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       validationErrors.add('MPIN must be exactly 6 digits');
     }
 
+    // Validate phone number - prevent registration if number already exists
+    if (_phoneNumberExists) {
+      validationErrors.add('This phone number is already registered. Please use a different number or try logging in.');
+    }
+
     // If there are any validation errors, show them all and return
     if (validationErrors.isNotEmpty) {
       setState(() {
@@ -280,6 +359,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         _companySelectionError = validationErrors.contains('Please select at least one company') ? 'Please select at least one company' : null;
         _passwordMatchError = validationErrors.contains('MPINs do not match') ? 'MPINs do not match' : null;
         _errorMessage = validationErrors.contains('MPIN must be exactly 6 digits') ? 'MPIN must be exactly 6 digits' : null;
+        if (validationErrors.contains('This phone number is already registered. Please use a different number or try logging in.')) {
+          _phoneValidationMessage = 'This phone number is already registered. Please use a different number or try logging in.';
+        }
       });
       
       // Show all validation errors in a snackbar
@@ -534,18 +616,18 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         ),
                         const SizedBox(height: 20),
                         
-                        // Last Name
+                        // Last Name (Optional)
                         TextFormField(
                           controller: _lastNameController,
                           validator: (value) {
-                            if (value?.isEmpty ?? true) {
-                              return 'Please enter your last name';
-                            }
-                            if (!_nameRegex.hasMatch(value!)) {
-                              return 'Last name can only contain letters';
-                            }
-                            if (value.length < 2) {
-                              return 'Last name must be at least 2 characters';
+                            // Last name is optional, but if provided, it must be valid
+                            if (value != null && value.isNotEmpty) {
+                              if (!_nameRegex.hasMatch(value)) {
+                                return 'Last name can only contain letters';
+                              }
+                              if (value.length < 2) {
+                                return 'Last name must be at least 2 characters';
+                              }
                             }
                             return null;
                           },
@@ -554,7 +636,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           ],
                           textCapitalization: TextCapitalization.words,
                           decoration: _buildInputDecoration(
-                            'Last Name',
+                            'Last Name (Optional)',
                             'e.g., Smith',
                             Icons.person_outline,
                           ),
@@ -565,53 +647,60 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Mobile Number',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
+                            Row(
+                              children: [
+                                const Text(
+                                  'Mobile Number',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Tooltip(
+                                  message: 'We\'ll use this number to verify your account and send important updates',
+                                  child: Icon(
+                                    Icons.info_outline,
+                                    size: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 10),
                             Container(
                               decoration: BoxDecoration(
-                                color: Colors.grey[100],
+                                color: _phoneNumberExists ? Colors.red.shade50 : Colors.grey[100],
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.transparent),
+                                border: Border.all(
+                                  color: _phoneNumberExists ? Colors.red.shade300 : Colors.transparent,
+                                  width: _phoneNumberExists ? 2 : 1,
+                                ),
                               ),
                               child: Row(
                                 children: [
-                                  // Country Code Selector
-                                  GestureDetector(
-                                    onTap: _showCountryPicker,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                                      alignment: Alignment.center,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            _selectedCountryFlag,
-                                            style: const TextStyle(fontSize: 18),
+                                  // Static Country Code Display (India only)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                    alignment: Alignment.center,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _selectedCountryFlag,
+                                          style: const TextStyle(fontSize: 18),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _selectedCountryCode,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.black,
                                           ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            _selectedCountryCode,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 2),
-                                          Icon(
-                                            Icons.keyboard_arrow_down,
-                                            color: Colors.grey[600],
-                                            size: 20,
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   Expanded(
@@ -624,32 +713,122 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                         if (!_phoneRegex.hasMatch(value!)) {
                                           return 'Mobile number can only contain digits';
                                         }
-                                        if (_selectedCountryCode == '+91') {
-                                          if (value.length != 10) return 'Indian phone number must be exactly 10 digits';
-                                        } else {
-                                          if (value.length < 6) return 'Phone number must be at least 6 digits';
-                                          if (value.length > 15) return 'Phone number is too long';
-                                        }
+                                        if (value.length != 10) return 'Indian phone number must be exactly 10 digits';
                                         return null;
                                       },
                                       inputFormatters: [
                                         FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                                        LengthLimitingTextInputFormatter(_selectedCountryCode == '+91' ? 10 : 15),
+                                        LengthLimitingTextInputFormatter(10),
                                       ],
                                       keyboardType: TextInputType.phone,
-                                      decoration: const InputDecoration(
+                                                                             onChanged: _onPhoneNumberChanged,
+                                       onEditingComplete: _onPhoneNumberEditingComplete,
+                                      decoration: InputDecoration(
                                         hintText: 'Enter mobile number',
                                         border: InputBorder.none,
                                         filled: false,
-                                        contentPadding: EdgeInsets.only(left: 4, right: 16, top: 16, bottom: 16),
-                                        errorStyle: TextStyle(color: Colors.red, fontSize: 12),
+                                        contentPadding: const EdgeInsets.only(left: 4, right: 16, top: 16, bottom: 16),
+                                        errorStyle: const TextStyle(color: Colors.red, fontSize: 12),
                                         counterText: "",
+                                        suffixIcon: _isCheckingPhone 
+                                          ? const Padding(
+                                              padding: EdgeInsets.all(16.0),
+                                              child: SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                                                ),
+                                              ),
+                                            )
+                                          : _phoneNumberExists
+                                            ? const Icon(
+                                                Icons.error_outline,
+                                                color: Colors.red,
+                                                size: 20,
+                                              )
+                                            : _mobileController.text.length == 10
+                                              ? const Icon(
+                                                  Icons.check_circle,
+                                                  color: Colors.green,
+                                                  size: 20,
+                                                )
+                                              : null,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                            if (_phoneValidationMessage != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: _phoneNumberExists ? Colors.red.shade50 : Colors.orange.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: _phoneNumberExists ? Colors.red.shade200 : Colors.orange.shade200,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            _phoneNumberExists ? Icons.error_outline : Icons.info_outline,
+                                            color: _phoneNumberExists ? Colors.red : Colors.orange,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              _phoneValidationMessage!,
+                                              style: TextStyle(
+                                                color: _phoneNumberExists ? Colors.red.shade700 : Colors.orange.shade700,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (_phoneNumberExists) ...[
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Already have an account? ',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            GestureDetector(
+                                              onTap: () => Navigator.pushReplacement(
+                                                context,
+                                                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                                              ),
+                                              child: Text(
+                                                'Login here',
+                                                style: TextStyle(
+                                                  color: const Color(0xFF010269),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                  decoration: TextDecoration.underline,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 20),
@@ -695,14 +874,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           child: Row(
                             children: [
                               _buildCompanyCard(
-                                'IOCL',
-                                _ioclChecked,
-                                () => setState(() => _ioclChecked = !_ioclChecked),
-                              ),
-                              _buildCompanyCard(
                                 'HPCL',
                                 _hpclChecked,
                                 () => setState(() => _hpclChecked = !_hpclChecked),
+                              ),
+                              _buildCompanyCard(
+                                'IOCL',
+                                _ioclChecked,
+                                () => setState(() => _ioclChecked = !_ioclChecked),
                               ),
                               _buildCompanyCard(
                                 'BPCL',
@@ -740,8 +919,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           keyboardType: TextInputType.number,
                           obscureText: !_isPasswordVisible,
                           decoration: _buildInputDecoration(
-                            'MPIN',
-                            'Enter New 6-digit MPIN',
+                            'Password',
+                            'Enter 6-digit Password',
                             Icons.lock_outline,
                           ).copyWith(
                             suffixIcon: IconButton(
@@ -759,9 +938,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         TextFormField(
                           controller: _confirmPasswordController,
                           validator: (value) {
-                            if (value?.isEmpty ?? true) return 'Please confirm your MPIN';
-                            if (!_mpinRegex.hasMatch(value!)) return 'MPIN must be exactly 6 digits';
-                            if (value != _passwordController.text) return 'MPINs do not match';
+                            if (value?.isEmpty ?? true) return 'Please confirm your Password';
+                            if (!_mpinRegex.hasMatch(value!)) return 'Password must be exactly 6 digits';
+                            if (value != _passwordController.text) return 'Passwords do not match';
                             return null;
                           },
                           inputFormatters: [
@@ -772,8 +951,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           obscureText: !_isConfirmPasswordVisible,
                           onChanged: _checkPasswordMatch,
                           decoration: _buildInputDecoration(
-                            'Confirm MPIN',
-                            'Re-enter New 6-digit MPIN',
+                            'Confirm Password',
+                            'Re-enter 6-digit Password',
                             Icons.lock_outline,
                           ).copyWith(
                             suffixIcon: IconButton(
@@ -979,7 +1158,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             Container(
               width: 60,
               height: 60,
-      decoration: BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
@@ -1036,46 +1215,6 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
           child: FaIcon(icon, color: color),
         ),
       ),
-    );
-  }
-
-  void _showCountryPicker() {
-    showCountryPicker(
-      context: context,
-      showPhoneCode: true,
-      showSearch: true,
-      searchAutofocus: true,
-      countryListTheme: CountryListThemeData(
-        flagSize: 25,
-        backgroundColor: Colors.white,
-        textStyle: const TextStyle(fontSize: 16, color: Colors.black),
-        bottomSheetHeight: 500,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20.0),
-          topRight: Radius.circular(20.0),
-        ),
-        searchTextStyle: const TextStyle(fontSize: 16, color: Colors.black),
-        inputDecoration: InputDecoration(
-          labelText: 'Search',
-          hintText: 'Start typing to search',
-          prefixIcon: const Icon(Icons.search),
-          border: OutlineInputBorder(
-            borderSide: BorderSide(
-              color: const Color(0xFF8C98A8).withOpacity(0.2),
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.blue.shade300),
-          ),
-        ),
-      ),
-      onSelect: (Country country) {
-        setState(() {
-          _selectedCountryCode = '+${country.phoneCode}';
-          _selectedCountryName = country.name;
-          _selectedCountryFlag = country.flagEmoji;
-        });
-      },
     );
   }
 } 
