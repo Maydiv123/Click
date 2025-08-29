@@ -325,7 +325,7 @@ class AppDrawer extends StatelessWidget {
                     
                     _buildDrawerItem(
                       icon: Icons.map,
-                      title: 'Map',
+                      title: 'Pump Map',
                       onTap: () {
                         Navigator.pop(context);
                         if (currentScreen != 'map') {
@@ -340,7 +340,7 @@ class AppDrawer extends StatelessWidget {
                     
                     _buildDrawerItem(
                       icon: Icons.add_location,
-                      title: 'Add Petrol Pump',
+                      title: 'Pump',
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
@@ -352,7 +352,7 @@ class AppDrawer extends StatelessWidget {
                     
                     _buildDrawerItem(
                       icon: Icons.search,
-                      title: 'Search Pumps',
+                      title: 'Find Pumps',
                       onTap: () {
                         Navigator.pop(context);
                         if (currentScreen != 'search') {
@@ -379,7 +379,7 @@ class AppDrawer extends StatelessWidget {
                     
                     _buildDrawerItem(
                       icon: Icons.camera_alt,
-                      title: 'Camera',
+                      title: 'Click Photos',
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
@@ -391,7 +391,7 @@ class AppDrawer extends StatelessWidget {
                     
                     _buildDrawerItem(
                       icon: Icons.assignment,
-                      title: 'My Requests',
+                      title: 'Pump Requests',
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(

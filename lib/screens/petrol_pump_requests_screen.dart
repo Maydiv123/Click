@@ -18,8 +18,10 @@ class _PetrolPumpRequestsScreenState extends State<PetrolPumpRequestsScreen> {
   final CustomAuthService _authService = CustomAuthService();
   
   List<PetrolPumpRequest> _requests = [];
+  List<PetrolPumpRequest> _filteredRequests = [];
   bool _isLoading = true;
   String _error = '';
+  String _selectedFilter = 'pending'; // 'pending' or 'approved'
 
   @override
   void initState() {
@@ -51,6 +53,7 @@ class _PetrolPumpRequestsScreenState extends State<PetrolPumpRequestsScreen> {
       
       setState(() {
         _requests = requests;
+        _filterRequests();
         _isLoading = false;
       });
     } catch (e) {
@@ -60,6 +63,27 @@ class _PetrolPumpRequestsScreenState extends State<PetrolPumpRequestsScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _filterRequests() {
+    if (_selectedFilter == 'pending') {
+      _filteredRequests = _requests.where((request) => 
+        request.status.toLowerCase() == 'pending' || 
+        request.status.toLowerCase() == 'rejected'
+      ).toList();
+    } else {
+      _filteredRequests = _requests.where((request) => 
+        request.status.toLowerCase() == 'approved' || 
+        request.status.toLowerCase() == 'verified'
+      ).toList();
+    }
+  }
+
+  void _onFilterChanged(String filter) {
+    setState(() {
+      _selectedFilter = filter;
+      _filterRequests();
+    });
   }
 
   String _getStatusText(String status) {
@@ -165,7 +189,7 @@ class _PetrolPumpRequestsScreenState extends State<PetrolPumpRequestsScreen> {
       drawer: const AppDrawer(currentScreen: 'requests'),
       appBar: AppBar(
         title: const Text(
-          'My Petrol Pump Requests',
+          'Pump Requests',
           style: TextStyle(
             color: Colors.black,
             fontSize: 20,
@@ -180,11 +204,11 @@ class _PetrolPumpRequestsScreenState extends State<PetrolPumpRequestsScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: _loadUserRequests,
           ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _addTestRequest,
-            tooltip: 'Add Test Request',
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.add),
+          //   onPressed: _addTestRequest,
+          //   tooltip: 'Add Test Request',
+          // ),
         ],
       ),
       body: _isLoading
@@ -218,12 +242,141 @@ class _PetrolPumpRequestsScreenState extends State<PetrolPumpRequestsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Your request will be processed within 24 hours during business days.',
+                          'Your request will processed soon.',
                           style: TextStyle(
                             fontSize: 13,
                             color: const Color(0xFF35C2C1),
                             fontWeight: FontWeight.w500,
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Filter buttons
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _onFilterChanged('pending'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _selectedFilter == 'pending' 
+                              ? const Color(0xFF35C2C1) 
+                              : Colors.grey[200],
+                            foregroundColor: _selectedFilter == 'pending' 
+                              ? Colors.white 
+                              : Colors.grey[700],
+                            elevation: _selectedFilter == 'pending' ? 2 : 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                                                     child: Row(
+                             mainAxisAlignment: MainAxisAlignment.center,
+                             children: [
+                               Icon(
+                                 Icons.schedule,
+                                 size: 18,
+                                 color: _selectedFilter == 'pending' 
+                                   ? Colors.white 
+                                   : Colors.grey[700],
+                               ),
+                               const SizedBox(width: 8),
+                               Text(
+                                 'Pending',
+                                 style: TextStyle(
+                                   fontSize: 14,
+                                   fontWeight: _selectedFilter == 'pending' 
+                                     ? FontWeight.bold 
+                                     : FontWeight.normal,
+                                 ),
+                               ),
+                               const SizedBox(width: 8),
+                               Container(
+                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                 decoration: BoxDecoration(
+                                   color: _selectedFilter == 'pending' 
+                                     ? Colors.white.withOpacity(0.2) 
+                                     : Colors.grey[300],
+                                   borderRadius: BorderRadius.circular(10),
+                                 ),
+                                 child: Text(
+                                   '${_requests.where((r) => r.status.toLowerCase() == 'pending' || r.status.toLowerCase() == 'rejected').length}',
+                                   style: TextStyle(
+                                     fontSize: 12,
+                                     color: _selectedFilter == 'pending' 
+                                       ? Colors.white 
+                                       : Colors.grey[700],
+                                     fontWeight: FontWeight.bold,
+                                   ),
+                                 ),
+                               ),
+                             ],
+                           ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _onFilterChanged('approved'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _selectedFilter == 'approved' 
+                              ? const Color(0xFF35C2C1) 
+                              : Colors.grey[200],
+                            foregroundColor: _selectedFilter == 'approved' 
+                              ? Colors.white 
+                              : Colors.grey[700],
+                            elevation: _selectedFilter == 'approved' ? 2 : 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                                                     child: Row(
+                             mainAxisAlignment: MainAxisAlignment.center,
+                             children: [
+                               Icon(
+                                 Icons.check_circle,
+                                 size: 18,
+                                 color: _selectedFilter == 'approved' 
+                                   ? Colors.white 
+                                   : Colors.grey[700],
+                               ),
+                               const SizedBox(width: 8),
+                               Text(
+                                 'Approved',
+                                 style: TextStyle(
+                                   fontSize: 14,
+                                   fontWeight: _selectedFilter == 'approved' 
+                                     ? FontWeight.bold 
+                                     : FontWeight.normal,
+                                 ),
+                               ),
+                               const SizedBox(width: 8),
+                               Container(
+                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                 decoration: BoxDecoration(
+                                   color: _selectedFilter == 'approved' 
+                                     ? Colors.white.withOpacity(0.2) 
+                                     : Colors.grey[300],
+                                   borderRadius: BorderRadius.circular(10),
+                                 ),
+                                 child: Text(
+                                   '${_requests.where((r) => r.status.toLowerCase() == 'approved' || r.status.toLowerCase() == 'verified').length}',
+                                   style: TextStyle(
+                                     fontSize: 12,
+                                     color: _selectedFilter == 'approved' 
+                                       ? Colors.white 
+                                       : Colors.grey[700],
+                                     fontWeight: FontWeight.bold,
+                                   ),
+                                 ),
+                               ),
+                             ],
+                           ),
                         ),
                       ),
                     ],
@@ -262,7 +415,7 @@ class _PetrolPumpRequestsScreenState extends State<PetrolPumpRequestsScreen> {
                             ],
                           ),
                         )
-                      : _requests.isEmpty
+                                                : _filteredRequests.isEmpty
                           ? Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -295,11 +448,46 @@ class _PetrolPumpRequestsScreenState extends State<PetrolPumpRequestsScreen> {
                             )
                           : RefreshIndicator(
                               onRefresh: _loadUserRequests,
-                              child: ListView.builder(
-                                padding: const EdgeInsets.all(16),
-                                itemCount: _requests.length,
+                              child: _filteredRequests.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          _selectedFilter == 'pending' 
+                                            ? Icons.schedule 
+                                            : Icons.check_circle,
+                                          size: 64,
+                                          color: Colors.grey[400],
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'No ${_selectedFilter == 'pending' ? 'pending' : 'approved'} requests',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _selectedFilter == 'pending'
+                                            ? 'You don\'t have any pending or rejected requests.'
+                                            : 'You don\'t have any approved or verified requests.',
+                                          style: TextStyle(
+                                            color: Colors.grey[500],
+                                            fontSize: 14,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: _filteredRequests.length,
                                 itemBuilder: (context, index) {
-                                  final request = _requests[index];
+                                  final request = _filteredRequests[index];
                                   return Card(
                                     margin: const EdgeInsets.only(bottom: 16),
                                     elevation: 2,

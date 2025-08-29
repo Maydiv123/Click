@@ -419,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(width: 8),
                         _buildNavButton('Team', 1),
                         const SizedBox(width: 8),
-                        _buildNavButton('Stats', 2),
+                        _buildNavButton('Activity', 2),
                         const SizedBox(width: 8),
                         _buildNavButton('Updates', 3),
                       ],
@@ -1021,7 +1021,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Expanded(
                                 child: _buildActionCard(
                                   context,
-                                  'Map',
+                                  'Pump Map',
                                   '',
                                   Icons.location_on,
                                   const Color(0xFF4A6FFF),
@@ -1037,7 +1037,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Expanded(
                                 child: _buildActionCard(
                                   context,
-                                  'Search',
+                                  'Find Pump',
                                   '',
                                   Icons.search,
                                   const Color(0xFF35C2C1),
@@ -1074,7 +1074,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Expanded(
                                 child: _buildActionCard(
                                   context,
-                                  'Nearest',
+                                  'Near By Pump',
                                   '',
                                   Icons.near_me,
                                   const Color(0xFF8E44AD),

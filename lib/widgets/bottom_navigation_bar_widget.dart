@@ -42,12 +42,12 @@ class CustomBottomNavigationBar extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildNavItem(0, Icons.home_outlined, 'Home'),
-                  _buildNavItem(1, Icons.map_outlined, 'Map'),
+                  _buildNavItem(1, Icons.map_outlined, 'Pumps'),
                   if (showFloatingActionButton)
                     const SizedBox(width: 40) // Space for FAB
                   else
                     const SizedBox(width: 0),
-                  _buildNavItem(3, Icons.search, 'Search'),
+                  _buildNavItem(3, Icons.search, 'Find'),
                   _buildNavItem(4, Icons.person_outline, 'Profile'),
                 ],
               ),
@@ -61,7 +61,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
-                      floatingActionButtonTooltip ?? 'Camera',
+                      floatingActionButtonTooltip ?? 'Photos',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.grey,
