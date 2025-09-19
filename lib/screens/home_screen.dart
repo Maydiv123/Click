@@ -419,8 +419,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(width: 8),
                         _buildNavButton('Team', 1),
                         const SizedBox(width: 8),
-                        _buildNavButton('Activity', 2),
-                        const SizedBox(width: 8),
+                        // _buildNavButton('Activity', 2),
+                        // const SizedBox(width: 8),
                         _buildNavButton('Updates', 3),
                       ],
                     ),
@@ -658,7 +658,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                           ),
                                           Text(
-                                            'Code: ${userData['teamCode'] ?? 'N/A'}',
+                                            "Code: ${userData['teamCode'] ?? 'N/A'}",
                                             style: TextStyle(
                                               color: Colors.white.withOpacity(0.7),
                                               fontSize: 11,
@@ -725,83 +725,83 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           
-                          // Third Card - Statistics
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 4), // Add margin to create gap
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.deepPurple.withOpacity(0.7), Colors.deepPurple.withOpacity(0.9)],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  spreadRadius: 1,
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: Colors.white.withOpacity(0.2),
-                                      child: const Icon(Icons.bar_chart, size: 18, color: Colors.white),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Activity Statistics',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          Text(
-                                            'Your daily activity summary',
-                                            style: TextStyle(
-                                              color: Colors.white.withOpacity(0.7),
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                        children: [
-                                          _buildUserStat('Visits', (stats['visits'] ?? 0).toString()),
-                                          _buildUserStat('Uploads', (stats['uploads'] ?? 0).toString()),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          // // Third Card - Statistics
+                          // Container(
+                          //   margin: const EdgeInsets.symmetric(horizontal: 4), // Add margin to create gap
+                          //   padding: const EdgeInsets.all(10),
+                          //   decoration: BoxDecoration(
+                          //     gradient: LinearGradient(
+                          //       colors: [Colors.deepPurple.withOpacity(0.7), Colors.deepPurple.withOpacity(0.9)],
+                          //       begin: Alignment.topCenter,
+                          //       end: Alignment.bottomCenter,
+                          //     ),
+                          //     borderRadius: BorderRadius.circular(12),
+                          //     boxShadow: [
+                          //       BoxShadow(
+                          //         color: Colors.black.withOpacity(0.1),
+                          //         spreadRadius: 1,
+                          //         blurRadius: 4,
+                          //         offset: const Offset(0, 2),
+                          //       ),
+                          //     ],
+                          //   ),
+                          //   child: Column(
+                          //     crossAxisAlignment: CrossAxisAlignment.start,
+                          //     children: [
+                          //       Row(
+                          //         children: [
+                          //           CircleAvatar(
+                          //             radius: 18,
+                          //             backgroundColor: Colors.white.withOpacity(0.2),
+                          //             child: const Icon(Icons.bar_chart, size: 18, color: Colors.white),
+                          //           ),
+                          //           const SizedBox(width: 8),
+                          //           Expanded(
+                          //             child: Column(
+                          //               crossAxisAlignment: CrossAxisAlignment.start,
+                          //               children: [
+                          //                 const Text(
+                          //                   'Activity Statistics',
+                          //                   style: TextStyle(
+                          //                     color: Colors.white,
+                          //                     fontSize: 17,
+                          //                     fontWeight: FontWeight.bold,
+                          //                   ),
+                          //                 ),
+                          //                 Text(
+                          //                   'Your daily activity summary',
+                          //                   style: TextStyle(
+                          //                     color: Colors.white.withOpacity(0.7),
+                          //                     fontSize: 10,
+                          //                   ),
+                          //                 ),
+                          //               ],
+                          //             ),
+                          //           ),
+                          //         ],
+                          //       ),
+                          //       const SizedBox(height: 8),
+                          //       Container(
+                          //         padding: const EdgeInsets.all(8),
+                          //         decoration: BoxDecoration(
+                          //           color: Colors.white.withOpacity(0.1),
+                          //           borderRadius: BorderRadius.circular(12),
+                          //         ),
+                          //         child: Column(
+                          //           children: [
+                          //             Row(
+                          //               mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          //               children: [
+                          //                 _buildUserStat('Visits', (stats['visits'] ?? 0).toString()),
+                          //                 _buildUserStat('Photos', (stats['uploads'] ?? 0).toString()),
+                          //               ],
+                          //             ),
+                          //           ],
+                          //         ),
+                          //       ),
+                          //     ],
+                          //   ),
+                          // ),
                           
                           // Fourth Card - Ads
                           Container(
@@ -1145,7 +1145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
-                                'Nearest Petrol Pumps',
+                                'Nearest Pumps',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,

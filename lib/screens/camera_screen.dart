@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'image_review_screen.dart';
 import '../models/map_location.dart';
 import '../services/custom_auth_service.dart';
@@ -555,7 +555,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
       // Automatically save to gallery
       try {
-        final result = await ImageGallerySaver.saveFile(
+        final result = await ImageGallerySaverPlus.saveFile(
           watermarkedFile.path,
           name: "click_${DateTime.now().millisecondsSinceEpoch}"
         );

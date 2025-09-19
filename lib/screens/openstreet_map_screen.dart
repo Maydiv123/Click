@@ -517,7 +517,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
       drawer: const AppDrawer(currentScreen: 'map'),
       appBar: AppBar(
         title: const Text(
-          'Petrol Pump Locations',
+          'Pump Locations',
           style: TextStyle(
             color: Colors.black,
             fontSize: 20,
@@ -700,7 +700,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                               min: 0.0,
                               max: 100.0,
                               divisions: 20,
-                              label: _radiusInKm == 0.0 ? 'No filter' : '${_radiusInKm.toStringAsFixed(1)} km',
+                              label: _radiusInKm == 0.0 ? '0.0km' : '${_radiusInKm.toStringAsFixed(1)} km',
                               onChanged: (value) {
                                 setState(() {
                                   _radiusInKm = value;
@@ -711,7 +711,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                             ),
                           ),
                           Text(
-                            _radiusInKm == 0.0 ? 'No filter' : '${_radiusInKm.toStringAsFixed(1)} km',
+                            _radiusInKm == 0.0 ? '0.0 km' : '${_radiusInKm.toStringAsFixed(1)} km',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -739,7 +739,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                                     const SizedBox(height: 16),
                                     Text(
                                       _radiusInKm == 0.0 
-                                          ? 'Move the slider to load nearby petrol pumps'
+                                          ? 'Move the slider to Find nearby petrol pumps'
                                           : 'No locations found',
                                       style: TextStyle(
                                         color: Colors.grey[600],
@@ -749,7 +749,7 @@ class _OpenStreetMapScreenState extends State<OpenStreetMapScreen> {
                                     if (_radiusInKm == 0.0) ...[
                                       const SizedBox(height: 8),
                                       Text(
-                                        'Adjust the radius to see petrol pumps in your area',
+                                        '',
                                         style: TextStyle(
                                           color: Colors.grey[500],
                                           fontSize: 12,

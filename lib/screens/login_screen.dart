@@ -142,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               children: [
                 const SizedBox(height: 40),
                 const Text(
-                  'Welcome back! Glad\n to see you, Again!',
+                  'Welcome back! ',
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black),
                 ),
                 const SizedBox(height: 40),
@@ -292,7 +292,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Text(
-                              "Don't have an account?",
+                              "New User?",
                               style: TextStyle(fontSize: 16, color: Colors.black54),
                             ),
                             TextButton(

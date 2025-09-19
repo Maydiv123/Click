@@ -331,10 +331,21 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       validationErrors.add('Please select at least one company');
     }
 
-    // Validate form fields
+    // Validate form fields - this is the key fix
     if (!_formKey.currentState!.validate()) {
-      // Form validation will show individual field errors
-      // We don't need to add them to our list since they're shown inline
+      // Form validation failed, add common field errors to our list
+      if (_firstNameController.text.trim().isEmpty) {
+        validationErrors.add('Please enter your first name');
+      }
+      if (_mobileController.text.trim().isEmpty) {
+        validationErrors.add('Please enter your mobile number');
+      }
+      if (_passwordController.text.trim().isEmpty) {
+        validationErrors.add('Please enter your MPIN');
+      }
+      if (_confirmPasswordController.text.trim().isEmpty) {
+        validationErrors.add('Please confirm your MPIN');
+      }
     }
 
     // Validate password match

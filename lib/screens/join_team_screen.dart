@@ -612,20 +612,20 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Join a Team',
+            'You will required a team invite code to join teams',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Ask your team leader for the team code to join.',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
-          ),
+          // const SizedBox(height: 8),
+          // Text(
+          //   'Ask your team leader for the team code to join.',
+          //   style: TextStyle(
+          //     fontSize: 16,
+          //     color: Colors.grey[600],
+          //   ),
+          // ),
           const SizedBox(height: 30),
           Container(
             width: double.infinity,
@@ -706,7 +706,7 @@ class _JoinTeamScreenState extends State<JoinTeamScreen> {
                       child: TextFormField(
                         controller: _teamCodeController,
                         decoration: InputDecoration(
-                          labelText: 'Enter your team code',
+                          labelText: 'Enter Code In Team Code Field',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.grey[300]!),

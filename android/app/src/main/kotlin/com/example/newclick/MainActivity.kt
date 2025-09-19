@@ -1,4 +1,4 @@
-package com.contlee.click
+package com.example.newclick
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -284,7 +284,7 @@ class AppDrawer extends StatelessWidget {
                           child: const Icon(Icons.group, color: Color(0xFF35C2C1), size: 20),
                         ),
                         title: const Text('Join Team', style: TextStyle(fontWeight: FontWeight.w500)),
-                        subtitle: const Text('Enter existing team code', style: TextStyle(fontSize: 12)),
+                        // subtitle: const Text('', style: TextStyle(fontSize: 12)),
                         onTap: () {
                           Navigator.pop(context);
                           Navigator.push(
@@ -340,7 +340,7 @@ class AppDrawer extends StatelessWidget {
                     
                     _buildDrawerItem(
                       icon: Icons.add_location,
-                      title: 'Pump',
+                      title: 'Add Pumps',
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
